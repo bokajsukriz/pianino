@@ -101,6 +101,29 @@ function pureTests() {
     round = afterReview(round, n.entry.id, k % 3 === 0 ? 'nochmal' : 'sass', rand);
   }
   check('2 Runde: keine direkte Wiederholung außer beim Einstieg', doubles === 0, seq.map((e) => e.id.slice(5)).join(' '));
+  // Lange Runde mit echten Bewertungen: die Füllkarten kreisen über alle Karten.
+  let live = unlockedCardIds(1).map((id) => ({ ...newCard(id, d1), seen: 1 }));
+  round = startRound(buildRound({ cards: live, today: d1, rand: seeded(4) }));
+  const tail = [];
+  for (let k = 0; k < 24; k++) {
+    const n = nextEntry(round, live);
+    round = n.round;
+    live = live.map((x) => (x.id === n.entry.id ? review(x, 'sass', d1) : x));
+    if (k >= 8) tail.push(n.entry.id);
+  }
+  check('2 Lange Runde: alle Karten kommen dran', new Set(tail).size === 4, tail.map((x) => x.slice(5)).join(' '));
+  // Aufwärmen ganz am Anfang (nichts gesehen, keine neuen erlaubt): kein Hängenbleiben auf einer Karte.
+  let warm = unlockedCardIds(1).map((id) => newCard(id, d1));
+  round = startRound(buildRound({ cards: warm, today: d1, rand: seeded(5), allowNew: false }));
+  const wseq = [];
+  for (let k = 0; k < 8; k++) {
+    const n = nextEntry(round, warm);
+    round = n.round;
+    warm = warm.map((x) => (x.id === n.entry.id ? review(x, 'sass', d1) : x));
+    wseq.push(n.entry.id);
+  }
+  check('2 Füllkarten: nie dieselbe direkt hintereinander, mindestens 3 im Wechsel',
+    wseq.every((id, i) => i === 0 || id !== wseq[i - 1]) && new Set(wseq).size >= 3, wseq.map((x) => x.slice(5)).join(' '));
   check('2 Stufenvorschlag ab 80 % in Fach ≥ 3',
     levelReady(unlockedCardIds(1).map((id) => ({ id, box: 3 })), 1)
     && !levelReady(unlockedCardIds(2).map((id, i) => ({ id, box: i < 3 ? 3 : 1 })), 2));
@@ -193,6 +216,24 @@ async function clockTest() {
   ];
 }
 
+/** Test 5b (auch in Node): über 2 Minuten bei 50 und 65 BPM liegt jeder
+ *  geplante Schlag exakt auf Start + n × Schlagdauer — die Zeiten werden
+ *  nicht aufaddiert, also driftet nichts. */
+async function clockDriftTest() {
+  const { createClock } = await import('./clock.js');
+  const out = [];
+  for (const bpm of [50, 65]) {
+    const times = [];
+    const clock = createClock({ currentTime: 0 }, { bpm, onStep: (s) => { if (s.eighth % 2 === 0) times.push(s.time); } });
+    clock.start(0.1, { timer: false });
+    clock.fill(0.1 + 120);
+    const beat = 60 / bpm;
+    const worst = Math.max(...times.map((t, n) => Math.abs(t - (0.1 + n * beat))));
+    out.push({ name: `5 Takt: 2 Minuten bei ${bpm} BPM ohne Drift`, ok: times.length === Math.ceil(120 / beat) && worst < 1e-6, detail: `${times.length} Schläge, max. ${(worst * 1e3).toExponential(1)} ms` });
+  }
+  return out;
+}
+
 /** Audio-Smoke-Test: Kontext, Synth-Fallback, Klick und Melodiestimme planen
  *  ohne Fehler (gerendert in einem OfflineAudioContext). */
 async function audioSmoke() {
@@ -209,6 +250,7 @@ async function audioSmoke() {
 /** Alle Tests. → { passed, failed, results } (und Konsole). */
 export async function runSelfTests({ log = true } = {}) {
   const results = pureTests();
+  try { results.push(...await clockDriftTest()); } catch (e) { results.push({ name: 'clockDriftTest', ok: false, detail: String(e?.message || e) }); }
   if (typeof OfflineAudioContext !== 'undefined') {
     for (const fn of [clockTest, audioSmoke]) {
       try { results.push(...await fn()); } catch (e) { results.push({ name: fn.name, ok: false, detail: String(e?.message || e) }); }

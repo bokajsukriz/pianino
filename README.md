@@ -1,7 +1,109 @@
 # Pianino
 
 Kleine, private Web-App für eine Person, die Klavier lernt, um Menschen beim
-Singen zu begleiten. Geübt wird in 5-Minuten-Einheiten. Version 1 kennt einen
-Song: „Perfect Ruin“ (Kwabs) in a-Moll mit den Akkorden Am, D, F, Dm, C.
+Singen zu begleiten. Geübt wird in 5-Minuten-Einheiten, das Handy steht quer
+am Notenpult. Version 1 kennt einen Song: „Perfect Ruin“ (Kwabs) in a-Moll mit
+den Akkorden **Am, D, F, Dm, C**.
 
-(Wird im Lauf des MVP ausgebaut.)
+Die App prüft nicht, was gespielt wird (kein MIDI, kein Mikrofon). Sie zeigt
+an, spielt vor, gibt den Takt vor und lässt die Person sich selbst einschätzen.
+
+## Starten
+
+Kein Build. Irgendein statischer Webserver über das Verzeichnis genügt, z. B.
+
+```
+python3 -m http.server 8000
+```
+
+und dann `http://localhost:8000/` öffnen. (`file://` geht nicht: ES-Module,
+IndexedDB und Service Worker brauchen eine echte Herkunft.) Für GitHub Pages
+reicht es, den Branch zu veröffentlichen — alle Pfade sind relativ.
+
+## Übungen
+
+| Übung | Was passiert | Regeln |
+|---|---|---|
+| Akkord-Blitz | Akkordsymbol, Countdown mit leisem Klick, dann Auflösung mit Klang und Tastatur. Selbsteinschätzung „Saß“ / „Wackelig“ / „Nochmal“. | Leitner-Karteikasten, 5 Fächer, 4 Stufen (`leitner.js`) |
+| Kurze Wege | Akkordwechsel im Loop mit Klick. Die Tastatur zeigt, welche Finger liegen bleiben und welche wandern. „Drangeblieben“ / „Rausgefallen“. | Tempo 50–60 BPM, 6 Stufen (`tempo.js`) |
+| Groove | Begleitmuster im Achtelraster: Vorspiel, Einzähler, 4 Takte mitspielen. „Groovt“ / „Wackelt“. | Tempo je Stufe, 4 Stufen (`tempo.js`) |
+| Play-Along | Die Strophe mit Klavierbegleitung, Klick und (sobald erfasst) Melodie. Keine Bewertung. | — |
+
+„5 Minuten“ startet den Mix aus `mix.js`: 1 min Aufwärmen (Akkord-Blitz),
+3 min die schwächste Übung, 1 min Play-Along. „Nur 1 Minute“ sind 6 Karten
+Akkord-Blitz. Ein Tag zählt fürs Wochenziel (3 von 7 Tagen) ab 60 s.
+
+## Songdaten
+
+`song-perfect-ruin.js` — **nicht verifiziert** (`verified: false`). Die
+Akkordfolge stammt aus Nutzer-Tabs, ein Akkord pro Takt ist eine Annahme.
+Die Melodie ist leer (`melody: []`); ihr Format steht im Kommentar dort. Ist sie
+gefüllt, spielt die App sie mit einer weichen Sinusstimme. Ändern lässt sich
+das alles in dieser einen Datei, ohne Code anzufassen. Kein Liedtext in der App.
+
+## Architektur
+
+- Eine Seite (`index.html`), Screens als `<section>`, Umschalten per JS
+  (`ui.js` → `showScreen`).
+- **Reine Module** ohne DOM, ohne `Date.now()`, ohne `Math.random()` — Zeit
+  und Zufall kommen als Parameter. Sie enthalten alle Regeln und laufen in Node.
+- **Audio:** ein `AudioContext` (`audio.js`), beim ersten Tipp entsperrt.
+  Klaviersamples (Salamander) werden auf dem Startscreen im Hintergrund
+  geladen; bis dahin klingt ein einfacher Synth. Alles wird über `clock.js` auf
+  der Audio-Uhr geplant (Lookahead 150 ms, Timer 25 ms). Die Anzeige folgt per
+  `requestAnimationFrame` der Audio-Uhr (minus Ausgabelatenz).
+- **Pause** friert den `AudioContext` ein (`ctx.suspend()`): Uhr, Countdown
+  und Anzeige stehen, geplante Töne bleiben geplant. Wird die Seite verborgen,
+  pausiert die Session von selbst.
+- **Speicher:** IndexedDB `pianino`, Store `meta`, Schlüssel `id` (`db.js`,
+  Übersicht der Datensätze dort). `localStorage` nur fürs Fehlerprotokoll
+  (`log.js`).
+- **Offline:** `sw.js` hält die Shell im Cache (`SW_VERSION`) und die Samples
+  in einem eigenen Cache.
+
+## Dateiübersicht
+
+| Datei | Inhalt |
+|---|---|
+| `index.html` | alle Screens (S1–S8, Über, Pause, Frage-Dialog), CSP |
+| `style.css` | Gestaltung, Farben, Quer-/Hochformat |
+| `app.js` | Einstieg: Laden, Start, Abschluss, Über, Verdrahtung |
+| `session.js` | führt einen Übungsplan aus: weiche Zeitlimits, Pause, Beenden, Wake Lock, Fortschrittsbalken, Übungszeit pro Tag |
+| `store.js` | Zustand im Speicher, schreibt nach IndexedDB durch |
+| `db.js` | IndexedDB, `DATA_VERSION` und Migrationen |
+| `audio.js` | AudioContext, Klavier, Synth-Ersatz, Klick, Melodiestimme |
+| `clock.js` | Lookahead-Scheduler |
+| `keyboard.js` | Tastatur als SVG mit Markierungen und Fingerzahlen |
+| `ui.js`, `log.js` | DOM-Helfer, Fehlerprotokoll |
+| `exercises/*.js` | die vier Übungen |
+| `chords.js` | REIN: Akkord-Bibliothek, `transition()` |
+| `leitner.js` | REIN: Karteikasten |
+| `tempo.js` | REIN: Stufen und Tempo-Regeln für Kurze Wege und Groove |
+| `mix.js` | REIN: 5-Minuten-Mix, Wochenziel, Song-Fortschritt |
+| `melody.js` | REIN: Melodie-Ausschnitte |
+| `dates.js` | REIN: Kalenderrechnung |
+| `song-perfect-ruin.js` | REIN: Songdaten |
+| `test-melody.js` | REIN: Testmelodie (nur Selbsttest) |
+| `selftest.js` | `runSelfTests()` |
+| `piano-samples.js`, `samples/salamander/` | Klavier aus der Choirapp |
+| `fonts/` | Bricolage Grotesque |
+| `sw.js`, `manifest.json`, `icon*` | Offline und Home-Bildschirm |
+
+## Testen
+
+Reine Module (Akkorde, Leitner, Tempo, Mix, Songdaten) in Node, ohne Browser:
+
+```
+node --input-type=module -e "import { runSelfTests } from './selftest.js'; const r = await runSelfTests(); process.exit(r.failed ? 1 : 0)"
+```
+
+Im Browser zusätzlich der Takt-Scheduler (8 Takte bei 60 BPM in einem
+`OfflineAudioContext` gerendert und im Signal nachgemessen: 32 Schläge,
+Abstand 1,000 s ± 1 ms) und ein Audio-Smoke-Test: in der Konsole
+`runSelfTests()` oder Startscreen → „Über“ → „Selbsttest“.
+
+## Lizenzen
+
+Klaviersamples: Salamander Grand Piano (Alexander Holm), CC BY 3.0.
+Schrift: Bricolage Grotesque, SIL OFL 1.1. Details in `THIRD-PARTY.md`, in der
+App unter „Über“.
