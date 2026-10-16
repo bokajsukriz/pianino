@@ -131,17 +131,24 @@ export function buildRound({ cards, rand, maxDue = MAX_DUE, maxNew = MAX_NEW, al
   return { queue, due: due.map((c) => c.id), fresh: fresh.map((c) => c.id), lead, overflow };
 }
 
-/** Füllkarte, wenn die Runde noch Zeit hat: die gesehene Karte mit dem
- *  ältesten `due`, nie dieselbe wie die letzte (außer es gibt nur eine). */
-export function nextFiller(cards, lastId) {
-  const pool = cards.filter((c) => c.seen > 0);
-  const list = (pool.length ? pool : cards).slice().sort((a, b) => byDue(a, b) || a.box - b.box);
-  return (list.find((c) => c.id !== lastId) || list[0] || null)?.id ?? null;
+/** Füllkarte, wenn die Runde noch Zeit hat: die Karte mit dem ältesten
+ *  `due`, nie dieselbe wie die letzte (außer es gibt nur eine).
+ *  Gleichstand: die in dieser Runde seltener gezeigte (shown: id → Anzahl),
+ *  sonst kreisten lange Runden nur um zwei Karten. */
+export function nextFiller(cards, lastId, shown = {}) {
+  const n = (c) => shown[c.id] || 0;
+  const order = (list) => list.slice().sort((a, b) => byDue(a, b) || n(a) - n(b) || a.box - b.box);
+  // Nur gesehene Karten (neue kommen über den geblockten Einstieg) — außer es
+  // gibt weniger als 3 davon, dann alle, damit die Runde nicht auf einer oder
+  // zwei Karten hängen bleibt.
+  const seen = cards.filter((c) => c.seen > 0);
+  const pool = order((seen.length >= 3 ? seen : cards).filter((c) => c.id !== lastId));
+  return (pool[0] || cards.find((c) => c.id === lastId) || null)?.id ?? null;
 }
 
 /** Laufende Runde: queue aus buildRound, pending = Wiederholungen. */
 export function startRound(built) {
-  return { queue: built.queue.slice(), pending: [], lastId: null, shown: 0 };
+  return { queue: built.queue.slice(), pending: [], lastId: null, shown: 0, counts: {} };
 }
 
 /** Nächster Eintrag der Runde: { entry: { id, intro }, round }.
@@ -163,13 +170,14 @@ export function nextEntry(round, cards) {
     entry = i >= 0 ? r.queue.splice(i, 1)[0] : null;
   }
   if (!entry) {
-    const id = nextFiller(cards, r.lastId);
+    const id = nextFiller(cards, r.lastId, r.counts);
     entry = id ? { id, intro: false } : null;
   }
   if (!entry) return { entry: null, round: r };
   for (const p of r.pending) p.after--;
   r.lastId = entry.id;
   r.shown++;
+  r.counts = { ...r.counts, [entry.id]: (r.counts?.[entry.id] || 0) + 1 };
   return { entry, round: r };
 }
 
