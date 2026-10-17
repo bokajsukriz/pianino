@@ -34,6 +34,19 @@ Kopfkommentar angepasst, Namespace `window.ChorPiano` beibehalten.
 | Verändert | **ja** — auf Latein beschnitten, Breitenachse fest auf 100, Gewichtsachse auf 400–800 und Größenachse auf 14–48 begrenzt, als WOFF2 gespeichert (variable Schrift, ≈ 72 KB). Übernommen aus `bokajsukriz/choirapp`. |
 | Namensnennung in der App | Startscreen → „Über“ → „Lizenzen und Dank“ |
 
+## Akkorderkennung (wahlweise): essentia.js
+
+| Feld | Wert |
+|---|---|
+| Komponente | essentia.js 0.1.3 (Essentia 2.1-beta6-dev als WebAssembly) |
+| Urheber | Music Technology Group, Universitat Pompeu Fabra |
+| Quelle | npm-Paket `essentia.js@0.1.3`, https://mtg.github.io/essentia.js/ |
+| Dateien | `vendor/essentia/essentia-wasm.es.js` (SHA-256 `8eab136617f42ae7a63bbd24acf69f878e6bbe29a094c510b4ac1db9ce1ea927`, WebAssembly eingebettet, ≈ 2,6 MB), `vendor/essentia/essentia.js-core.es.min.js` (SHA-256 `66d1fbad7ff55b2d5e33f147ef357019adb8a1e93f56c615e2443e554ad28c1c`) |
+| Lizenz | GNU Affero General Public License 3.0 (Volltext `vendor/essentia/LICENSE-AGPL-3.0.txt`). Die App wird mit offenem Quelltext ausgeliefert; wer sie weitergibt oder als Dienst anbietet, muss das auch tun. |
+| Verändert | nein |
+| Geladen | nur in `ear-worker.js` (eigener Worker, weil Embind `new Function` braucht und die CSP der Seite das verbietet), erst wenn Mikrofon und Schalter „essentia“ an sind |
+| Namensnennung in der App | Startscreen → „Über“ → „Lizenzen und Dank“ |
+
 ## Klick und Melodiestimme
 
 Synthetisch erzeugt (Web Audio), keine Samples.
