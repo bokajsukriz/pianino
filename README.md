@@ -89,6 +89,9 @@ das alles in dieser einen Datei, ohne Code anzufassen. Kein Liedtext in der App.
   (`log.js`).
 - **Offline:** `sw.js` hält die Shell im Cache (`SW_VERSION`) und die Samples
   in einem eigenen Cache.
+- **Update:** Unter „Über“ stehen die Version (`SW_VERSION`, vom Service
+  Worker erfragt) und „Nach Update suchen“. Hat eine neue Version übernommen,
+  lädt die App neu — nie mitten in einer Übung, dann beim nächsten Startscreen.
 
 ## Dateiübersicht
 

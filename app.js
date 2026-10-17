@@ -62,7 +62,10 @@ function phraseStatus(defs) {
   }).join(' · ');
 }
 
+let reloadPending = false;
+
 function showStart() {
+  if (reloadPending) { location.reload(); return; }
   const d = today();
   const planEl = $('#start-plan');
   planEl.hidden = !S.settings.plan;
@@ -188,6 +191,8 @@ function wire() {
   $('#go-about').addEventListener('click', () => {
     for (const b of $$('#s-about [data-toggle="mic"]')) setToggle(b, !!S.settings.mic, !micSupported());
     paintEar();
+    askVersion();
+    $('#about-update-note').textContent = '';
     showScreen('about');
   });
 
@@ -199,6 +204,7 @@ function wire() {
   // Über
   $('[data-back]').addEventListener('click', showStart);
   $('#about-plan').addEventListener('click', showPlan);
+  $('#about-update').addEventListener('click', checkUpdate);
   $('#about-selftest').addEventListener('click', async () => {
     const out = $('#selftest-out');
     out.hidden = false;
@@ -240,13 +246,51 @@ function wire() {
   });
 }
 
+/* ---------- Version und Update ---------------------------------------- */
+let swReg = null;
+
+/** Version vom aktiven Service Worker erfragen (= SW_VERSION in sw.js). */
+function askVersion() {
+  const el = $('#about-version');
+  const ctl = navigator.serviceWorker?.controller;
+  el.textContent = ctl ? 'Version …' : 'Version: ohne Offline-Speicher';
+  ctl?.postMessage({ type: 'version' });
+}
+
+/** Neue Version holen. sw.js übernimmt sofort (skipWaiting + claim); die
+ *  Seite lädt dann bei „controllerchange“ neu (siehe boot). */
+async function checkUpdate() {
+  const note = $('#about-update-note');
+  if (!swReg) { note.textContent = 'Updates gehen hier nicht (kein Service Worker).'; return; }
+  note.textContent = 'Suche …';
+  try {
+    await swReg.update();
+    note.textContent = swReg.installing || swReg.waiting
+      ? 'Neue Version wird geladen – die App startet gleich neu.'
+      : 'Du hast die neueste Version.';
+  } catch (e) {
+    logError('sw:update', e);
+    note.textContent = 'Keine Verbindung – später noch einmal versuchen.';
+  }
+}
+
 async function boot() {
   window.runSelfTests = (...a) => import('./selftest.js').then((m) => m.runSelfTests(...a));
   wire();
   try { await loadAll(); } catch (e) { logError('boot:load', e); }
   if (!S.settings.onboarded) showPlan(); else showStart();
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-    navigator.serviceWorker.register('sw.js').catch((e) => logError('sw', e));
+    navigator.serviceWorker.register('sw.js').then((r) => { swReg = r; }).catch((e) => logError('sw', e));
+    navigator.serviceWorker.addEventListener('message', (e) => {
+      if (e.data?.type === 'version') $('#about-version').textContent = `Version ${e.data.version}`;
+    });
+    // Neue Version hat übernommen: neu laden, aber nie mitten in einer Übung
+    // (dann beim nächsten Startscreen). Beim allerersten Einrichten nicht.
+    let hadController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!hadController) { hadController = true; askVersion(); return; }
+      if (sessionRunning()) reloadPending = true; else location.reload();
+    });
   }
 }
 
