@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; media-src 'self'; connect-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="theme-color" content="#fff7ec">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Pianino">
+  <title>Pianino</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="preload" href="fonts/bricolage-grotesque-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="style.css">
+  <script src="piano-samples.js" defer></script>
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <!-- Fortschritt über die ganze Session -->
+  <div id="session-bar" class="session-bar" hidden><div class="session-bar-fill"></div></div>
+
+  <!-- S1 Erster Start -->
+  <section id="s-plan" class="screen portrait" data-screen="plan" hidden>
+    <div class="portrait-inner">
+      <p class="kicker">Willkommen bei Pianino</p>
+      <h1 class="h1">Wann gehst du am Klavier vorbei?</h1>
+      <p class="muted">Ein fester Moment am Tag hilft mehr als ein langer Plan.</p>
+      <div class="chips" role="group" aria-label="Vorschläge">
+        <button type="button" class="chip" data-plan="Nach dem Frühstück">Nach dem Frühstück</button>
+        <button type="button" class="chip" data-plan="Nach dem Abendessen">Nach dem Abendessen</button>
+        <button type="button" class="chip" data-plan="Wenn ich nach Hause komme">Wenn ich nach Hause komme</button>
+      </div>
+      <label class="field">
+        <span>Oder in deinen Worten</span>
+        <input id="plan-free" type="text" maxlength="80" autocomplete="off" placeholder="z. B. Bevor ich den Laptop aufklappe">
+      </label>
+      <div class="card plan-preview" aria-live="polite">
+        <p class="small muted">Dein Plan</p>
+        <p id="plan-preview" class="plan-text">Wähl einen Moment aus.</p>
+      </div>
+      <div class="row-buttons">
+        <button type="button" id="plan-skip" class="btn btn-ghost">Überspringen</button>
+        <button type="button" id="plan-ok" class="btn btn-primary">Passt so</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- S2 Start -->
+  <section id="s-start" class="screen portrait" data-screen="start" hidden>
+    <div class="portrait-inner">
+      <h1 class="h1">Kurz ans Klavier?</h1>
+      <button type="button" id="start-plan" class="plan-line" hidden></button>
+      <button type="button" id="go-mix" class="btn btn-primary btn-hero">
+        <span class="hero-main">5 Minuten</span>
+        <span id="mix-label" class="hero-sub"></span>
+      </button>
+      <button type="button" id="go-one" class="btn btn-secondary btn-wide">Nur 1 Minute</button>
+
+      <div class="card week">
+        <div class="card-head">
+          <h2 class="h2">Diese Woche</h2>
+          <span class="small muted">Ziel: 3 von 7 Tagen</span>
+        </div>
+        <ol id="week-dots" class="week-dots" aria-label="Wochentage"></ol>
+      </div>
+
+      <div class="card song">
+        <div class="card-head">
+          <h2 class="h2">Perfect Ruin · Strophe</h2>
+          <span id="song-percent" class="small muted"></span>
+        </div>
+        <div class="bar" role="progressbar" aria-label="Fortschritt im Song" aria-valuemin="0" aria-valuemax="100" id="song-bar"><div class="bar-fill"></div></div>
+        <p id="song-status" class="small muted"></p>
+      </div>
+
+      <div class="direct" role="group" aria-label="Direkt üben">
+        <button type="button" class="btn btn-tile" data-direct="blitz">Akkord-Blitz</button>
+        <button type="button" class="btn btn-tile" data-direct="wege">Kurze Wege</button>
+        <button type="button" class="btn btn-tile" data-direct="groove">Groove</button>
+      </div>
+      <button type="button" id="go-about" class="link-btn">Über</button>
+    </div>
+  </section>
+
+  <!-- S3/S4 Akkord-Blitz -->
+  <section id="s-blitz" class="screen landscape" data-screen="blitz" hidden>
+    <header class="ex-head">
+      <div class="ex-title"><span class="ex-name">Akkord-Blitz</span> <span class="ex-level" data-f="level"></span></div>
+      <div class="ex-count" data-f="count"></div>
+      <div class="ex-meta" data-f="time"></div>
+      <button type="button" class="icon-btn" data-pause aria-label="Pause">
+        <svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
+      </button>
+    </header>
+    <div class="rotate-hint">Dreh das Handy quer – dann ist mehr Platz.</div>
+
+    <button type="button" class="blitz-card" data-f="card" aria-label="Auflösen">
+      <span class="ring-wrap">
+        <svg class="ring" viewBox="0 0 200 200" aria-hidden="true">
+          <circle cx="100" cy="100" r="92" class="ring-track"/>
+          <circle cx="100" cy="100" r="92" class="ring-progress" data-f="ring"/>
+        </svg>
+        <span class="blitz-symbol" data-f="symbol"></span>
+        <span class="blitz-degree" data-f="degree"></span>
+      </span>
+      <span class="beat-dots" data-f="dots" aria-hidden="true"></span>
+      <span class="blitz-hint">Greif den Akkord. Tippen zeigt die Lösung.</span>
+    </button>
+
+    <div class="blitz-reveal" data-f="reveal" hidden>
+      <div class="reveal-grid">
+        <div class="reveal-info">
+          <div class="reveal-symbol"><span data-f="r-symbol"></span> <span class="reveal-degree" data-f="r-degree"></span></div>
+          <p class="reveal-notes" data-f="r-notes"></p>
+          <p class="reveal-tip" data-f="r-tip"></p>
+        </div>
+        <div class="reveal-kb" data-f="r-kb"></div>
+      </div>
+      <div class="answer-row" role="group" aria-label="Wie lief es?">
+        <button type="button" class="btn btn-answer" data-answer="sass"><b>Saß</b><span>im Takt, ohne Korrektur</span></button>
+        <button type="button" class="btn btn-answer" data-answer="wackelig"><b>Wackelig</b><span>richtig, aber spät oder korrigiert</span></button>
+        <button type="button" class="btn btn-answer" data-answer="nochmal"><b>Nochmal</b><span>falsch gegriffen</span></button>
+      </div>
+    </div>
+  </section>
+
+  <!-- S5 Kurze Wege -->
+  <section id="s-wege" class="screen landscape" data-screen="wege" hidden>
+    <header class="ex-head">
+      <div class="ex-title"><span class="ex-name">Kurze Wege</span> <span class="ex-level" data-f="level"></span></div>
+      <div class="ex-count" data-f="count"></div>
+      <div class="ex-meta" data-f="bpm"></div>
+      <button type="button" class="icon-btn" data-pause aria-label="Pause">
+        <svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
+      </button>
+    </header>
+    <div class="rotate-hint">Dreh das Handy quer – dann ist mehr Platz.</div>
+    <ol class="chord-strip" data-f="strip" aria-label="Akkorde"></ol>
+    <div class="wege-main">
+      <div class="now-next">
+        <span class="now-label">jetzt</span>
+        <span class="now-symbol" data-f="now"></span>
+        <span class="next-line"><span class="next-label">gleich</span> <span class="next-symbol" data-f="next"></span></span>
+      </div>
+      <div class="wege-kb" data-f="kb"></div>
+    </div>
+    <div class="ex-foot">
+      <span class="beat-dots small-dots" data-f="dots" aria-hidden="true"></span>
+      <p class="tip" data-f="tip"></p>
+    </div>
+    <div class="ask-row" data-f="ask" hidden role="group" aria-label="Wie lief der Durchgang?">
+      <button type="button" class="btn btn-answer" data-answer="ok"><b>Drangeblieben</b><span>bis zum Ende mitgekommen</span></button>
+      <button type="button" class="btn btn-answer" data-answer="out"><b>Rausgefallen</b><span>den Anschluss verloren</span></button>
+    </div>
+  </section>
+
+  <!-- S6 Groove -->
+  <section id="s-groove" class="screen landscape" data-screen="groove" hidden>
+    <header class="ex-head">
+      <div class="ex-title"><span class="ex-name">Groove</span> <span class="ex-level" data-f="level"></span></div>
+      <div class="ex-count" data-f="count"></div>
+      <div class="ex-meta" data-f="bpm"></div>
+      <button type="button" class="icon-btn" data-pause aria-label="Pause">
+        <svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
+      </button>
+    </header>
+    <div class="rotate-hint">Dreh das Handy quer – dann ist mehr Platz.</div>
+    <div class="groove-main">
+      <div class="now-next">
+        <span class="now-label">jetzt</span>
+        <span class="now-symbol" data-f="now"></span>
+        <span class="next-line"><span class="next-label">gleich</span> <span class="next-symbol" data-f="next"></span></span>
+      </div>
+      <div class="groove-grid-wrap">
+        <div class="groove-grid" data-f="grid" aria-hidden="true"></div>
+        <div class="toggles">
+          <button type="button" class="toggle" data-toggle="click" aria-pressed="true">Klick</button>
+          <button type="button" class="toggle" data-toggle="melody" aria-pressed="false">Melodie</button>
+          <span class="toggle-note" data-f="melody-note"></span>
+        </div>
+      </div>
+    </div>
+    <div class="ex-foot">
+      <p class="tip" data-f="tip"></p>
+    </div>
+    <div class="ask-row" data-f="ask" hidden role="group" aria-label="Wie lief der Block?">
+      <button type="button" class="btn btn-answer" data-answer="ok"><b>Groovt</b><span>gleichmäßig, Bass auf der Eins</span></button>
+      <button type="button" class="btn btn-answer" data-answer="out"><b>Wackelt</b><span>unruhig oder aus dem Takt</span></button>
+    </div>
+  </section>
+
+  <!-- S7 Play-Along -->
+  <section id="s-play" class="screen landscape dark" data-screen="play" hidden>
+    <header class="ex-head">
+      <div class="ex-title"><span class="ex-name">Play-Along</span> <span class="ex-level">Strophe</span></div>
+      <div class="ex-count" data-f="count"></div>
+      <div class="ex-meta" data-f="bpm"></div>
+      <button type="button" class="icon-btn" data-pause aria-label="Pause">
+        <svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
+      </button>
+    </header>
+    <div class="rotate-hint">Dreh das Handy quer – dann ist mehr Platz.</div>
+    <div class="play-main">
+      <div class="now-next">
+        <span class="now-label">jetzt</span>
+        <span class="now-symbol now-xl" data-f="now"></span>
+        <span class="next-line"><span class="next-label">gleich</span> <span class="next-symbol" data-f="next"></span></span>
+      </div>
+      <div class="play-side">
+        <ol class="bars" data-f="bars" aria-label="Takte der Strophe"></ol>
+        <div class="toggles">
+          <button type="button" class="toggle" data-toggle="melody" aria-pressed="false">Melodie</button>
+          <button type="button" class="toggle" data-toggle="melodyLow" aria-pressed="false">Melodie tiefer</button>
+          <button type="button" class="toggle" data-toggle="click" aria-pressed="true">Klick</button>
+          <span class="toggle-note" data-f="melody-note"></span>
+        </div>
+        <p class="tip">Summ mit. Wenn du rausfällst: nur den Bass, und bei der nächsten Eins wieder rein.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- S8 Abschluss -->
+  <section id="s-done" class="screen portrait dark" data-screen="done" hidden>
+    <div class="portrait-inner">
+      <h1 class="h1">Das war's schon.</h1>
+      <ul id="done-lines" class="done-lines"></ul>
+      <div class="card reward">
+        <p class="kicker">Zum Schluss</p>
+        <h2 class="h2">8 Takte Play-Along</h2>
+        <p id="reward-note" class="small"></p>
+        <button type="button" id="go-reward" class="btn btn-primary btn-wide">Abspielen</button>
+      </div>
+      <div class="row-buttons">
+        <button type="button" id="go-more" class="btn btn-secondary">Noch 1 Minute</button>
+        <button type="button" id="go-home" class="btn btn-primary">Fertig</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Über -->
+  <section id="s-about" class="screen portrait" data-screen="about" hidden>
+    <div class="portrait-inner">
+      <button type="button" class="link-btn back" data-back>Zurück</button>
+      <h1 class="h1">Über Pianino</h1>
+      <p>Eine kleine Übe-App, um in 5 Minuten am Tag Begleiten zu lernen. Sie prüft
+        nicht, was du spielst – sie zeigt, spielt vor, gibt den Takt und lässt dich
+        selbst einschätzen.</p>
+      <p class="small muted">Die Akkorde von „Perfect Ruin“ stammen aus Nutzer-Tabs
+        und sind noch nicht mit den Noten geprüft.</p>
+      <button type="button" id="about-plan" class="btn btn-secondary btn-wide">Plan ändern</button>
+      <h2 class="h2">Lizenzen und Dank</h2>
+      <div class="card">
+        <p><b>Klavierklang:</b> Salamander Grand Piano V3 (Yamaha C5) von Alexander Holm,
+          in der Fassung von Tone.js (github.com/Tonejs/audio). Lizenz: Creative Commons
+          Namensnennung 3.0 (CC BY 3.0), creativecommons.org/licenses/by/3.0/.
+          Die Dateien liegen unverändert bei; beim Laden werden sie gekürzt, zu Mono
+          gemischt, im Pegel angeglichen und gleichstufig umgestimmt.</p>
+        <p><b>Schrift:</b> Bricolage Grotesque, Copyright 2022 The Bricolage Grotesque
+          Project Authors (github.com/ateliertriay/bricolage). Lizenz: SIL Open Font
+          License 1.1. Auf lateinische Zeichen beschnitten.</p>
+        <p><b>Klavier-Lader und Takt-Prinzip</b> aus der Schwester-App Choirapp.</p>
+      </div>
+      <p class="small muted">Details in THIRD-PARTY.md im Quellcode.</p>
+      <button type="button" id="about-selftest" class="link-btn quiet">Selbsttest</button>
+      <pre id="selftest-out" class="selftest-out" hidden></pre>
+    </div>
+  </section>
+
+  <!-- Pause -->
+  <div id="pause" class="overlay" hidden>
+    <div class="overlay-card" role="dialog" aria-modal="true" aria-labelledby="pause-title">
+      <h2 id="pause-title" class="h2">Pause</h2>
+      <p class="muted">Alles steht. Weiter, wenn du bereit bist.</p>
+      <div class="row-buttons">
+        <button type="button" id="pause-end" class="btn btn-secondary">Beenden</button>
+        <button type="button" id="pause-go" class="btn btn-primary">Weiter</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Frage (Stufenvorschlag) -->
+  <div id="modal" class="overlay" hidden>
+    <div class="overlay-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <h2 id="modal-title" class="h2"></h2>
+      <p id="modal-text" class="muted"></p>
+      <div id="modal-buttons" class="row-buttons"></div>
+    </div>
+  </div>
+</body>
+</html>
