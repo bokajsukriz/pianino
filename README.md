@@ -38,9 +38,10 @@ sitzende Phrase, die ≥ 2 Tage nicht dran war), 1 min Play-Along. Kein
 eigenes Akkord-Aufwärmen mehr. „Nur 1 Minute“ ist 1 min Geführt. Akkord-Blitz,
 Kurze Wege und Groove gibt es weiter einzeln auf dem Startscreen. Ein Tag zählt fürs Wochenziel (3 von 7 Tagen) ab 60 s.
 
-## Mikrofon: zwei Erkenner zur Auswahl
+## Mikrofon: drei Arten zu hören
 
-Schalter „essentia“ in Geführt bzw. unter „Über“ (Einstellung `essentia`).
+Knopf „Hören: …“ in Geführt bzw. unter „Über“ wechselt eigen → essentia →
+beide (Einstellung `ear`).
 Beide prüfen nur den *erwarteten* Akkord und urteilen nur bis 1 s nach einem
 Anschlag (im Ausklang sähe ein Fehlgriff irgendwann richtig aus).
 
@@ -50,6 +51,11 @@ Anschlag (im Ausklang sähe ein Fehlgriff irgendwann richtig aus).
 - **essentia** (`ear.js`, `ear-worker.js`, essentia.js im Worker): Chroma
   (HPCP) gegen das Muster des erwarteten Akkords und seiner Fehlgriff-
   Varianten. Simulation: 96 % / 0 %, mit Bass 84 % / 5 %.
+- **beide**: eigen sagt ja und essentia hält den erwarteten Akkord für den
+  wahrscheinlichsten. Simulation: 97,5 % / 0,4 %, mit Bass 95 % / 3,8 %.
+  (Gemessen auch: „beide müssen voll zustimmen“ 75 % / 0,4 % mit Bass —
+  zu streng; essentia nur als Veto gegen einen anderen Song-Akkord — bringt
+  nichts.)
 
 Die Simulation (Salamander-Samples, Raum, Handy-Mikro, Rauschen) liegt in
 `docs/archiv/mikro-sim/`, ein früherer Zwischenstand auf dem Branch

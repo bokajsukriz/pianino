@@ -2,7 +2,7 @@
    Schlüssel `id`. Vereinfacht nach dem Muster DB.metaGet/metaPut der Choirapp.
 
    Datensätze:
-     settings          { plan, onboarded, click, melody, melodyLow, mic, essentia }
+     settings          { plan, onboarded, click, melody, melodyLow, mic, ear }
      progress          { levels: { blitz, wege, groove }, lastPlayed: {…},
                          lastExercise, asked: { blitz, wege, groove } }
      card:<Akkord-id>  Leitner-Karte (leitner.js)

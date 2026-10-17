@@ -8,7 +8,7 @@
    Ohne Mikrofon: im Warten-Modus tippen (oder Leertaste, Pfeil, Pedal mit
    Bluetooth), im Tempo-Modus am Ende „Drangeblieben“ / „Rausgefallen“.
    Regeln rein in phrases.js; gehört wird über mic.js (eigener Erkenner
-   hear.js oder essentia.js, umschaltbar). */
+   hear.js, essentia.js oder beide, umschaltbar). */
 
 import * as audio from '../audio.js';
 import * as mic from '../mic.js';
@@ -53,7 +53,6 @@ function makeUi(scr, range) {
     strip: field(scr, 'strip'), now: field(scr, 'now'), next: field(scr, 'next'),
     kb: field(scr, 'kb'), dots: field(scr, 'dots'), status: field(scr, 'status'), ask: field(scr, 'ask'),
     micBtn: scr.querySelector('[data-toggle="mic"]'),
-    earBtn: scr.querySelector('[data-toggle="essentia"]'),
   };
   let kbKey = '';
   return {
@@ -123,7 +122,7 @@ async function syncMic(ui) {
   }
   if (!S.settings.mic && mic.isOpen()) mic.close();
   setToggle(ui.micBtn, !!S.settings.mic, !mic.supported());
-  setToggle(ui.earBtn, !!S.settings.essentia);
+  for (const b of document.querySelectorAll('[data-ear]')) b.textContent = `Hören: ${mic.earMode()}`;
 }
 
 /* ---------- Warten ----------------------------------------------------- */
@@ -155,9 +154,10 @@ async function waitFor(api, scr, ui, { id, prevId, showKb }) {
         ui.say(listening ? `So klingt ${sym(id)}. Spiel ihn nach.` : `So klingt ${sym(id)}.`);
       }
       const smp = listening ? hearNow([id]) : null;
-      if (listening && S.settings.essentia && !warned && mic.earStatus() === 'failed') {
+      if (listening && mic.earMode() !== 'eigen' && !warned && mic.earStatus() === 'failed') {
         warned = true;
-        ui.say('essentia.js ließ sich nicht laden. Schalter „essentia“ aus, dann hört der eigene Erkenner.');
+        ui.say(mic.earMode() === 'beide' ? 'essentia.js ließ sich nicht laden – es hört nur der eigene Erkenner.'
+          : 'essentia.js ließ sich nicht laden. „Hören“ auf „eigen“ stellen.');
       }
       if (smp?.fresh && matches(smp, id, prevId)) {
         if (++okRun >= 2) finish(false); // zwei Auswertungen in Folge

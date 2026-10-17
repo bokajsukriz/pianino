@@ -92,7 +92,7 @@
       <div class="ex-count" data-f="count"></div>
       <div class="ex-meta" data-f="bpm"></div>
       <button type="button" class="toggle toggle-sm" data-toggle="mic" aria-pressed="false">Mikro</button>
-      <button type="button" class="toggle toggle-sm" data-toggle="essentia" aria-pressed="false" title="Erkenner: essentia.js statt des eigenen">essentia</button>
+      <button type="button" class="toggle toggle-sm" data-ear aria-label="Erkenner wechseln">Hören: eigen</button>
       <button type="button" class="icon-btn" data-pause aria-label="Pause">
         <svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
       </button>
@@ -283,11 +283,12 @@
         gespeichert wird dabei nichts.</p>
       <div class="toggles">
         <button type="button" class="toggle" data-toggle="mic" aria-pressed="false">Mikrofon in „Geführt“</button>
-        <button type="button" class="toggle" data-toggle="essentia" aria-pressed="false">Erkenner essentia.js</button>
+        <button type="button" class="toggle" data-ear aria-label="Erkenner wechseln">Hören: eigen</button>
       </div>
-      <p class="small muted">Zum Ausprobieren: Ohne „essentia.js“ prüft Pianino selbst, ob die drei
-        Töne des Akkords klingen. Mit „essentia.js“ ordnet die Bibliothek essentia.js den
-        Klang als Dur- oder Moll-Akkord ein.</p>
+      <p class="small muted">Zum Ausprobieren, Tippen wechselt: „eigen“ prüft, ob die drei Töne
+        des Akkords klingen. „essentia“ vergleicht den Klang mit Hilfe der Bibliothek
+        essentia.js. „beide“ zählt nur, wenn beide einverstanden sind – lässt weniger
+        Fehlgriffe durch, erkennt aber etwas seltener.</p>
       <p class="small muted">Die Akkorde von „Perfect Ruin“ stammen aus Nutzer-Tabs
         und sind noch nicht mit den Noten geprüft.</p>
       <button type="button" id="about-plan" class="btn btn-secondary btn-wide">Plan ändern</button>
