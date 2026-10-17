@@ -6,7 +6,7 @@
    SW_VERSION gebunden. Ändern sich Dateien in samples/, SAMPLES_CACHE erhöhen.
    Der Service Worker fasst IndexedDB nie an. */
 
-const SW_VERSION = 'v1';
+const SW_VERSION = 'v2';
 const CACHE = `pianino-shell-${SW_VERSION}`;
 const SAMPLES_CACHE = 'pianino-samples-v1';
 
@@ -20,11 +20,14 @@ const SHELL = [
   './clock.js',
   './dates.js',
   './db.js',
+  './hear.js',
   './keyboard.js',
   './leitner.js',
   './log.js',
   './melody.js',
+  './mic.js',
   './mix.js',
+  './phrases.js',
   './piano-samples.js',
   './selftest.js',
   './session.js',
@@ -35,6 +38,7 @@ const SHELL = [
   './ui.js',
   './exercises/blitz.js',
   './exercises/groove.js',
+  './exercises/guided.js',
   './exercises/playalong.js',
   './exercises/wege.js',
   './fonts/bricolage-grotesque-latin.woff2',

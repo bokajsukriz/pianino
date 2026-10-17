@@ -5,9 +5,11 @@ import { DB, migrate } from './db.js';
 import { localIso } from './dates.js';
 import { newCard } from './leitner.js';
 import { newLoop } from './tempo.js';
+import { newPhrase } from './phrases.js';
 
 export const S = {
-  settings: { id: 'settings', plan: '', onboarded: false, click: true, melody: true, melodyLow: false },
+  // mic: null = noch nicht gefragt, sonst true/false
+  settings: { id: 'settings', plan: '', onboarded: false, click: true, melody: true, melodyLow: false, mic: null },
   progress: {
     id: 'progress',
     levels: { blitz: 1, wege: 1, groove: 1 },
@@ -17,6 +19,7 @@ export const S = {
   },
   cards: new Map(),           // 'card:Am:root' → Karte
   loops: {},                  // 'am-f' → Loop-Zustand (gespeichert als 'loop:am-f')
+  phrases: {},                // 'z1' → Phrasen-Zustand für „Geführt“ ('phrase:z1')
   groove: { id: 'groove', bpm: null },
   days: {},                   // 'YYYY-MM-DD' → { seconds, exercises }
 };
@@ -37,6 +40,7 @@ export async function loadAll() {
       S.progress.asked = { ...r.asked };
     } else if (id.startsWith('card:')) S.cards.set(id, r);
     else if (id.startsWith('loop:')) S.loops[id.slice(5)] = { ...r, id: id.slice(5) };
+    else if (id.startsWith('phrase:')) S.phrases[id.slice(7)] = { ...r, id: id.slice(7) };
     else if (id === 'groove') Object.assign(S.groove, r);
     else if (id.startsWith('day:')) S.days[id.slice(4)] = r;
   }
@@ -60,6 +64,14 @@ export function getLoop(id) {
 export async function putLoop(loop) {
   S.loops[loop.id] = loop;
   await DB.put({ ...loop, id: `loop:${loop.id}` });
+}
+
+export function getPhrase(id) {
+  return S.phrases[id] || newPhrase(id);
+}
+export async function putPhrase(p) {
+  S.phrases[p.id] = p;
+  await DB.put({ ...p, id: `phrase:${p.id}` });
 }
 
 /** Geübte Sekunden zum heutigen Tag addieren. */
