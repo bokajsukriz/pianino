@@ -57,6 +57,11 @@ Anschlag (im Ausklang sähe ein Fehlgriff irgendwann richtig aus).
   zu streng; essentia nur als Veto gegen einen anderen Song-Akkord — bringt
   nichts.)
 
+Zum Ausprobieren und Fehlersuchen: „Über“ → „Mikrofon testen“ zeigt Pegel,
+Anschlag, die gehörten Töne mit Oktave und Abweichung in Cent, die Tonnamen,
+die essentia hört, und das Urteil beider Erkenner für alle fünf Akkorde
+(`mictest.js`). In Geführt zeigt eine kleine Zeile unten Pegel und Töne.
+
 Die Simulation (Salamander-Samples, Raum, Handy-Mikro, Rauschen) liegt in
 `docs/archiv/mikro-sim/`, ein früherer Zwischenstand auf dem Branch
 `archiv/eigene-akkorderkennung`. Mit echtem Handy am echten Klavier
@@ -109,6 +114,7 @@ das alles in dieser einen Datei, ohne Code anzufassen. Kein Liedtext in der App.
 | `ui.js`, `log.js` | DOM-Helfer, Fehlerprotokoll |
 | `exercises/*.js` | die fünf Übungen |
 | `mic.js` | Mikrofon, Anschlag erkennen, Erkenner wählen |
+| `mictest.js` | Mikrofon-Test (Pegel, Töne, Urteile) |
 | `hear.js` | REIN: eigener Erkenner |
 | `ear.js`, `ear-worker.js` | Erkenner mit essentia.js (Worker) |
 | `vendor/essentia/` | essentia.js 0.1.3 (AGPL-3.0) |

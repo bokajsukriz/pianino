@@ -18,7 +18,7 @@
 
 import * as audio from './audio.js';
 import { chordById } from './chords.js';
-import { semitoneLevels, followOnset, checkChord } from './hear.js';
+import { semitoneLevels, followOnset, checkChord, peakNotes } from './hear.js';
 import { loadEar, checkFrame } from './ear.js';
 import { S } from './store.js';
 import { logError } from './log.js';
@@ -33,6 +33,17 @@ let stream = null, source = null, analyser = null, timeBuf = null, freqBuf = nul
 let quietUntil = 0, last = null, asked = 0, busy = false, generation = 0;
 let levels = [], lastOnset = -Infinity, onsetHigh = false, earState = 'off';
 let prevSpec = null, before = null, since = null; // eigen: Gedächtnis seit dem Anschlag (hear.js)
+let lastDb = -Infinity, diagnose = false, diagState = null;
+const SONG_CHORDS = ['Am:song', 'D:song', 'F:song', 'Dm:song', 'C:song'];
+
+/** Mikrofon-Test: jede Auswertung prüft beide Erkenner gegen alle fünf
+ *  Song-Akkorde (essentia wird dafür geladen). */
+export function setDiagnose(on) { diagnose = !!on; if (!on) diagState = null; }
+/** Letzte Messung zum Anzeigen: { db, sinceOnset, notes: [{ midi, db, cents }],
+ *  eigen: { Am: bool, … } | null, essentia: { Am: { ok, score }, … } | null,
+ *  hpcp: [12] | null }. Pegel und Töne gibt es immer, die Urteile im
+ *  Mikrofon-Test (eigen ohne Vorakkord). */
+export const diag = () => diagState;
 
 export const supported = () => !!navigator.mediaDevices?.getUserMedia;
 export const isOpen = () => !!analyser;
@@ -100,6 +111,7 @@ function trackOnset(t) {
   let e = 0;
   for (let i = timeBuf.length - n; i < timeBuf.length; i++) e += timeBuf[i] * timeBuf[i];
   const db = 10 * Math.log10(e / n + 1e-12);
+  lastDb = db;
   levels.push({ t, db });
   while (levels.length > 1 && levels[1].t <= t - ONSET_BACK) levels.shift();
   const high = levels[0].t <= t - ONSET_BACK + 0.03 && db - levels[0].db >= ONSET_DB && db > -60;
@@ -119,17 +131,20 @@ function trackOnset(t) {
 export function sample(t, want = []) {
   if (!analyser || t < quietUntil) return null;
   const mode = earMode();
-  if (mode !== 'eigen') ensureEar();
+  if (mode !== 'eigen' || diagnose) ensureEar();
   if (!busy && (!asked || t - asked >= EVERY)) {
     asked = t;
     analyser.getFloatTimeDomainData(timeBuf);
     const onset = trackOnset(t);
     const sinceOnset = t - lastOnset;
     const sr = audio.getCtx().sampleRate;
+    // Pegel und gehörte Töne: immer, zum Anzeigen.
+    analyser.getFloatFrequencyData(freqBuf);
+    const d = { db: lastDb, sinceOnset, notes: peakNotes(freqBuf, sr, FFT), eigen: null, essentia: diagState?.essentia ?? null, hpcp: diagState?.hpcp ?? null };
+    diagState = d;
     // Eigener Erkenner (außer bei „essentia“ allein): synchron, mit Gedächtnis.
     let eigenIs = null;
-    if (mode !== 'essentia') {
-      analyser.getFloatFrequencyData(freqBuf);
+    if (mode !== 'essentia' || diagnose) {
       const now = semitoneLevels(freqBuf, sr, FFT);
       // Neuer Anschlag: Gedächtnis zurücksetzen, Spektrum davor merken.
       if (onset) { since = null; before = prevSpec; }
@@ -137,14 +152,18 @@ export function sample(t, want = []) {
       prevSpec = now;
       const mem = since;
       eigenIs = (id, prevId) => checkChord(now, mem, chordById(id), { prev: prevId ? chordById(prevId) : null }).ok;
+      if (diagnose) d.eigen = Object.fromEntries(SONG_CHORDS.map((id) => [chordById(id).symbol, eigenIs(id)]));
+      if (mode === 'essentia') eigenIs = null;
     }
-    if (mode !== 'eigen' && earState === 'ready') {
+    if ((mode !== 'eigen' || diagnose) && earState === 'ready') {
       const gen = generation;
       busy = true;
-      const expect = [...new Set(want.map((id) => chordById(id).symbol))];
-      checkFrame(timeBuf.slice(FFT - ESSENTIA_FRAME), sr, expect).then(({ results }) => {
+      const expect = [...new Set((diagnose ? SONG_CHORDS : want).map((id) => chordById(id).symbol))];
+      checkFrame(timeBuf.slice(FFT - ESSENTIA_FRAME), sr, expect).then(({ results, hpcp }) => {
         busy = false;
         if (gen !== generation) return;
+        if (diagnose && diagState) { diagState.essentia = results; diagState.hpcp = hpcp; }
+        if (mode === 'eigen') { last = { chord: '', sinceOnset, fresh: true, is: eigenIs }; return; }
         const errs = Object.values(results).filter((r) => r.error);
         if (errs.length) logError('mic:chord', errs[0].error);
         const other = Object.values(results).map((r) => r.chord).find((c) => c && !c.includes('?') && !expect.includes(c)) || '';

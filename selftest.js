@@ -11,7 +11,7 @@ import {
 } from './leitner.js';
 import { applyWege, blockBpm, newLoop, nextLoop, wegeStages, applyGroove, blockChords } from './tempo.js';
 import { buildMix, mixLabel, weekDots } from './mix.js';
-import { semitoneLevels, followOnset, checkChord } from './hear.js';
+import { semitoneLevels, followOnset, checkChord, peakNotes } from './hear.js';
 import {
   GUIDE, phraseDefs, newPhrase, waitSequence, tempoBars, applyWait, applyTempo, repairPairs, nextPhrase,
   guideProgress, unlocked,
@@ -222,6 +222,19 @@ function pureTests() {
   mem = followOnset(mem, later, 0.8);
   check('7 Hören: verklungener Fremdton zählt weiter (Gedächtnis seit dem Anschlag)',
     checkChord(later, null, cF).ok && !checkChord(later, mem, cF).ok);
+
+  {
+    // Gehörte Töne: Am in Song-Lage, das A4 um 30 Cent zu hoch.
+    const pw = new Float64Array(NF / 2).fill(1e-11);
+    for (const [f, g] of [[440 * Math.pow(2, 30 / 1200), 0], [523.25, -3], [659.26, -5]]) {
+      for (let k = 1; k <= 4; k++) { const bin = Math.round(f * k / (SR / NF)); if (bin < pw.length) pw[bin] += Math.pow(10, (g - 30 - 6 * (k - 1)) / 10); }
+    }
+    const pn = peakNotes(Float32Array.from(pw, (p) => 10 * Math.log10(p)), SR, NF);
+    const a4 = pn.find((n) => n.midi === 69);
+    check('7 Gehörte Töne: A4 C5 E5 dabei, A4 mit +30 ct (±8)',
+      [69, 72, 76].every((m) => pn.some((n) => n.midi === m)) && a4 && Math.abs(a4.cents - 30) <= 8,
+      pn.map((n) => `${n.midi}${n.cents >= 0 ? '+' : ''}${n.cents}`).join(' '));
+  }
 
   /* 8 — phrases.js */
   const pd = phraseDefs(SONG);

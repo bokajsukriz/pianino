@@ -11,6 +11,7 @@ import { SONG } from './song-perfect-ruin.js';
 import { runSession, pause, resume, end, sessionRunning } from './session.js';
 import { $, $$, showScreen, setToggle } from './ui.js';
 import { supported as micSupported, EARS, earMode } from './mic.js';
+import { openMicTest, closeMicTest } from './mictest.js';
 import { logError } from './log.js';
 
 const WEEKDAYS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
@@ -205,6 +206,8 @@ function wire() {
   $('[data-back]').addEventListener('click', showStart);
   $('#about-plan').addEventListener('click', showPlan);
   $('#about-update').addEventListener('click', checkUpdate);
+  $('#about-mictest').addEventListener('click', () => { if (!sessionRunning()) openMicTest(); });
+  $('#mt-back').addEventListener('click', () => { closeMicTest(); showScreen('about'); });
   $('#about-selftest').addEventListener('click', async () => {
     const out = $('#selftest-out');
     out.hidden = false;

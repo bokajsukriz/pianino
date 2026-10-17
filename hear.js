@@ -68,6 +68,35 @@ export function semitoneLevels(db, sampleRate, fftSize, { lo = HEAR.lo, hi = HEA
   return out;
 }
 
+/** Gehörte Töne zum Anzeigen (Mikrofon-Test): örtliche Spitzen im
+ *  Halbton-Spektrum, höchstens 30 dB unter der lautesten und `loud` dB über
+ *  dem Grundrauschen. cents: Abweichung der lautesten Frequenz im Band von der
+ *  gleichstufigen Stimmung (a′ = 440 Hz), parabolisch zwischen den Bins.
+ *  → [{ midi, db, cents }], lauteste zuerst, höchstens `max`. */
+export function peakNotes(db, sampleRate, fftSize, { lo = 48, hi = 90, max = 6 } = {}) {
+  const L = semitoneLevels(db, sampleRate, fftSize, { lo: lo - 1, hi: hi + 1 });
+  const at = (m) => L[m - lo + 1];
+  const vals = [];
+  for (let m = lo; m <= hi; m++) vals.push(at(m));
+  const floor = median(vals), top = Math.max(...vals);
+  const binHz = sampleRate / fftSize;
+  const out = [];
+  for (let m = lo; m <= hi; m++) {
+    const v = at(m);
+    if (v < top - 30 || v - floor < HEAR.loud || v < at(m - 1) || v < at(m + 1)) continue;
+    // Spitzen-Bin im Band ±½ Halbton, dann Parabel durch die Nachbarn.
+    const a = Math.max(1, Math.ceil(hz(m - 0.5) / binHz)), b = Math.min(db.length - 2, Math.floor(hz(m + 0.5) / binHz));
+    let k = a;
+    for (let i = a; i <= b; i++) if (db[i] > db[k]) k = i;
+    const y0 = db[k - 1], y1 = db[k], y2 = db[k + 1];
+    const den = y0 - 2 * y1 + y2;
+    const d = den ? Math.max(-0.5, Math.min(0.5, 0.5 * (y0 - y2) / den)) : 0;
+    const cents = 1200 * Math.log2(((k + d) * binHz) / hz(m));
+    out.push({ midi: m, db: v, cents: Math.round(cents) });
+  }
+  return out.sort((x, y) => y.db - x.db).slice(0, max);
+}
+
 /** Gedächtnis seit dem Anschlag, je Spektrum nach dem Anschlag aufrufen.
  *  state: Rückgabe vom letzten Aufruf; null beim ersten Spektrum nach einem
  *  Anschlag — dann ist `before` das letzte Spektrum davor (Fenster endet vor

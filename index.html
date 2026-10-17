@@ -110,6 +110,7 @@
     <div class="ex-foot">
       <span class="beat-dots small-dots" data-f="dots" aria-hidden="true"></span>
       <p class="tip status-line" data-f="status" aria-live="polite"></p>
+      <span class="mic-diag" data-f="diag" hidden title="Was das Mikrofon hört"><span class="bar"><span class="bar-fill level-fill"></span></span><span data-f="diag-notes"></span></span>
     </div>
     <div class="ask-row" data-f="ask" hidden role="group" aria-label="Wie lief der Durchgang?">
       <button type="button" class="btn btn-answer" data-answer="ok"><b>Drangeblieben</b><span>bis zum Ende mitgekommen</span></button>
@@ -308,6 +309,7 @@
         <p><b>Klavier-Lader und Takt-Prinzip</b> aus der Schwester-App Choirapp.</p>
       </div>
       <p class="small muted">Details in THIRD-PARTY.md im Quellcode.</p>
+      <button type="button" id="about-mictest" class="btn btn-secondary btn-wide">Mikrofon testen</button>
       <div class="update-row">
         <span id="about-version" class="small muted">Version …</span>
         <button type="button" id="about-update" class="btn btn-secondary">Nach Update suchen</button>
@@ -315,6 +317,40 @@
       <p id="about-update-note" class="small muted" aria-live="polite"></p>
       <button type="button" id="about-selftest" class="link-btn quiet">Selbsttest</button>
       <pre id="selftest-out" class="selftest-out" hidden></pre>
+    </div>
+  </section>
+
+  <!-- Mikrofon-Test -->
+  <section id="s-mictest" class="screen portrait" data-screen="mictest" hidden>
+    <div class="portrait-inner">
+      <button type="button" class="link-btn back" id="mt-back">Zurück</button>
+      <h1 class="h1">Mikrofon-Test</h1>
+      <p id="mt-note" class="small muted" aria-live="polite"></p>
+      <div class="card">
+        <div class="card-head"><h2 class="h2">Pegel</h2><span class="small muted"><span id="mt-onset" class="onset-dot" aria-hidden="true"></span> <span id="mt-db">–</span></span></div>
+        <div class="bar"><div id="mt-level" class="bar-fill level-fill"></div></div>
+        <p class="small muted">Anschlag: der Punkt leuchtet kurz auf.</p>
+      </div>
+      <div class="card">
+        <h2 class="h2">Gehörte Töne</h2>
+        <p id="mt-notes" class="mt-big">–</p>
+        <p class="small muted">Mit Oktave (A4 = Kammerton a′). „ct“: so viel Cent weicht der Ton von der Stimmung ab.</p>
+        <h2 class="h2">essentia hört Tonnamen</h2>
+        <p id="mt-chroma" class="mt-big">–</p>
+      </div>
+      <div class="card">
+        <table class="mt-table">
+          <thead><tr><th>Akkord</th><th>eigen</th><th>essentia</th></tr></thead>
+          <tbody>
+          <tr><th>Am</th><td id="mt-e-Am">–</td><td id="mt-x-Am">–</td></tr>
+          <tr><th>D</th><td id="mt-e-D">–</td><td id="mt-x-D">–</td></tr>
+          <tr><th>F</th><td id="mt-e-F">–</td><td id="mt-x-F">–</td></tr>
+          <tr><th>Dm</th><td id="mt-e-Dm">–</td><td id="mt-x-Dm">–</td></tr>
+          <tr><th>C</th><td id="mt-e-C">–</td><td id="mt-x-C">–</td></tr>
+          </tbody>
+        </table>
+        <p class="small muted">eigen sucht die Töne in der Lage des Songs (z. B. Am = A4 C5 E5). essentia: Vorsprung vor dem nächstbesten Akkord, ab +0,02 zählt er.</p>
+      </div>
     </div>
   </section>
 

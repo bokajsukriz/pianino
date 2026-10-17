@@ -13,7 +13,7 @@
    Obertöne des Basses füllen Tonklassen auf. Mit Abstand 0,03: 81 % / 4 %.
 
    Nachrichten: { id, frame: Float32Array (≈ 0,17 s), sampleRate, expect: ['Am', …] }
-     → { id, results: { Am: { ok, score, chord }, … } }
+     → { id, results: { Am: { ok, score, chord }, … }, hpcp: [12 Werte, Bin 0 = A] }
    Beim Start einmal { ready: true } bzw. { error }. */
 
 let essentia = null, wasm = null;
@@ -60,12 +60,10 @@ const CC_TEMPLATES = (() => {
   return out;
 })();
 
-function chordCheck(e, wasm, frame, sampleRate, expectedSymbol) {
-  const T = CC_TEMPLATES[expectedSymbol];
-  if (!T) throw new Error('chordCheck: unbekannter Akkord ' + expectedSymbol);
+/** Chroma eines Fensters: Float32Array(12), Bin 0 = A. */
+function hpcpOf(e, frame, sampleRate) {
   const N = frame.length;
   const del = [];
-  let h;
   try {
     const v = e.arrayToVector(frame); del.push(v);
     const win = e.Windowing(v, true, N, 'blackmanharris62', 0, true); del.push(win.frame);
@@ -77,10 +75,16 @@ function chordCheck(e, wasm, frame, sampleRate, expectedSymbol) {
     const hp = e.HPCP(pk.frequencies, wh.magnitudes,
       false, 500, 0, 5000, false, 300, false, 'unitMax', 440, sampleRate, 12, 'squaredCosine', 1);
     del.push(hp.hpcp);
-    h = e.vectorToArray(hp.hpcp); // Float32Array(12), Kopie
+    return e.vectorToArray(hp.hpcp); // Kopie, überlebt das delete()
   } finally {
     for (const o of del) o.delete();
   }
+}
+
+/** Erwarteten Akkord gegen seine Konkurrenten prüfen. → { ok, score, chord } */
+function compare(h, expectedSymbol) {
+  const T = CC_TEMPLATES[expectedSymbol];
+  if (!T) throw new Error('chordCheck: unbekannter Akkord ' + expectedSymbol);
   let n = 0; const x = new Float64Array(12);
   for (let i = 0; i < 12; i++) { x[i] = Math.pow(Math.max(h[i], 0), CC_POW); n += x[i] * x[i]; }
   n = Math.sqrt(n);
@@ -111,12 +115,12 @@ function chordCheck(e, wasm, frame, sampleRate, expectedSymbol) {
 self.onmessage = (ev) => {
   const { id, frame, sampleRate, expect } = ev.data;
   const results = {};
-  for (const sym of expect) {
-    try {
-      results[sym] = chordCheck(essentia, wasm, frame, sampleRate, sym);
-    } catch (err) {
-      results[sym] = { ok: false, score: -1, chord: null, error: String(err?.message || err) };
-    }
+  let hpcp = null;
+  try {
+    hpcp = hpcpOf(essentia, frame, sampleRate);
+    for (const sym of expect) results[sym] = compare(hpcp, sym);
+  } catch (err) {
+    for (const sym of expect) results[sym] = { ok: false, score: -1, chord: null, error: String(err?.message || err) };
   }
-  self.postMessage({ id, results });
+  self.postMessage({ id, results, hpcp: hpcp ? Array.from(hpcp) : null });
 };
