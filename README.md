@@ -5,8 +5,11 @@ Singen zu begleiten. Geübt wird in 5-Minuten-Einheiten, das Handy steht quer
 am Notenpult. Version 1 kennt einen Song: „Perfect Ruin“ (Kwabs) in a-Moll mit
 den Akkorden **Am, D, F, Dm, C**.
 
-Die App prüft nicht, was gespielt wird (kein MIDI, kein Mikrofon). Sie zeigt
-an, spielt vor, gibt den Takt vor und lässt die Person sich selbst einschätzen.
+Im Mittelpunkt steht „Geführt“: Phrasen aus dem Song am Stück, ohne aufs
+Handy zu tippen. Auf Wunsch hört die App übers Mikrofon, ob der erwartete
+Akkord liegt, und geht dann von selbst weiter (kein MIDI; nichts wird
+aufgenommen oder gespeichert). Ohne Mikrofon wird getippt bzw. selbst
+eingeschätzt.
 
 ## Starten
 
@@ -24,14 +27,40 @@ reicht es, den Branch zu veröffentlichen — alle Pfade sind relativ.
 
 | Übung | Was passiert | Regeln |
 |---|---|---|
+| Geführt | Phrasen des Songs (Zeile 1, 4, 3, Refrain, dann Strophe und ganzer Song). **Warten:** Akkord zeigen, weiter sobald er gehört wird; nach 4 s Tastenbild, nach 8 s Vorspielen. **Tempo:** Einzähler, Klick, ein Akkord pro Takt, Fehler stoppen nicht; danach wird der hakende Übergang kurz gependelt. Wer den ersten Durchgang sauber schafft, kommt sofort ins Tempo. | `phrases.js` |
 | Akkord-Blitz | Akkordsymbol, Countdown mit leisem Klick, dann Auflösung mit Klang und Tastatur. Selbsteinschätzung „Saß“ / „Wackelig“ / „Nochmal“. | Leitner-Karteikasten, 5 Fächer, 4 Stufen (`leitner.js`) |
 | Kurze Wege | Akkordwechsel im Loop mit Klick. Die Tastatur zeigt, welche Finger liegen bleiben und welche wandern. „Drangeblieben“ / „Rausgefallen“. | Tempo 50–60 BPM, 6 Stufen (`tempo.js`) |
 | Groove | Begleitmuster im Achtelraster: Vorspiel, Einzähler, 4 Takte mitspielen. „Groovt“ / „Wackelt“. | Tempo je Stufe, 4 Stufen (`tempo.js`) |
 | Play-Along | Die Strophe mit Klavierbegleitung, Klick und (sobald erfasst) Melodie. Keine Bewertung. | — |
 
-„5 Minuten“ startet den Mix aus `mix.js`: 1 min Aufwärmen (Akkord-Blitz),
-3 min die schwächste Übung, 1 min Play-Along. „Nur 1 Minute“ sind 6 Karten
-Akkord-Blitz. Ein Tag zählt fürs Wochenziel (3 von 7 Tagen) ab 60 s.
+„5 Minuten“ startet den Mix aus `mix.js`: 4 min Geführt (zu Beginn kurz eine
+sitzende Phrase, die ≥ 2 Tage nicht dran war), 1 min Play-Along. Kein
+eigenes Akkord-Aufwärmen mehr. „Nur 1 Minute“ ist 1 min Geführt. Akkord-Blitz,
+Kurze Wege und Groove gibt es weiter einzeln auf dem Startscreen. Ein Tag zählt fürs Wochenziel (3 von 7 Tagen) ab 60 s.
+
+## Mikrofon: drei Arten zu hören
+
+Knopf „Hören: …“ in Geführt bzw. unter „Über“ wechselt eigen → essentia →
+beide (Einstellung `ear`).
+Beide prüfen nur den *erwarteten* Akkord und urteilen nur bis 1 s nach einem
+Anschlag (im Ausklang sähe ein Fehlgriff irgendwann richtig aus).
+
+- **eigen** (`hear.js`, rein): Klingen die drei Töne der rechten Hand, und
+  klingt nichts Fremdes (auch nicht seit dem Anschlag)? Simulation: rechte
+  Hand 100 % erkannt / 0,4 % Fehlgriffe durchgelassen, mit Bass 97,5 % / 6 %.
+- **essentia** (`ear.js`, `ear-worker.js`, essentia.js im Worker): Chroma
+  (HPCP) gegen das Muster des erwarteten Akkords und seiner Fehlgriff-
+  Varianten. Simulation: 96 % / 0 %, mit Bass 84 % / 5 %.
+- **beide**: eigen sagt ja und essentia hält den erwarteten Akkord für den
+  wahrscheinlichsten. Simulation: 97,5 % / 0,4 %, mit Bass 95 % / 3,8 %.
+  (Gemessen auch: „beide müssen voll zustimmen“ 75 % / 0,4 % mit Bass —
+  zu streng; essentia nur als Veto gegen einen anderen Song-Akkord — bringt
+  nichts.)
+
+Die Simulation (Salamander-Samples, Raum, Handy-Mikro, Rauschen) liegt in
+`docs/archiv/mikro-sim/`, ein früherer Zwischenstand auf dem Branch
+`archiv/eigene-akkorderkennung`. Mit echtem Handy am echten Klavier
+ist noch nichts gemessen.
 
 ## Songdaten
 
@@ -75,7 +104,12 @@ das alles in dieser einen Datei, ohne Code anzufassen. Kein Liedtext in der App.
 | `clock.js` | Lookahead-Scheduler |
 | `keyboard.js` | Tastatur als SVG mit Markierungen und Fingerzahlen |
 | `ui.js`, `log.js` | DOM-Helfer, Fehlerprotokoll |
-| `exercises/*.js` | die vier Übungen |
+| `exercises/*.js` | die fünf Übungen |
+| `mic.js` | Mikrofon, Anschlag erkennen, Erkenner wählen |
+| `hear.js` | REIN: eigener Erkenner |
+| `ear.js`, `ear-worker.js` | Erkenner mit essentia.js (Worker) |
+| `vendor/essentia/` | essentia.js 0.1.3 (AGPL-3.0) |
+| `phrases.js` | REIN: Phrasen und Regeln für Geführt |
 | `chords.js` | REIN: Akkord-Bibliothek, `transition()` |
 | `leitner.js` | REIN: Karteikasten |
 | `tempo.js` | REIN: Stufen und Tempo-Regeln für Kurze Wege und Groove |
@@ -105,5 +139,6 @@ Abstand 1,000 s ± 1 ms) und ein Audio-Smoke-Test: in der Konsole
 ## Lizenzen
 
 Klaviersamples: Salamander Grand Piano (Alexander Holm), CC BY 3.0.
-Schrift: Bricolage Grotesque, SIL OFL 1.1. Details in `THIRD-PARTY.md`, in der
+Schrift: Bricolage Grotesque, SIL OFL 1.1. Akkorderkennung (wahlweise):
+essentia.js, AGPL-3.0. Details in `THIRD-PARTY.md`, in der
 App unter „Über“.

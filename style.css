@@ -231,6 +231,16 @@ p { margin: 0 0 .6em; }
 }
 .status { font-weight: 700; }
 
+/* S9 Geführt */
+.status-line { font-weight: 650; transition: background .15s; }
+.status-line.good { background: #e3f6ec; border-color: #9fd8bb; }
+.now-symbol.got { color: #1f8a5b; }
+.chord-strip li.hit { border-color: #1f8a5b; }
+.chord-strip li.now.hit { box-shadow: 0 0 0 2px #1f8a5b; }
+.chord-strip li.miss { border-style: dotted; color: var(--muted); }
+.toggle-sm { min-height: 40px; padding: 4px 12px; font-size: 14px; }
+.extras-label { margin: 6px 0 -8px; }
+
 /* S6 Groove */
 .groove-grid-wrap { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .groove-grid { display: grid; grid-template-columns: 34px repeat(8, 1fr); gap: 5px; align-items: center; }
