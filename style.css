@@ -281,6 +281,7 @@ p { margin: 0 0 .6em; }
 .reward { display: flex; flex-direction: column; gap: 8px; }
 
 /* Über */
+.update-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .selftest-out { white-space: pre-wrap; font-size: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px; }
 
 /* ---------- Overlays --------------------------------------------------- */
