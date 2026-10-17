@@ -17,8 +17,13 @@ export function showScreen(name) {
   if (meta) meta.content = el?.classList.contains('dark') ? '#241b3d' : '#fff7ec';
   currentScreen = name;
   window.scrollTo(0, 0);
+  screenHook?.(name);
   return el;
 }
+
+let screenHook = null;
+/** Wird bei jedem Screenwechsel mit dem Namen aufgerufen (app.js: Verlauf). */
+export const onScreen = (fn) => { screenHook = fn; };
 
 /** Auf einen Klick in `root` auf ein Element mit data-<attr> warten.
  *  → Promise mit dem Attributwert. */
