@@ -1,4 +1,4 @@
-/* selftest.js — runSelfTests(): reine Module (1–4, 6, auch in Node) und im
+/* selftest.js — runSelfTests(): reine Module (1–4, 6–8, auch in Node) und im
    Browser zusätzlich der Takt-Scheduler (5) und ein Audio-Smoke-Test.
 
    Node:  node --input-type=module -e "import { runSelfTests } from './selftest.js'; const r = await runSelfTests(); process.exit(r.failed ? 1 : 0)"
@@ -10,7 +10,12 @@ import {
   countdownBeats, unlockedCardIds, postponeOverflow,
 } from './leitner.js';
 import { applyWege, blockBpm, newLoop, nextLoop, wegeStages, applyGroove, blockChords } from './tempo.js';
-import { buildMix, weakestExercise, mixLabel, weekDots } from './mix.js';
+import { buildMix, mixLabel, weekDots } from './mix.js';
+import { semitoneLevels, followOnset, checkChord } from './hear.js';
+import {
+  GUIDE, phraseDefs, newPhrase, waitSequence, tempoBars, applyWait, applyTempo, repairPairs, nextPhrase,
+  guideProgress, unlocked,
+} from './phrases.js';
 import { SONG, songForm } from './song-perfect-ruin.js';
 import { TEST_MELODY } from './test-melody.js';
 import { melodySlice, melodyStartFor } from './melody.js';
@@ -154,15 +159,11 @@ function pureTests() {
   check('3 Groove: wackelt → −4, nie unter Untergrenze', applyGroove(2, { bpm: 57 }, false).bpm === 55);
 
   /* 4 — mix.js */
-  const state = { levels: { blitz: 2, wege: 3, groove: 2 }, lastPlayed: { blitz: d1, wege: addDays(d1, -1), groove: addDays(d1, -2) }, cards: [], verseBpm: 58 };
-  const mix = buildMix(state, d1);
+  const mix = buildMix({ verseBpm: 58 }, d1);
   check('4 Mix: Summe 300 s', mix.reduce((s, m) => s + m.seconds, 0) === 300);
-  check('4 Mix: Gleichstand → die am längsten nicht geübte', mix[1].exercise === 'groove', mix[1].exercise);
-  check('4 Mix: nie geübt gilt als am längsten her',
-    weakestExercise({ blitz: 1, wege: 3, groove: 1 }, { blitz: d1 }) === 'groove');
-  check('4 Mix: Aufwärmen mit Stufe-1-Karten bei < 3 Karten in Fach ≥ 2', mix[0].pool.length === 4 && mix[0].warmup);
-  check('4 Mix: Play-Along mit Strophen-Tempo', mix[2].exercise === 'playalong' && mix[2].bpm === 58);
-  check('4 Mix: Unterzeile', mixLabel(mix) === '1 min Aufwärmen · 3 min Groove · 1 min Play-Along', mixLabel(mix));
+  check('4 Mix: 4 min Geführt, kein Akkord-Aufwärmen', mix[0].exercise === 'guided' && mix[0].seconds === 240 && !mix.some((m) => m.exercise === 'blitz'));
+  check('4 Mix: Play-Along mit Strophen-Tempo', mix[1].exercise === 'playalong' && mix[1].bpm === 58);
+  check('4 Mix: Unterzeile', mixLabel(mix) === '4 min Geführt · 1 min Play-Along', mixLabel(mix));
   const dots = weekDots({ '2026-10-12': { seconds: 61 }, '2026-10-13': { seconds: 30 } }, '2026-10-16');
   check('4 Woche beginnt am Montag, ab 60 s gezählt', dots[0].date === '2026-10-12' && dots[0].practiced && !dots[1].practiced && dots[4].today);
 
@@ -175,6 +176,99 @@ function pureTests() {
     && TEST_MELODY.every((n) => n.bar >= 1 && n.beat >= 1 && n.dur > 0 && Number.isInteger(n.midi)));
   check('6 Melodie passt zum Strophen-Loop, nicht zum Pendel',
     melodyStartFor(SONG, SONG.loops.verse) === 1 && melodyStartFor(SONG, ['Am:song', 'F:song']) === null);
+  /* 7 — hear.js (eigener Erkenner): künstliche Spektren (Teiltöne 1–6, je −4,4 dB), 48 kHz */
+  const SR = 48000, NF = 16384;
+  const spectrum = (parts) => {
+    const pw = new Float64Array(NF / 2).fill(1e-11); // Grundrauschen −110 dB
+    for (const [midi, gainDb] of parts) {
+      for (let k = 1; k <= 6; k++) {
+        const bin = Math.round(440 * Math.pow(2, (midi - 69) / 12) * k / (SR / NF));
+        if (bin < pw.length) pw[bin] += Math.pow(10, (gainDb - 30 - 4.4 * (k - 1)) / 10);
+      }
+    }
+    return semitoneLevels(Float32Array.from(pw, (p) => 10 * Math.log10(p)), SR, NF);
+  };
+  const play = (notes, gain = 0) => notes.map((m) => [m, gain]);
+  const song = ['Am', 'D', 'F', 'Dm', 'C'].map((x) => chordById(`${x}:song`));
+  const hears = (chord, parts, opts = {}) => checkChord(spectrum(parts), null, chord, opts);
+  check('7 Hören: jeder Song-Akkord erkannt, mit und ohne Bass',
+    song.every((c) => hears(c, play(c.rh)).ok && hears(c, play([...c.rh, c.lh])).ok));
+  check('7 Hören: kein Song-Akkord als ein anderer durchgelassen',
+    song.every((c) => song.every((o) => o === c || !hears(c, play(o.rh)).ok)));
+  const off = [];
+  for (const c of song) {
+    for (let i = 0; i < 3; i++) {
+      for (const dd of [-1, 1]) {
+        const w = c.rh.map((m, j) => (j === i ? m + dd : m));
+        if (new Set(w).size === 3 && hears(c, play(w)).ok) off.push(`${c.symbol}:${i}${dd}`);
+      }
+    }
+  }
+  check('7 Hören: Ton einen Halbton daneben → nicht erkannt', off.length === 0, off.join(' '));
+  check('7 Hören: fehlender Ton → nicht erkannt', song.every((c) => !hears(c, play(c.rh.slice(0, 2))).ok && !hears(c, play(c.rh.slice(1))).ok));
+  check('7 Hören: Stille → nicht erkannt, nicht laut', !hears(song[0], []).ok && !hears(song[0], []).loud);
+  check('7 Hören: ungleich laut (ein Ton 15 dB leiser) → noch erkannt', hears(song[0], [[69, 0], [72, -15], [76, -3]]).ok);
+  const [, cD, cF] = song;
+  // F nach D mit Pedal: F♯5 klingt nach. Schon vorher gleich laut → Nachklang;
+  // vorher still, jetzt da → neu angeschlagen, also fremd.
+  const ringNow = spectrum([...play(cF.rh), [78, -8]]);
+  const ringing = followOnset(null, ringNow, 0.1, spectrum(play([78], -8)));
+  const struck = followOnset(null, ringNow, 0.1, spectrum([]));
+  check('7 Hören: Nachklang des Vorakkords stört nicht, neu angeschlagener Fremdton schon',
+    checkChord(ringNow, ringing, cF, { prev: cD }).ok && !checkChord(ringNow, struck, cF, { prev: cD }).ok);
+  // Fremdton, der bis jetzt verklungen ist, bleibt im Spitzenpegel seit dem Anschlag.
+  let mem = followOnset(null, spectrum([...play(cF.rh), [79, 0]]), 0.5, spectrum([]));
+  const later = spectrum(play(cF.rh));
+  mem = followOnset(mem, later, 0.8);
+  check('7 Hören: verklungener Fremdton zählt weiter (Gedächtnis seit dem Anschlag)',
+    checkChord(later, null, cF).ok && !checkChord(later, mem, cF).ok);
+
+  /* 8 — phrases.js */
+  const pd = phraseDefs(SONG);
+  const z1 = pd.find((x) => x.id === 'z1'), ref = pd.find((x) => x.id === 'ref');
+  check('8 Phrasen: Zeile 1 im Warten Am D F Am, weiter ohne Am', eq(waitSequence(z1), ['Am:song', 'D:song', 'F:song', 'Am:song'])
+    && eq(waitSequence(z1, { continued: true }), ['D:song', 'F:song', 'Am:song']));
+  check('8 Phrasen: Refrain endet auf C (übt F → C)', waitSequence(ref).at(-1) === 'C:song' && waitSequence(ref).length === 9);
+  check('8 Phrasen: Tempo 4-Takt-Zeile zweimal, Strophe einmal', tempoBars(z1).length === 8 && tempoBars(pd.find((x) => x.id === 'strophe')).length === 16);
+  const ch = (...secs) => secs.map((sec) => ({ from: 'a', to: 'b', sec }));
+  const first = applyWait(newPhrase('z1'), { changes: ch(0.6, 0.9, 1.0), today: d1 });
+  check('8 Wer es kann: erster Durchgang sauber → sofort Tempo, 56 BPM', first.toTempo && first.state.mode === 'tempo' && first.state.bpm === 56, JSON.stringify(first.state));
+  check('8 Startempo aus langsamstem Wechsel (1,2 s → 50)', applyWait(newPhrase('x'), { changes: ch(0.5, 1.2), today: d1 }).state.bpm === 50);
+  let wp = applyWait(newPhrase('z1'), { changes: ch(2.5), today: d1 }).state;
+  wp = applyWait(wp, { changes: ch(1), today: d1 }).state;
+  wp = applyWait(wp, { changes: ch(1), helped: true, today: d1 }).state;
+  check('8 Warten: vorgespielt/getippt zählt nicht als sauber', wp.mode === 'wait' && wp.streak === 0);
+  for (let i = 0; i < 2; i++) wp = applyWait(wp, { changes: ch(1), today: d1 }).state;
+  const third = applyWait(wp, { changes: ch(1), today: d1 });
+  check('8 Warten: 3× sauber hintereinander → Tempo', !wp.mode.startsWith('t') && third.toTempo && third.state.bpm === 56);
+  let tp = { ...newPhrase('z1'), mode: 'tempo', bpm: 52 };
+  tp = applyTempo(tp, { errors: 0, today: d1 }).state;
+  check('8 Tempo: Schnellspur — sauber ohne je einen Fehler → gleich +4', tp.bpm === 56);
+  tp = applyTempo(tp, { errors: 1, today: d1 }).state;
+  check('8 Tempo: ein Fehler → Tempo bleibt', tp.bpm === 56 && tp.tempoErrors === 1);
+  tp = applyTempo(tp, { errors: 0, today: d1 }).state;
+  const tp2 = applyTempo(tp, { errors: 0, today: d1 });
+  check('8 Tempo: nach einem Fehler erst nach 2 sauberen +4', tp.bpm === 56 && tp2.state.bpm === 60 && tp2.up);
+  const so = applyTempo(tp2.state, { errors: 0, today: d1 });
+  check('8 Tempo: sauber bei 60 BPM → sitzt', so.nowSolid && so.state.solid);
+  let bd = { ...newPhrase('x'), mode: 'tempo', bpm: 50 };
+  bd = applyTempo(bd, { errors: 2, today: d1 }).state;
+  const bd2 = applyTempo(bd, { errors: 3, today: d1 });
+  check('8 Tempo: 2× mehr als ein Fehler → −5', bd2.down && bd2.state.bpm === 45);
+  const bd3 = applyTempo(applyTempo(bd2.state, { errors: 2, today: d1 }).state, { errors: 2, today: d1 });
+  check('8 Tempo: unter 44 BPM → zurück ins Warten', bd3.toWait && bd3.state.mode === 'wait' && bd3.state.bpm === 45);
+  check('8 Reparatur: häufigster hakender Übergang zuerst, F → F zählt nicht',
+    eq(repairPairs(['Am', 'D', 'F', 'F', 'Am', 'D', 'F', 'F'], [1, 3, 5, 6]), [['Am', 'D'], ['D', 'F']]));
+  const solidZ1 = { z1: { ...newPhrase('z1'), solid: true, lastPlayed: addDays(d1, -3) } };
+  check('8 Reihenfolge: Zeile 1 zuerst, sitzt sie → Zeile 4 frei',
+    nextPhrase(pd, {}, { today: d1 }).id === 'z1' && eq(unlocked(pd, solidZ1), ['z1', 'z4']));
+  check('8 Sitzende Phrase nach ≥ 2 Tagen: einmal zu Beginn wiederholen',
+    eq(nextPhrase(pd, solidZ1, { today: d1 }), { id: 'z1', review: true })
+    && nextPhrase(pd, solidZ1, { today: d1, roundPasses: { z1: 1 } }).id === 'z4');
+  check('8 Höchstens 8 Durchgänge je Phrase, dann eine andere',
+    nextPhrase(pd, solidZ1, { today: d1, roundPasses: { z1: 1, z4: GUIDE.maxPasses } }).id === 'z1');
+  check('8 Fortschritt: nichts 0, alles sitzt 1',
+    guideProgress(pd, {}) === 0 && guideProgress(pd, Object.fromEntries(pd.map((x) => [x.id, { solid: true }]))) === 1);
   return T;
 }
 
@@ -247,16 +341,41 @@ async function audioSmoke() {
   return [{ name: 'A Audio: Klick, Akkord und Melodie hörbar, nicht übersteuert', ok: out && peak > 0.01 && peak <= 1, detail: `Spitze ${peak.toFixed(2)}` }];
 }
 
+/** Test 7 (nur Browser): essentia.js erkennt jeden der fünf Song-Akkorde in
+ *  künstlichen Fenstern (Teiltöne 1–5, mit Bass) — und nur ihn. */
+async function earTest() {
+  const { loadEar, checkFrame } = await import('./ear.js');
+  await loadEar();
+  const sr = 48000, n = 8192;
+  const frame = (notes) => {
+    const x = new Float32Array(n);
+    for (const m of notes) {
+      const f = 440 * Math.pow(2, (m - 69) / 12);
+      for (let k = 1; k <= 5; k++) for (let i = 0; i < n; i++) x[i] += 0.1 * Math.pow(0.55, k - 1) * Math.sin(2 * Math.PI * f * k * i / sr);
+    }
+    return x;
+  };
+  const got = [];
+  for (const sym of ['Am', 'D', 'F', 'Dm', 'C']) {
+    const c = chordById(`${sym}:song`);
+    const { results } = await checkFrame(frame([c.lh, ...c.rh]), sr, ['Am', 'D', 'F', 'Dm', 'C']);
+    const yes = Object.entries(results).filter(([, r]) => r.ok).map(([k]) => k);
+    got.push({ sym, yes, ok: yes.length === 1 && yes[0] === sym });
+  }
+  return [{ name: '7 Hören (essentia): Am, D, F, Dm, C erkannt', ok: got.every((g) => g.ok),
+    detail: got.map((g) => `${g.sym}→${g.yes.join('/') || '–'}`).join(', ') }];
+}
+
 /** Alle Tests. → { passed, failed, results } (und Konsole). */
 export async function runSelfTests({ log = true } = {}) {
   const results = pureTests();
   try { results.push(...await clockDriftTest()); } catch (e) { results.push({ name: 'clockDriftTest', ok: false, detail: String(e?.message || e) }); }
   if (typeof OfflineAudioContext !== 'undefined') {
-    for (const fn of [clockTest, audioSmoke]) {
+    for (const fn of [clockTest, audioSmoke, earTest]) {
       try { results.push(...await fn()); } catch (e) { results.push({ name: fn.name, ok: false, detail: String(e?.message || e) }); }
     }
   } else {
-    results.push({ name: '5/A Browser-Tests übersprungen (kein OfflineAudioContext)', ok: true, skipped: true, detail: '' });
+    results.push({ name: '5/7/A Browser-Tests übersprungen (kein OfflineAudioContext)', ok: true, skipped: true, detail: '' });
   }
   const failed = results.filter((r) => !r.ok).length;
   if (log) {

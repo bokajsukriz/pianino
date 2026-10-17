@@ -11,8 +11,9 @@ import { runBlitz } from './exercises/blitz.js';
 import { runWege } from './exercises/wege.js';
 import { runGroove } from './exercises/groove.js';
 import { runPlayalong } from './exercises/playalong.js';
+import { runGuided } from './exercises/guided.js';
 
-const EXERCISES = { blitz: runBlitz, wege: runWege, groove: runGroove, playalong: runPlayalong };
+const EXERCISES = { guided: runGuided, blitz: runBlitz, wege: runWege, groove: runGroove, playalong: runPlayalong };
 
 export class Aborted extends Error {}
 

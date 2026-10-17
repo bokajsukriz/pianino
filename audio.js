@@ -96,10 +96,10 @@ function pianoNote(c, dest, set, midi, time, dur, gain) {
   synthNote(c, dest, midi, time, dur, gain);
 }
 
-function clickAt(c, dest, time, accent, gain) {
+function clickAt(c, dest, time, accent, gain, high = false) {
   const o = c.createOscillator(), g = c.createGain();
   o.type = 'sine';
-  o.frequency.value = accent ? 1500 : 1000;
+  o.frequency.value = high ? (accent ? 2400 : 2000) : (accent ? 1500 : 1000);
   const peak = 0.6 * gain;
   g.gain.setValueAtTime(peak, time);
   g.gain.exponentialRampToValueAtTime(peak * 0.05, time + 0.03);
@@ -138,9 +138,11 @@ export function chord(ch, time, { dur = 1.5, gain = 1, lh = true, rh = true } = 
   if (rh) for (const m of ch.rh) note(m, time, { dur, gain });
 }
 
-/** Klick: 1500 Hz auf der Eins, sonst 1000 Hz, 30 ms. */
-export function click(time, accent = false, gain = 1) {
-  try { clickAt(getCtx(), graph.click, time, accent, gain); } catch (e) { logError('audio:click', e); }
+/** Klick: 1500 Hz auf der Eins, sonst 1000 Hz, 30 ms. high: 2400/2000 Hz —
+ *  über dem Bereich, in dem hear.js nach Fremdtönen sucht (1000 Hz läge
+ *  zwischen H5 und C6). */
+export function click(time, accent = false, gain = 1, high = false) {
+  try { clickAt(getCtx(), graph.click, time, accent, gain, high); } catch (e) { logError('audio:click', e); }
 }
 
 /** Melodieton; octaveDown → eine Oktave tiefer. */

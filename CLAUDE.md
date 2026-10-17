@@ -21,7 +21,8 @@ Dateien dort, dessen Nummer erhöhen.
 
 ## Reine Module bleiben rein
 
-`chords.js`, `leitner.js`, `tempo.js`, `mix.js`, `song-perfect-ruin.js`,
+`chords.js`, `leitner.js`, `tempo.js`, `mix.js`, `phrases.js`, `hear.js`,
+`song-perfect-ruin.js`,
 `test-melody.js` und `selftest.js` (bis auf die Browser-Tests, die erst bei
 Bedarf per `import()` geladen werden): kein DOM, kein `Date.now()`, kein
 `Math.random()`. Zeit und Zufall kommen als Parameter (`today: 'YYYY-MM-DD'`,
@@ -56,6 +57,13 @@ prüft die reinen Module (Tests 1–4, 6). Im Browser zusätzlich Takt-Scheduler
   `requestAnimationFrame`.
 - Keine externen Requests zur Laufzeit; die Content-Security-Policy in
   `index.html` erlaubt nur die eigene Herkunft.
+- Einzige fremde Bibliothek: essentia.js in `vendor/essentia/` (AGPL-3.0,
+  ausdrücklich gewünscht), nur im Worker `ear-worker.js` — dort, weil
+  Embind `new Function` braucht und die CSP der Seite das verbietet. Nicht
+  in die Seite holen und die CSP nicht um `unsafe-eval` erweitern.
+- Mikrofon-Erkenner: Änderungen an `hear.js` oder `ear-worker.js` gegen die
+  Simulation in `docs/archiv/mikro-sim/` prüfen, nicht nur gegen die
+  Selbsttests.
 - Oberfläche nur Deutsch, keine i18n-Infrastruktur.
 - Abgearbeitete Arbeitsanweisungen und Fortschrittsdateien liegen in
   `docs/archiv/`.
