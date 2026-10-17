@@ -45,9 +45,13 @@ beide (Einstellung `ear`).
 Beide prüfen nur den *erwarteten* Akkord und urteilen nur bis 1 s nach einem
 Anschlag (im Ausklang sähe ein Fehlgriff irgendwann richtig aus).
 
-- **eigen** (`hear.js`, rein): Klingen die drei Töne der rechten Hand, und
-  klingt nichts Fremdes (auch nicht seit dem Anschlag)? Simulation: rechte
-  Hand 100 % erkannt / 0,4 % Fehlgriffe durchgelassen, mit Bass 97,5 % / 6 %.
+- **eigen** (`hear.js`, rein): Klingen die drei Töne des Akkords — in
+  irgendeiner engen Lage, jede Oktave, Grundstellung oder Umkehrung
+  (`checkChordAny`) — und klingt nichts Fremdes (auch nicht seit dem
+  Anschlag)? Simulation: rechte Hand 98–100 % erkannt / 0,4 % Fehlgriffe
+  durchgelassen; mit Bass 97 % / 4 % in anderen Lagen, 12 % in der Song-Lage
+  (Bass-Obertöne ergänzen eine Nachbarlage). Für Übungen, die genau eine Lage
+  verlangen: `is(id, prevId, { exact: true })` (nur die Lage aus chords.js).
 - **essentia** (`ear.js`, `ear-worker.js`, essentia.js im Worker): Chroma
   (HPCP) gegen das Muster des erwarteten Akkords und seiner Fehlgriff-
   Varianten. Simulation: 96 % / 0 %, mit Bass 84 % / 5 %.

@@ -3,7 +3,8 @@
    Nichts wird aufgenommen oder gespeichert; gelesen wird nur das jeweils
    letzte Fenster. Drei Arten zu hören (Einstellung `ear`, EARS):
      eigen     hear.js — prüft die Töne des erwarteten Akkords im Spektrum
-               (≈ ⅓ s), mit Gedächtnis seit dem Anschlag, synchron.
+               (≈ ⅓ s), in jeder engen Lage, mit Gedächtnis seit dem
+               Anschlag, synchron.
      essentia  ear.js — essentia.js im Worker vergleicht die Chroma des
                Fensters (≈ 0,17 s) mit dem erwarteten Akkord, asynchron.
      beide     eigen sagt ja UND essentia hält den erwarteten Akkord für den
@@ -18,7 +19,7 @@
 
 import * as audio from './audio.js';
 import { chordById } from './chords.js';
-import { semitoneLevels, followOnset, checkChord, peakNotes } from './hear.js';
+import { semitoneLevels, followOnset, checkChord, checkChordAny, peakNotes } from './hear.js';
 import { loadEar, checkFrame } from './ear.js';
 import { S } from './store.js';
 import { logError } from './log.js';
@@ -124,8 +125,9 @@ function trackOnset(t) {
 /** Was klingt gerade? Je Bildschirm-Frame aufrufen, `t` = audio.now(),
  *  want: Akkord-ids, die gerade in Frage kommen (essentia prüft nur diese).
  *  → null (kein Mikrofon, gerade weggehört, noch nichts da) oder
- *  { is(id, prevId) → bool, chord, sinceOnset, fresh }
- *  is: liegt der Akkord `id`? chord: stattdessen gehörter Song-Akkord (nur
+ *  { is(id, prevId, { exact }) → bool, chord, sinceOnset, fresh }
+ *  is: liegt der Akkord `id` — in jeder Lage, mit exact nur in der Lage aus
+ *  chords.js (eigen; essentia hört ohnehin nur Tonnamen)? chord: stattdessen gehörter Song-Akkord (nur
  *  essentia, sonst ''). sinceOnset: s seit dem letzten Anschlag, gemessen
  *  beim Lesen des Fensters. fresh: neu seit dem letzten Aufruf. */
 export function sample(t, want = []) {
@@ -151,7 +153,9 @@ export function sample(t, want = []) {
       if (Number.isFinite(lastOnset)) since = followOnset(since, now, sinceOnset, before);
       prevSpec = now;
       const mem = since;
-      eigenIs = (id, prevId) => checkChord(now, mem, chordById(id), { prev: prevId ? chordById(prevId) : null }).ok;
+      // Erkannt wird der Akkord in jeder engen Lage; exact: nur die Lage aus chords.js.
+      eigenIs = (id, prevId, { exact = false } = {}) =>
+        (exact ? checkChord : checkChordAny)(now, mem, chordById(id), { prev: prevId ? chordById(prevId) : null }).ok;
       if (diagnose) d.eigen = Object.fromEntries(SONG_CHORDS.map((id) => [chordById(id).symbol, eigenIs(id)]));
       if (mode === 'essentia') eigenIs = null;
     }
@@ -169,7 +173,7 @@ export function sample(t, want = []) {
         const other = Object.values(results).map((r) => r.chord).find((c) => c && !c.includes('?') && !expect.includes(c)) || '';
         const ess = (id) => results[chordById(id).symbol];
         const is = mode === 'beide'
-          ? (id, prevId) => eigenIs(id, prevId) && (ess(id)?.score ?? -1) >= 0
+          ? (id, prevId, o) => eigenIs(id, prevId, o) && (ess(id)?.score ?? -1) >= 0
           : (id) => !!ess(id)?.ok;
         last = { chord: other, sinceOnset, fresh: true, is };
       });
