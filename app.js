@@ -4,11 +4,13 @@
 
 import * as audio from './audio.js';
 import { S, loadAll, today, saveSettings } from './store.js';
-import { buildMix, mixLabel, weekDots, songProgress, practicedThisWeek, WEEK_GOAL, MAX_LEVELS, DAY_MIN_SECONDS } from './mix.js';
+import { buildMix, mixLabel, weekDots, practicedThisWeek, WEEK_GOAL, DAY_MIN_SECONDS } from './mix.js';
+import { phraseDefs, guideProgress, unlocked, newPhrase } from './phrases.js';
 import { hasMelody } from './melody.js';
 import { SONG } from './song-perfect-ruin.js';
 import { runSession, pause, resume, end, sessionRunning } from './session.js';
-import { $, $$, showScreen } from './ui.js';
+import { $, $$, showScreen, setToggle } from './ui.js';
+import { supported as micSupported } from './mic.js';
 import { logError } from './log.js';
 
 const WEEKDAYS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
@@ -46,12 +48,18 @@ async function savePlan(plan) {
 
 /* ---------- S2 Start --------------------------------------------------- */
 function mixState() {
-  return {
-    levels: S.progress.levels,
-    lastPlayed: S.progress.lastPlayed,
-    cards: [...S.cards.values()],
-    verseBpm: S.loops.verse?.bpm ?? 55,
-  };
+  return { verseBpm: S.phrases.strophe?.bpm ?? S.loops.verse?.bpm ?? 55 };
+}
+
+/** Stand je freigeschalteter Phrase, z. B. „Zeile 1 sitzt · Zeile 4 52 BPM“. */
+function phraseStatus(defs) {
+  return unlocked(defs, S.phrases).map((id) => {
+    const d = defs.find((x) => x.id === id);
+    const p = S.phrases[id] || newPhrase(id);
+    if (p.solid) return `${d.name} sitzt`;
+    if (p.mode === 'tempo') return `${d.name} ${p.bpm} BPM`;
+    return p.passes ? `${d.name} ohne Tempo` : `${d.name} neu`;
+  }).join(' · ');
 }
 
 function showStart() {
@@ -71,14 +79,12 @@ function showStart() {
     return li;
   }));
 
-  const lv = S.progress.levels;
-  const pct = Math.round(songProgress(lv) * 100);
+  const defs = phraseDefs(SONG);
+  const pct = Math.round(guideProgress(defs, S.phrases) * 100);
   $('#song-bar .bar-fill').style.width = `${pct}%`;
   $('#song-bar').setAttribute('aria-valuenow', String(pct));
   $('#song-percent').textContent = `${pct} %`;
-  const verseBpm = S.loops.verse?.bpm;
-  $('#song-status').textContent = `Blitz Stufe ${lv.blitz}/${MAX_LEVELS.blitz} · Wege Stufe ${lv.wege}/${MAX_LEVELS.wege}`
-    + ` · Groove Stufe ${lv.groove}/${MAX_LEVELS.groove}${verseBpm ? ` · Strophe ${verseBpm} BPM` : ''}`;
+  $('#song-status').textContent = phraseStatus(defs);
   showScreen('start');
   audio.preloadPiano();
 }
@@ -102,7 +108,12 @@ function timeLine(sec) {
 function doneLines(out) {
   const { results } = out;
   const lines = [];
-  const b = results.blitz, w = results.wege, g = results.groove, p = results.playalong;
+  const b = results.blitz, w = results.wege, g = results.groove, p = results.playalong, gd = results.guided;
+  if (gd?.solid.length) lines.push(`${gd.solid.join(' und ')} ${gd.solid.length === 1 ? 'sitzt' : 'sitzen'} jetzt`);
+  if (gd?.passes) {
+    const where = gd.mode === 'tempo' ? ` – ${gd.last} jetzt bei ${gd.bpm} BPM` : ` – ${gd.last} noch ohne Tempo`;
+    lines.push(`${gd.clean} von ${gd.passes} ${gd.passes === 1 ? 'Durchgang' : 'Durchgängen'} sauber${gd.solid.length ? '' : where}`);
+  }
   if (w?.blocks) lines.push(tempoLine(w, 'drangeblieben'));
   if (g?.blocks) lines.push(tempoLine(g, 'groovt'));
   if (b?.cards) {
@@ -144,7 +155,7 @@ async function start(plan, { keepDone = false } = {}) {
 function moreExercise() {
   const last = lastOut?.lastExercise;
   if (last && last !== 'playalong') return last;
-  return S.progress.lastExercise || 'blitz';
+  return S.progress.lastExercise || 'guided';
 }
 
 /* ---------- Verdrahtung ------------------------------------------------ */
@@ -167,9 +178,12 @@ function wire() {
   // S2
   $('#start-plan').addEventListener('click', showPlan);
   $('#go-mix').addEventListener('click', () => start(buildMix(mixState(), today())));
-  $('#go-one').addEventListener('click', () => start([{ exercise: 'blitz', cards: 6 }]));
+  $('#go-one').addEventListener('click', () => start([{ exercise: 'guided', seconds: 60 }]));
   for (const b of $$('[data-direct]')) b.addEventListener('click', () => start([{ exercise: b.dataset.direct, seconds: 180 }]));
-  $('#go-about').addEventListener('click', () => showScreen('about'));
+  $('#go-about').addEventListener('click', () => {
+    for (const b of $$('#s-about [data-toggle="mic"]')) setToggle(b, !!S.settings.mic, !micSupported());
+    showScreen('about');
+  });
 
   // S8
   $('#go-reward').addEventListener('click', () => start([{ exercise: 'playalong', bars: 8, melody: true }], { keepDone: true }));

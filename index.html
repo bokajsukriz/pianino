@@ -68,19 +68,51 @@
 
       <div class="card song">
         <div class="card-head">
-          <h2 class="h2">Perfect Ruin · Strophe</h2>
+          <h2 class="h2">Perfect Ruin</h2>
           <span id="song-percent" class="small muted"></span>
         </div>
         <div class="bar" role="progressbar" aria-label="Fortschritt im Song" aria-valuemin="0" aria-valuemax="100" id="song-bar"><div class="bar-fill"></div></div>
         <p id="song-status" class="small muted"></p>
       </div>
 
-      <div class="direct" role="group" aria-label="Direkt üben">
+      <p class="small muted extras-label">Einzeln üben</p>
+      <div class="direct" role="group" aria-label="Einzeln üben">
         <button type="button" class="btn btn-tile" data-direct="blitz">Akkord-Blitz</button>
         <button type="button" class="btn btn-tile" data-direct="wege">Kurze Wege</button>
         <button type="button" class="btn btn-tile" data-direct="groove">Groove</button>
       </div>
       <button type="button" id="go-about" class="link-btn">Über</button>
+    </div>
+  </section>
+
+  <!-- S9 Geführt -->
+  <section id="s-guided" class="screen landscape" data-screen="guided" hidden>
+    <header class="ex-head">
+      <div class="ex-title"><span class="ex-name">Geführt</span> <span class="ex-level" data-f="level"></span></div>
+      <div class="ex-count" data-f="count"></div>
+      <div class="ex-meta" data-f="bpm"></div>
+      <button type="button" class="toggle toggle-sm" data-toggle="mic" aria-pressed="false">Mikro</button>
+      <button type="button" class="icon-btn" data-pause aria-label="Pause">
+        <svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
+      </button>
+    </header>
+    <div class="rotate-hint">Dreh das Handy quer – dann ist mehr Platz.</div>
+    <ol class="chord-strip" data-f="strip" aria-label="Akkorde"></ol>
+    <div class="wege-main">
+      <div class="now-next">
+        <span class="now-label">jetzt</span>
+        <span class="now-symbol" data-f="now"></span>
+        <span class="next-line"><span class="next-label">dann</span> <span class="next-symbol" data-f="next"></span></span>
+      </div>
+      <div class="wege-kb" data-f="kb"></div>
+    </div>
+    <div class="ex-foot">
+      <span class="beat-dots small-dots" data-f="dots" aria-hidden="true"></span>
+      <p class="tip status-line" data-f="status" aria-live="polite"></p>
+    </div>
+    <div class="ask-row" data-f="ask" hidden role="group" aria-label="Wie lief der Durchgang?">
+      <button type="button" class="btn btn-answer" data-answer="ok"><b>Drangeblieben</b><span>bis zum Ende mitgekommen</span></button>
+      <button type="button" class="btn btn-answer" data-answer="out"><b>Rausgefallen</b><span>den Anschluss verloren</span></button>
     </div>
   </section>
 
@@ -244,9 +276,13 @@
     <div class="portrait-inner">
       <button type="button" class="link-btn back" data-back>Zurück</button>
       <h1 class="h1">Über Pianino</h1>
-      <p>Eine kleine Übe-App, um in 5 Minuten am Tag Begleiten zu lernen. Sie prüft
-        nicht, was du spielst – sie zeigt, spielt vor, gibt den Takt und lässt dich
-        selbst einschätzen.</p>
+      <p>Eine kleine Übe-App, um in 5 Minuten am Tag Begleiten zu lernen. Sie zeigt,
+        spielt vor und gibt den Takt. In „Geführt“ hört sie auf Wunsch übers Mikrofon
+        zu, ob der Akkord liegt, und geht dann von selbst weiter – aufgenommen oder
+        gespeichert wird dabei nichts.</p>
+      <div class="toggles">
+        <button type="button" class="toggle" data-toggle="mic" aria-pressed="false">Mikrofon in „Geführt“</button>
+      </div>
       <p class="small muted">Die Akkorde von „Perfect Ruin“ stammen aus Nutzer-Tabs
         und sind noch nicht mit den Noten geprüft.</p>
       <button type="button" id="about-plan" class="btn btn-secondary btn-wide">Plan ändern</button>

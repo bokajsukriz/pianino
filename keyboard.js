@@ -13,6 +13,7 @@ import { isBlack, transition, chordById } from './chords.js';
 const NS = 'http://www.w3.org/2000/svg';
 const WW = 24, WH = 118, BW = 15, BH = 74, LABEL = 16;
 const FILL = { rh: '#F868B0', to: '#F868B0', lh: '#f5b942', stay: '#6f6585', from: '#fde3f0' };
+const HEARD_HIT = '#1f8a5b';
 const INK = { rh: '#241b3d', to: '#241b3d', lh: '#241b3d', stay: '#ffffff', from: '#241b3d' };
 
 function el(name, attrs = {}, text = null) {
@@ -30,8 +31,10 @@ export function rangeFor(notes) {
   return [lo, hi];
 }
 
-/** Tastatur in `host` zeichnen. marks: Map(midi → { kind, finger?, label? }). */
-export function renderKeyboard(host, { lo, hi, marks = new Map(), title = 'Tastatur' }) {
+/** Tastatur in `host` zeichnen. marks: Map(midi → { kind, finger?, label? }).
+ *  heard: Map(midi → 'hit' | 'extra') — vom Mikrofon gehört: Punkt auf der
+ *  Taste, grün für Akkordtöne, grau für andere (nie rot). */
+export function renderKeyboard(host, { lo, hi, marks = new Map(), title = 'Tastatur', heard = null }) {
   const whites = [];
   for (let m = lo; m <= hi; m++) if (!isBlack(m)) whites.push(m);
   const W = whites.length * WW;
@@ -66,6 +69,15 @@ export function renderKeyboard(host, { lo, hi, marks = new Map(), title = 'Tasta
   };
   for (const m of whites) drawKey(m, false);
   for (let m = lo; m <= hi; m++) if (isBlack(m) && xOf.has(m - 1)) drawKey(m, true);
+  for (const [m, how] of heard || []) {
+    if (m < lo || m > hi || (isBlack(m) && !xOf.has(m - 1))) continue;
+    const black = isBlack(m);
+    const x = black ? xOf.get(m - 1) + WW : xOf.get(m) + WW / 2;
+    svg.append(el('circle', {
+      cx: x, cy: black ? BH - 30 : WH - 36, r: black ? 5 : 6,
+      fill: how === 'hit' ? HEARD_HIT : '#9a8fb3', stroke: '#ffffff', 'stroke-width': 1.5,
+    }));
+  }
   host.replaceChildren(svg);
   return svg;
 }

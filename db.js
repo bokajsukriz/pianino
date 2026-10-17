@@ -2,11 +2,12 @@
    Schlüssel `id`. Vereinfacht nach dem Muster DB.metaGet/metaPut der Choirapp.
 
    Datensätze:
-     settings          { plan, onboarded, click, melody, melodyLow }
+     settings          { plan, onboarded, click, melody, melodyLow, mic }
      progress          { levels: { blitz, wege, groove }, lastPlayed: {…},
                          lastExercise, asked: { blitz, wege, groove } }
      card:<Akkord-id>  Leitner-Karte (leitner.js)
      loop:<Loop-id>    Kurze-Wege-Loop (tempo.js)
+     phrase:<id>       Phrase für „Geführt“ (phrases.js)
      groove            { bpm }
      day:<YYYY-MM-DD>  { seconds, exercises: [] }
      dataVersion       { v } — Stand der gespeicherten Daten
