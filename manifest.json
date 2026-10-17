@@ -1,0 +1,17 @@
+{
+  "name": "Pianino",
+  "short_name": "Pianino",
+  "description": "5 Minuten am Tag Klavier üben, um Gesang zu begleiten.",
+  "lang": "de",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#fff7ec",
+  "theme_color": "#fff7ec",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" },
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
