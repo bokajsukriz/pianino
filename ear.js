@@ -36,7 +36,7 @@ export function loadEar() {
 
 /** Ein Fenster (≈ 0,17 s, Länge 2^n) gegen erwartete Song-Akkorde prüfen.
  *  frame wird übergeben (danach leer). expect: Symbole, z. B. ['Am', 'D'].
- *  → Promise<{ results: { Am: { ok, score, chord }, … } }>; chord: das
+ *  → Promise<{ results: { Am: { ok, score, chord }, … }, hpcp }>; chord: das
  *  erwartete Symbol, ein anderer Song-Akkord oder eine Variante wie 'Am?A-C-F#'. */
 export function checkFrame(frame, sampleRate, expect) {
   const id = nextId++;

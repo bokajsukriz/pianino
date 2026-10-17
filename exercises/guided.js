@@ -22,6 +22,7 @@ import { S, today, getPhrase, putPhrase, saveSettings } from '../store.js';
 import { $, field, showScreen, waitChoice, makeDots, setDots, frameLoop, modal, setToggle } from '../ui.js';
 import { createClock } from '../clock.js';
 import { renderKeyboard, rangeFor, chordMarks, transitionMarks } from '../keyboard.js';
+import { levelPct, notesText } from '../mictest.js';
 
 const ADVANCE_KEYS = new Set([' ', 'Enter', 'ArrowRight', 'ArrowDown', 'PageDown']);
 /** Eingang hinkt der Audiouhr hinterher (Mikro-Latenz, Fenstermitte). */
@@ -52,6 +53,7 @@ function makeUi(scr, range) {
     level: field(scr, 'level'), count: field(scr, 'count'), bpm: field(scr, 'bpm'),
     strip: field(scr, 'strip'), now: field(scr, 'now'), next: field(scr, 'next'),
     kb: field(scr, 'kb'), dots: field(scr, 'dots'), status: field(scr, 'status'), ask: field(scr, 'ask'),
+    diag: field(scr, 'diag'), diagNotes: field(scr, 'diag-notes'),
     micBtn: scr.querySelector('[data-toggle="mic"]'),
   };
   let kbKey = '';
@@ -79,6 +81,15 @@ function makeUi(scr, range) {
       els.next.textContent = nxt ? sym(nxt) : '';
     },
     got() { els.now.classList.add('got'); },
+    /** Kleine Live-Anzeige: Pegel und gehörte Töne (nur mit Mikrofon). */
+    diag() {
+      const d = mic.isOpen() ? mic.diag() : null;
+      els.diag.hidden = !d;
+      if (!d) return;
+      els.diag.querySelector('.bar-fill').style.width = `${levelPct(d.db).toFixed(0)}%`;
+      const t = `hört: ${notesText(d.notes.slice(0, 4))}`;
+      if (els.diagNotes.textContent !== t) els.diagNotes.textContent = t;
+    },
     /** Tastatur nur neu zeichnen, wenn sich etwas ändert. */
     kb(what) {
       const key = what ? what.join('>') : '-';
@@ -122,6 +133,7 @@ async function syncMic(ui) {
   }
   if (!S.settings.mic && mic.isOpen()) mic.close();
   setToggle(ui.micBtn, !!S.settings.mic, !mic.supported());
+  ui.diag();
   for (const b of document.querySelectorAll('[data-ear]')) b.textContent = `Hören: ${mic.earMode()}`;
 }
 
@@ -154,6 +166,7 @@ async function waitFor(api, scr, ui, { id, prevId, showKb }) {
         ui.say(listening ? `So klingt ${sym(id)}. Spiel ihn nach.` : `So klingt ${sym(id)}.`);
       }
       const smp = listening ? hearNow([id]) : null;
+      ui.diag();
       if (listening && mic.earMode() !== 'eigen' && !warned && mic.earStatus() === 'failed') {
         warned = true;
         ui.say(mic.earMode() === 'beide' ? 'essentia.js ließ sich nicht laden – es hört nur der eigene Erkenner.'
@@ -247,6 +260,7 @@ async function tempoPass(api, scr, ui, def, bpm, help) {
     // Hören: Takt k zählt, sobald sein Akkord erkannt ist — ab EARLY s vor
     // seiner Eins bis zum Taktende.
     const rel0 = audio.now() - INPUT_LAG - clock.t0 - barDur, kk = Math.floor(rel0 / barDur);
+    ui.diag();
     const smp = listening ? hearNow([bars[Math.max(0, Math.min(n - 1, kk))], bars[Math.max(0, Math.min(n - 1, kk + 1))]]) : null;
     if (smp?.fresh) {
       const rel = audio.now() - INPUT_LAG - clock.t0 - barDur;
