@@ -11,7 +11,7 @@ import {
 } from './leitner.js';
 import { applyWege, blockBpm, newLoop, nextLoop, wegeStages, applyGroove, blockChords } from './tempo.js';
 import { buildMix, mixLabel, weekDots } from './mix.js';
-import { semitoneLevels, followOnset, checkChord, peakNotes } from './hear.js';
+import { semitoneLevels, followOnset, checkChord, checkChordAny, voicings, peakNotes } from './hear.js';
 import {
   GUIDE, phraseDefs, newPhrase, waitSequence, tempoBars, applyWait, applyTempo, repairPairs, nextPhrase,
   guideProgress, unlocked,
@@ -223,6 +223,14 @@ function pureTests() {
   check('7 Hören: verklungener Fremdton zählt weiter (Gedächtnis seit dem Anschlag)',
     checkChord(later, null, cF).ok && !checkChord(later, mem, cF).ok);
 
+  check('7 Lagen: Am eng in jeder Oktave, Song-Lage dabei',
+    voicings(song[0]).some((v) => v.join() === '57,60,64') && voicings(song[0]).some((v) => v.join() === '69,72,76'));
+  check('7 Lagen: Am eine Oktave tiefer → nur der lagenunabhängige Erkenner sagt ja',
+    checkChordAny(spectrum(play([57, 60, 64])), null, song[0]).ok && !checkChord(spectrum(play([57, 60, 64])), null, song[0]).ok);
+  check('7 Lagen: Am in Grundstellung um C4 und 1. Umkehrung erkannt',
+    checkChordAny(spectrum(play([57, 60, 64])), null, song[0]).ok && checkChordAny(spectrum(play([60, 64, 69])), null, song[0]).ok);
+  check('7 Lagen: andere Song-Akkorde in fremder Lage nicht als Am',
+    ['C', 'F', 'Dm', 'D'].every((x) => { const c = chordById(`${x}:song`); return voicings(c).every((v) => !checkChordAny(spectrum(play(v)), null, song[0]).ok); }));
   {
     // Gehörte Töne: Am in Song-Lage, das A4 um 30 Cent zu hoch.
     const pw = new Float64Array(NF / 2).fill(1e-11);

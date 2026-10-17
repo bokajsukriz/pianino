@@ -1,7 +1,8 @@
 import fs from 'node:fs';
-const { semitoneLevels, followOnset, checkChord } = await import('../../../hear.js');
+const { semitoneLevels, followOnset, checkChord, checkChordAny } = await import('../../../hear.js');
+const CHECK = process.env.MODE === 'any' ? checkChordAny : checkChord; const DATA = process.env.DATA || 'tail';
 const { songChord } = await import('../../../chords.js');
-const meta = JSON.parse(fs.readFileSync('tail.json')); const b = fs.readFileSync('tail.f32'); const all = new Float32Array(b.buffer, b.byteOffset, b.length / 4);
+const meta = JSON.parse(fs.readFileSync(DATA + '.json')); const b = fs.readFileSync(DATA + '.f32'); const all = new Float32Array(b.buffer, b.byteOffset, b.length / 4);
 const SR = meta.sr, N = 8192, LEN = meta.len;
 const W = Float64Array.from({ length: N }, (_, i) => 0.42 - 0.5 * Math.cos(2 * Math.PI * i / N) + 0.08 * Math.cos(4 * Math.PI * i / N));
 function fftDb(seg) { const re = new Float64Array(N), im = new Float64Array(N); for (let i = 0; i < N; i++) re[i] = (seg[i] || 0) * W[i];
@@ -20,12 +21,12 @@ meta.scenes.forEach((s, i) => {
     if (t < meta.on + 0.025) { before = now; continue; }
     since = followOnset(since, now, t - meta.on, before);
     if (t < meta.on + 0.1) continue;
-    const ok = checkChord(now, since, songChord(s.expected), { prev: songChord(s.prev), ...JSON.parse(process.env.TUNE || "{}") }).ok;
+    const ok = CHECK(now, since, songChord(s.expected), { prev: songChord(s.prev), ...JSON.parse(process.env.TUNE || "{}") }).ok;
     if (ok && first === null) first = t - meta.on;
     if (ok && prevOk && stable === null) stable = t - meta.on;
     prevOk = ok;
   }
-  const key = `${s.bass ? 'mit Bass' : 'nur RH '} ${s.correct ? 'richtig' : s.label.includes('->') ? 'anderer Akkord' : 'Ton daneben'}`;
+  const key = `${process.env.BYSTYLE && s.style ? s.style.padEnd(8) : ''}${s.bass ? 'mit Bass' : 'nur RH '} ${s.correct ? 'richtig' : s.label.includes('->') ? 'anderer Akkord' : 'Ton daneben'}`;
   const WIN = +(process.env.WIN || 99); const v = s.correct ? stable !== null && stable <= 1.0 : stable !== null && stable <= WIN;
   (stats[key] ||= [0, 0]); stats[key][0] += v ? 1 : 0; stats[key][1]++;
   if (!s.correct && v) bad.push(`${s.label}${s.bass ? '(B)' : ''}@${stable.toFixed(2)}s`);

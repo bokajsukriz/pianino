@@ -47,6 +47,7 @@ export const HEAR = Object.freeze({
                     // (Pedal-Nachklang schwebt um einige dB)
   settle: 0.45,     // s nach dem Anschlag: ab hier zählt der Spitzenpegel (FFT-Fenster + Rand)
   foreignLo: 62, foreignHi: 86,
+  voiceLo: 50,      // tiefster Ton der Lagen, die checkChordAny prüft
 });
 
 const SILENT = -200;
@@ -161,7 +162,9 @@ export function checkChord(levels, since, chord, { prev = null, lo = HEAR.lo, ..
   const peak = since?.peak;
   const peakRef = peak ? Math.max(...rh.map((m) => peak[m - lo])) : 0;
   const foreign = [];
-  for (let m = P.foreignLo; m <= P.foreignHi; m++) {
+  // Fremdtöne im Bereich rund um die Akkordtöne (für tiefe Lagen erweitert).
+  const fLo = Math.min(P.foreignLo, Math.min(...rh) - 5), fHi = Math.max(P.foreignHi, Math.max(...rh) + 8);
+  for (let m = fLo; m <= fHi; m++) {
     if (allowed.has(m)) continue;
     if (ringing.has(m) && !(since && since.rise[m - lo] >= P.rise)) continue;
     if (L(m) > ref - P.foreign || L(m) > weakest - P.foreignWeak
@@ -169,3 +172,53 @@ export function checkChord(levels, since, chord, { prev = null, lo = HEAR.lo, ..
   }
   return { ok: loud && !missing.length && !foreign.length, loud, present: loud ? present : [], missing, foreign: loud ? foreign : [] };
 }
+
+/** Alle engen Lagen der rechten Hand: Grundstellung und Umkehrungen, tiefster
+ *  Ton zwischen lo und hi (MIDI). Am → [57,60,64], [60,64,69], [64,69,72], …
+ *  Die Lage aus chords.js ist darunter, wenn sie eng ist (alle :song-Lagen).
+ *  Simulation (800 Ausklänge in Song-Lage, 1200 in vier anderen Lagen, Urteil
+ *  bis 1 s nach dem Anschlag), checkChordAny gegen checkChord:
+ *    andere Lagen  erkannt 98 % (nur RH) / 97 % (mit Bass) statt 30 % / 24 %,
+ *                  Fehlgriffe 0,4 % / 3,8 %;
+ *    Song-Lage     erkannt 100 % / 97,5 % wie bisher, Fehlgriffe nur RH 0,4 %
+ *                  wie bisher, mit Bass 12 % statt 6 %: die Obertöne des
+ *                  Basses ergänzen manchmal eine Nachbarlage (z. B. F2 liefert
+ *                  C4, F4, A4). Gewollt: der Akkord zählt, nicht die Lage. */
+export function voicings(chord, { lo = 50, hi = 76 } = {}) {
+  const pcs = [...new Set(chord.rh.map((m) => ((m % 12) + 12) % 12))];
+  const out = [];
+  for (let b = lo; b <= hi; b++) {
+    if (!pcs.includes(b % 12)) continue;
+    const v = [b];
+    for (const p of pcs) {
+      if (p === b % 12) continue;
+      let m = b + 1;
+      while (m % 12 !== p) m++;
+      v.push(m);
+    }
+    out.push(v.sort((x, y) => x - y));
+  }
+  const own = chord.rh.join();
+  if (!out.some((v) => v.join() === own)) out.push([...chord.rh]);
+  return out;
+}
+
+/** Liegt der Akkord — in irgendeiner engen Lage (voicings)? Geprüft wird
+ *  jede Lage mit checkChord. Der Bass gilt in der Lage aus chords.js (eine
+ *  Oktave tiefer erlaubt, ließ seine Obertöne Fehlgriffe zudecken).
+ *  Als Nachklang geduldet wird nur der Vorakkord in seiner Lage aus chords.js
+ *  — in allen Oktaven geduldet, ging jeder dritte Ganzton-Fehlgriff mit Bass
+ *  als „klingt nur nach“ durch. Für Übungen, die genau eine Lage
+ *  verlangen, checkChord direkt nehmen.
+ *  → wie checkChord, dazu rh: die Lage, die passte (oder die mit den
+ *  wenigsten fehlenden Tönen). */
+export function checkChordAny(levels, since, chord, { prev = null, voiceLo = HEAR.voiceLo, ...opts } = {}) {
+  let best = null;
+  for (const rh of voicings(chord, { lo: voiceLo })) {
+    const r = checkChord(levels, since, { ...chord, rh }, { ...opts, prev });
+    if (r.ok) return { ...r, rh };
+    if (!best || r.missing.length < best.missing.length) best = { ...r, rh };
+  }
+  return best;
+}
+
