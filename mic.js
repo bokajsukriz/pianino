@@ -1,11 +1,16 @@
 /* mic.js — Mikrofon für „Geführt“: getUserMedia → AnalyserNode im
    gemeinsamen AudioContext (nicht an die Lautsprecher angeschlossen).
    Nichts wird aufgenommen oder gespeichert; gelesen wird nur das jeweils
-   letzte Fenster. Zwei Erkenner zur Auswahl (Einstellung `essentia`):
+   letzte Fenster. Drei Arten zu hören (Einstellung `ear`, EARS):
      eigen     hear.js — prüft die Töne des erwarteten Akkords im Spektrum
                (≈ ⅓ s), mit Gedächtnis seit dem Anschlag, synchron.
      essentia  ear.js — essentia.js im Worker vergleicht die Chroma des
                Fensters (≈ 0,17 s) mit dem erwarteten Akkord, asynchron.
+     beide     eigen sagt ja UND essentia hält den erwarteten Akkord für den
+               wahrscheinlichsten (Abstand ≥ 0). Simulation, mit Bass:
+               Fehlgriffe 7,1 → 3,8 %, erkannt 98,8 → 95 %; nur rechte Hand
+               100 → 97,5 %, Fehlgriffe 0,8 → 0,4 %. Solange essentia lädt
+               (oder nicht lädt), hört nur der eigene.
    Echo-Unterdrückung, Rauschunterdrückung und Pegelautomatik sind aus — die
    würden Klaviertöne verbiegen oder wegregeln. Spielt die App selbst einen
    Akkord vor, wird so lange weggehört (ignoreUntil), sonst erkennte sie sich
@@ -31,7 +36,9 @@ let prevSpec = null, before = null, since = null; // eigen: Gedächtnis seit dem
 
 export const supported = () => !!navigator.mediaDevices?.getUserMedia;
 export const isOpen = () => !!analyser;
-const useEssentia = () => !!S.settings.essentia;
+export const EARS = Object.freeze(['eigen', 'essentia', 'beide']);
+/** Gewählte Art zu hören. */
+export const earMode = () => (EARS.includes(S.settings.ear) ? S.settings.ear : 'eigen');
 
 /** essentia im Hintergrund laden (einmal); bis dahin hört nichts. */
 function ensureEar() {
@@ -111,29 +118,17 @@ function trackOnset(t) {
  *  beim Lesen des Fensters. fresh: neu seit dem letzten Aufruf. */
 export function sample(t, want = []) {
   if (!analyser || t < quietUntil) return null;
-  const essentia = useEssentia();
-  if (essentia) ensureEar();
+  const mode = earMode();
+  if (mode !== 'eigen') ensureEar();
   if (!busy && (!asked || t - asked >= EVERY)) {
     asked = t;
     analyser.getFloatTimeDomainData(timeBuf);
     const onset = trackOnset(t);
     const sinceOnset = t - lastOnset;
     const sr = audio.getCtx().sampleRate;
-    if (essentia) {
-      if (earState === 'ready') {
-        const gen = generation;
-        busy = true;
-        const expect = [...new Set(want.map((id) => chordById(id).symbol))];
-        checkFrame(timeBuf.slice(FFT - ESSENTIA_FRAME), sr, expect).then(({ results }) => {
-          busy = false;
-          if (gen !== generation) return;
-          const errs = Object.values(results).filter((r) => r.error);
-          if (errs.length) logError('mic:chord', errs[0].error);
-          const other = Object.values(results).map((r) => r.chord).find((c) => c && !c.includes('?') && !expect.includes(c)) || '';
-          last = { chord: other, sinceOnset, fresh: true, is: (id) => !!results[chordById(id).symbol]?.ok };
-        });
-      }
-    } else {
+    // Eigener Erkenner (außer bei „essentia“ allein): synchron, mit Gedächtnis.
+    let eigenIs = null;
+    if (mode !== 'essentia') {
       analyser.getFloatFrequencyData(freqBuf);
       const now = semitoneLevels(freqBuf, sr, FFT);
       // Neuer Anschlag: Gedächtnis zurücksetzen, Spektrum davor merken.
@@ -141,10 +136,26 @@ export function sample(t, want = []) {
       if (Number.isFinite(lastOnset)) since = followOnset(since, now, sinceOnset, before);
       prevSpec = now;
       const mem = since;
-      last = {
-        chord: '', sinceOnset, fresh: true,
-        is: (id, prevId) => checkChord(now, mem, chordById(id), { prev: prevId ? chordById(prevId) : null }).ok,
-      };
+      eigenIs = (id, prevId) => checkChord(now, mem, chordById(id), { prev: prevId ? chordById(prevId) : null }).ok;
+    }
+    if (mode !== 'eigen' && earState === 'ready') {
+      const gen = generation;
+      busy = true;
+      const expect = [...new Set(want.map((id) => chordById(id).symbol))];
+      checkFrame(timeBuf.slice(FFT - ESSENTIA_FRAME), sr, expect).then(({ results }) => {
+        busy = false;
+        if (gen !== generation) return;
+        const errs = Object.values(results).filter((r) => r.error);
+        if (errs.length) logError('mic:chord', errs[0].error);
+        const other = Object.values(results).map((r) => r.chord).find((c) => c && !c.includes('?') && !expect.includes(c)) || '';
+        const ess = (id) => results[chordById(id).symbol];
+        const is = mode === 'beide'
+          ? (id, prevId) => eigenIs(id, prevId) && (ess(id)?.score ?? -1) >= 0
+          : (id) => !!ess(id)?.ok;
+        last = { chord: other, sinceOnset, fresh: true, is };
+      });
+    } else if (eigenIs) {
+      last = { chord: '', sinceOnset, fresh: true, is: eigenIs };
     }
   }
   if (!last) return null;

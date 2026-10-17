@@ -8,9 +8,9 @@ import { newLoop } from './tempo.js';
 import { newPhrase } from './phrases.js';
 
 export const S = {
-  // mic: null = noch nicht gefragt, sonst true/false; essentia: Erkenner
-  // essentia.js statt des eigenen (hear.js)
-  settings: { id: 'settings', plan: '', onboarded: false, click: true, melody: true, melodyLow: false, mic: null, essentia: false },
+  // mic: null = noch nicht gefragt, sonst true/false; ear: wie gehört wird
+  // ('eigen' | 'essentia' | 'beide', mic.js EARS)
+  settings: { id: 'settings', plan: '', onboarded: false, click: true, melody: true, melodyLow: false, mic: null, ear: 'eigen' },
   progress: {
     id: 'progress',
     levels: { blitz: 1, wege: 1, groove: 1 },

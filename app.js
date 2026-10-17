@@ -10,7 +10,7 @@ import { hasMelody } from './melody.js';
 import { SONG } from './song-perfect-ruin.js';
 import { runSession, pause, resume, end, sessionRunning } from './session.js';
 import { $, $$, showScreen, setToggle } from './ui.js';
-import { supported as micSupported } from './mic.js';
+import { supported as micSupported, EARS, earMode } from './mic.js';
 import { logError } from './log.js';
 
 const WEEKDAYS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
@@ -158,6 +158,11 @@ function moreExercise() {
   return S.progress.lastExercise || 'guided';
 }
 
+/** Beschriftung der Erkenner-Knöpfe. */
+function paintEar() {
+  for (const b of $$('[data-ear]')) b.textContent = `Hören: ${earMode()}`;
+}
+
 /* ---------- Verdrahtung ------------------------------------------------ */
 function wire() {
   // S1
@@ -182,7 +187,7 @@ function wire() {
   for (const b of $$('[data-direct]')) b.addEventListener('click', () => start([{ exercise: b.dataset.direct, seconds: 180 }]));
   $('#go-about').addEventListener('click', () => {
     for (const b of $$('#s-about [data-toggle="mic"]')) setToggle(b, !!S.settings.mic, !micSupported());
-    for (const b of $$('#s-about [data-toggle="essentia"]')) setToggle(b, !!S.settings.essentia);
+    paintEar();
     showScreen('about');
   });
 
@@ -208,6 +213,14 @@ function wire() {
   for (const b of $$('[data-pause]')) b.addEventListener('click', pause);
   $('#pause-go').addEventListener('click', resume);
   $('#pause-end').addEventListener('click', end);
+
+  // Erkenner: eigen → essentia → beide (gilt ab der nächsten Auswertung).
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('[data-ear]')) return;
+    S.settings.ear = EARS[(EARS.indexOf(earMode()) + 1) % EARS.length];
+    paintEar();
+    saveSettings();
+  });
 
   // Schalter Klick / Melodie / tiefer: gelten sofort (die Uhr liest sie je Schritt).
   document.addEventListener('click', (e) => {
