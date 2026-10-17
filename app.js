@@ -9,7 +9,7 @@ import { phraseDefs, guideProgress, unlocked, newPhrase } from './phrases.js';
 import { hasMelody } from './melody.js';
 import { SONG } from './song-perfect-ruin.js';
 import { runSession, pause, resume, end, sessionRunning } from './session.js';
-import { $, $$, showScreen, setToggle } from './ui.js';
+import { $, $$, showScreen, setToggle, onScreen, screenName } from './ui.js';
 import { supported as micSupported, EARS, earMode } from './mic.js';
 import { openMicTest, closeMicTest } from './mictest.js';
 import { logError } from './log.js';
@@ -249,6 +249,25 @@ function wire() {
   });
 }
 
+/* ---------- Zurück (Android-Taste, Wischgeste) --------------------------
+   Die Screens wechseln ohne Seitenwechsel. Damit „Zurück“ nicht die App
+   verlässt, liegt außerhalb des Startscreens ein Eintrag im Verlauf; ihn
+   zurückzunehmen heißt: Übung pausieren, Mikrofon-Test → Über, sonst
+   Startscreen. Auf dem Startscreen verlässt „Zurück“ die App wie gewohnt. */
+let ignorePop = 0;
+const guard = () => { if (!history.state?.pianino) history.pushState({ pianino: 1 }, ''); };
+const unguard = () => { if (history.state?.pianino) { ignorePop++; history.back(); } };
+
+function onBack() {
+  if (ignorePop) { ignorePop--; return; }
+  const name = screenName();
+  if (name === 'start') return;
+  if (sessionRunning()) { guard(); if ($('#pause').hidden) pause(); return; }
+  if (!$('#modal').hidden || (name === 'plan' && !S.settings.onboarded)) { guard(); return; }
+  if (name === 'mictest') { closeMicTest(); showScreen('about'); return; }
+  showStart();
+}
+
 /* ---------- Version und Update ---------------------------------------- */
 let swReg = null;
 
@@ -278,6 +297,8 @@ async function checkUpdate() {
 }
 
 async function boot() {
+  onScreen((name) => (name === 'start' ? unguard() : guard()));
+  window.addEventListener('popstate', onBack);
   window.runSelfTests = (...a) => import('./selftest.js').then((m) => m.runSelfTests(...a));
   wire();
   try { await loadAll(); } catch (e) { logError('boot:load', e); }
