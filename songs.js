@@ -58,14 +58,16 @@ export function showSongs() {
   showScreen('songs');
 }
 
-/** Neuer Song: Titel, dann gleich die Liedseite. */
+/** Neuer Song: Titel und Interpret, dann die Liedseite mit dem Assistenten
+ *  (Video → Teile → Akkordwechsel → Griffe). */
 async function createSong() {
-  const title = await ask('Neuer Song', 'Titel (Interpret kommt in der Liedseite unter „Mehr“).', { placeholder: 'z. B. Perfect Ruin', ok: 'Anlegen' });
+  const title = await ask('Neuer Song', 'Titel', { placeholder: 'z. B. Perfect Ruin', ok: 'Weiter' });
   if (!title) return;
-  const song = newSong(title, [...S.songs.keys()]);
+  const artist = await ask('Interpret', 'Darf leer bleiben.', { ok: 'Anlegen' });
+  const song = { ...newSong(title, [...S.songs.keys()]), artist: (artist || '').trim() };
   await putSong(song);
   await setCurrentSong(song.id);
-  hooks.open(song.id);
+  hooks.open(song.id, { wizard: 'video' });
 }
 
 /** Datei anbieten; Text und Tabs nur auf Wunsch. */

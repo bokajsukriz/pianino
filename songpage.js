@@ -20,10 +20,11 @@ import { nextMarkName, fmtClock, addLoop, updateLoop, removeLoop, sortLoops } fr
 import {
   METERS, MAX_BARS, sectionList, addSection, resizeSection, deleteSection, updateSection, setBeatsPerBar,
   setChordAt, shiftChordAt, sectionGrid, sectionTimes, playPos, tabBlocks, blocksForSections, sectionsFromTabs,
-  orderByStart, sectionProgress, fitBars,
+  orderByStart, sectionProgress, fitBars, tapChordAt,
 } from './leadsheet.js';
 import { drillChunks } from './drill.js';
 import { openDrill } from './drillpage.js';
+import { initWizard, startWizard, stopWizard, paintWizard } from './songwizard.js';
 import { $, $$, showScreen, screenName, modal, ask, frameLoop, onLongPress } from './ui.js';
 
 const RATES = [0.5, 0.75, 1];
@@ -39,7 +40,7 @@ const unitLabel = (n) => (n === 6 ? 'Achtel' : 'Viertel');
 
 let st = null;
 let wired = false;
-let hooks = { menu: async () => {} };
+let hooks = { menu: async () => {}, griffe: () => {} };
 
 const song = () => S.songs.get(st.songId);
 const dur = () => st.player?.duration() || youtubeSource(song())?.durationSec || 0;
@@ -56,6 +57,7 @@ async function save(next) {
   paintSections();
   paintTransport();
   refreshSheet();
+  paintWizard();
 }
 
 /** Nach Startzeit ordnen, dann Takte aus Tempo und Zeit (wo nicht von Hand). */
@@ -78,7 +80,8 @@ function button(cls, text, onClick, label = null) {
 
 /* ---------- Verdrahtung ------------------------------------------------- */
 
-/** h.menu(songId): Menü „Mehr“ (Exportieren, Löschen, Üben …), von app.js. */
+/** h.menu(songId): Menü „Mehr“ (Exportieren, Löschen, Üben …), von app.js;
+ *  h.griffe(songId, symbol): Griff-Editor für einen Akkord (Assistent). */
 export function initSongPage(h) {
   hooks = { ...hooks, ...h };
 }
@@ -102,6 +105,7 @@ function wire() {
   $('#sp-fromtabs').addEventListener('click', fromTabs);
   $('#sp-drill').addEventListener('click', () => drill());
   $('#sp-sheet-close').addEventListener('click', closeSheet);
+  initWizard(wizardApi);
   // Tabs
   for (const b of $$('#s-song [data-tabmode]')) b.addEventListener('click', () => setTabMode(b.dataset.tabmode));
   $('#sp-smaller').addEventListener('click', () => setSize(-SIZE.step));
@@ -113,8 +117,9 @@ function wire() {
   document.addEventListener('keydown', onKey);
 }
 
-/** Liedseite öffnen. → Promise, erfüllt mit „Zurück“. */
-export function openSongPage(songId) {
+/** Liedseite öffnen; wizard: Assistent ab diesem Schritt ('video' …).
+ *  → Promise, erfüllt mit „Zurück“. */
+export function openSongPage(songId, { wizard = null } = {}) {
   wire();
   let s = S.songs.get(songId);
   if (!s) return Promise.resolve();
@@ -138,6 +143,7 @@ export function openSongPage(songId) {
     paintLoops();
     paintTransport();
     paintTabs();
+    if (wizard) startWizard(wizard); else stopWizard();
     if (src?.videoId) loadVideo(src.videoId);
     st.stop = frameLoop(tick);
   });
@@ -145,6 +151,7 @@ export function openSongPage(songId) {
 
 function close() {
   if (!st) return;
+  stopWizard();
   closeSheet();
   st.stop?.();
   st.player?.destroy();
@@ -192,6 +199,7 @@ async function loadVideo(id) {
     st.rate = 1;
     paintTransport();
     paintSections();
+    paintWizard();
   } catch (e) {
     if (st !== mine) return;
     $('#sp-vnote').textContent = e?.message === 'offline'
@@ -400,6 +408,12 @@ function paintLoops() {
 async function addHere() {
   const base = await pickName();
   if (!base || !st) return;
+  const id = await addNamed(base);
+  $(`#sp-sections [data-id="${id}"]`)?.scrollIntoView({ block: 'nearest' });
+}
+
+/** Abschnitt „base“ (nummeriert, wo üblich) ab der aktuellen Stelle. → id */
+async function addNamed(base) {
   const s = song();
   const name = NUMBERED.has(base) || s.sections.some((x) => x.name === base) ? nextMarkName(s.sections, base) : base;
   const t = st.player ? st.player.now() : null;
@@ -407,7 +421,42 @@ async function addHere() {
   const id = added.sections[added.sections.length - 1].id;
   // Einsortiert nach Startzeit, nicht hinten angehängt.
   await save(tidy(added));
-  $(`#sp-sections [data-id="${id}"]`)?.scrollIntoView({ block: 'nearest' });
+  return id;
+}
+
+/** Was der Assistent (songwizard.js) auf der Liedseite tun darf. */
+const wizardApi = {
+  song: () => song(),
+  now: () => (st?.player ? st.player.now() : null),
+  hasVideo: () => !!st?.player || !!youtubeSource(song())?.videoId,
+  addSection: (base) => addNamed(base),
+  deleteSection: (id) => save(tidy(deleteSection(song(), id))),
+  setBpm: (bpm) => save(tidy({ ...song(), bpm })),
+  tapChord: async (sym) => {
+    const t = st.player ? st.player.now() : null;
+    const r = t == null ? null : tapChordAt(song(), t, sym);
+    if (!r) return null;
+    await save(r.song);
+    return r.at;
+  },
+  clearChord: (at) => save(setChordAt(song(), at, null)),
+  newChord: async () => {
+    const c = (await ask('Neuer Akkord', 'z. B. Am, D/F# oder Bbmaj7', { ok: 'Anlegen' }))?.trim();
+    if (!c || !st) return null;
+    if (!parseChord(c)) {
+      await modal('Unbekannter Akkord', `„${c}“ kann ich nicht lesen. Beispiele: Am, D/F#, Fmaj7, Bb, C#m7.`, [{ label: 'OK', value: '', primary: true }]);
+      return null;
+    }
+    await save(addChord(song(), c));
+    return c;
+  },
+  editTabs: () => { if (!st.editing) toggleEdit(); $('#sp-text-edit').scrollIntoView({ block: 'nearest' }); },
+  griffe: (sym) => hooks.griffe(st.songId, sym),
+};
+
+/** Assistent von „Mehr“ aus (wieder) starten. */
+export function openWizard() {
+  if (st) startWizard('video');
 }
 
 /** Namensauswahl: Vorschläge als Knöpfe, „Anderer …“ als Eingabe. */
@@ -1005,6 +1054,7 @@ async function finishEdit() {
   await putSong(next);
   paintEdit();
   paintSections();
+  paintWizard();
 }
 
 async function paintPdf() {

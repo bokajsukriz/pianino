@@ -358,3 +358,15 @@ export function fitBars(song) {
   }
   return s;
 }
+
+/** Akkord „jetzt“ tippen (Assistent): Videozeit t → Schlag im Leadsheet
+ *  (Startzeit und Tempo nötig), auf die nächste Zelle gerundet, dort setzen.
+ *  ANNAHME: auf ganze Schläge gerundet; feiner im Raster nachschieben.
+ *  → { song, at } oder null (Stelle nicht im Leadsheet) */
+export function tapChordAt(song, t, chord) {
+  const pos = playPos(song, t);
+  if (!pos || pos.beat == null) return null;
+  const sec = sectionList(song).find((x) => x.id === pos.id);
+  const at = Math.min(Math.round(pos.beat), sec.toBeat - 1);
+  return { song: setChordAt(song, at, chord), at };
+}
