@@ -32,6 +32,15 @@ Akkordliste des Songs) oder ein PDF vom Gerät. Ein iframe von Ultimate
 Guitar geht nicht (die Seite verbietet das Einbetten). Text und PDF bleiben
 auf dem Gerät. Tasten: Leertaste, ←/→, L, Esc.
 
+**Folgen üben** (`drillpage.js`, rein: `drill.js`): von der Liedseite (Knopf
+„Folgen üben“ für den ganzen Song, ⋯ an der Karte für einen Abschnitt). Die
+Abschnitte werden in Folgen zu 2 Takten geschnitten; gleiche Folgen kommen
+nur einmal. Jede Folge: ein Takt Vorlauf (Folge schon sichtbar, der Klick
+zählt groß ein), dann 2 Takte zum Klick mitspielen, groß der klingende
+Akkord und „dann …“. Danach der Vorlauf der nächsten. „↻ Wiederholen“ bleibt
+bei derselben, Tempo ±5 gilt ab dem nächsten Vorlauf und wird je Song
+gemerkt. Ohne Mikrofon. Tasten: Leertaste, ←/→, R, +/−.
+
 Zum Üben geht es von der Songliste aus weiter. Im Mittelpunkt steht dort „Geführt“: Phrasen aus dem Song am Stück, ohne aufs
 Handy zu tippen. Auf Wunsch hört die App übers Mikrofon, ob der erwartete
 Akkord liegt, und geht dann von selbst weiter (kein MIDI; nichts wird
@@ -163,6 +172,8 @@ Liedseite (`marks`) Abschnitte mit Startzeit (je 8 Takte, `startSec`).
 | `app.js` | Einstieg: Laden, Start, Abschluss, Über, Verdrahtung |
 | `songs.js` | Startpunkt „Songs“ (Liste, neuer Song), „Import“, Export |
 | `songpage.js` | Liedseite: Player, Loop, Leadsheet mit Abschnitten, Tabs (Text oder PDF) |
+| `drill.js` | REIN: 2-Takt-Folgen aus den Abschnitten, Vorlauf, Weiter/Wiederholen, Tempo |
+| `drillpage.js` | Folgen üben: Klick (clock.js), Anzeige, Wiederholen, Tempo ±5 |
 | `leadsheet.js` | REIN: Abschnitte als Taktbereiche, Raster, Zeiten im Video, Tabs je Abschnitt |
 | `marks.js` | REIN: gespeicherte Loops, Uhrzeit-Anzeige (alte Sekunden-Marken nur noch für Migration 3) |
 | `tabtext.js` | REIN: eingefügten Tab-Text in Akkordzeilen, Überschriften, Text zerlegen |

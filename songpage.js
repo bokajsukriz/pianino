@@ -21,6 +21,8 @@ import {
   METERS, MAX_BARS, sectionList, addSection, resizeSection, deleteSection, updateSection, setBeatsPerBar,
   setChordAt, shiftChordAt, sectionGrid, sectionTimes, playPos, tabBlocks, blocksForSections, sectionsFromTabs,
 } from './leadsheet.js';
+import { drillChunks } from './drill.js';
+import { openDrill } from './drillpage.js';
 import { $, $$, showScreen, screenName, modal, ask, frameLoop, onLongPress } from './ui.js';
 
 const RATES = [0.5, 0.75, 1];
@@ -94,6 +96,7 @@ function wire() {
   wireTrack();
   $('#sp-addsec').addEventListener('click', addHere);
   $('#sp-fromtabs').addEventListener('click', fromTabs);
+  $('#sp-drill').addEventListener('click', () => drill());
   $('#sp-sheet-close').addEventListener('click', closeSheet);
   // Tabs
   for (const b of $$('#s-song [data-tabmode]')) b.addEventListener('click', () => setTabMode(b.dataset.tabmode));
@@ -434,6 +437,26 @@ export async function fromTabs() {
 /** Gibt es Überschriften in den Tabs (für „Abschnitte aus den Tabs“)? */
 export const tabsHaveHeaders = (s) => tabBlocks(s?.tabText || '').some((b) => b.header);
 
+/** „Folgen üben“: die Abschnitte (bzw. nur `sectionIds`) in 2-Takt-Folgen
+ *  zum Klick. Das Video hält an; zurück geht es an dieselbe Stelle. */
+async function drill(sectionIds = null) {
+  const chunks = drillChunks(song(), { sectionIds });
+  if (!chunks.length) {
+    await modal('Noch keine Akkorde', 'Erst im Raster Akkorde setzen (Zelle antippen) – oder unter „Mehr“ die Abschnitte aus den Tabs anlegen.', [{ label: 'OK', value: '', primary: true }]);
+    return;
+  }
+  closeSheet();
+  st.player?.pause();
+  const y = window.scrollY;
+  const mine = st;
+  openDrill(song(), chunks, () => {
+    if (st !== mine) return;
+    showScreen('song');
+    window.scrollTo(0, y);
+    paintTransport();
+  });
+}
+
 function paintSections() {
   if (!st) return;
   const s = song();
@@ -708,7 +731,8 @@ function sectionSheet(id) {
     label('Takte'),
     stepper(String(sec.bars), resize, 'Takte'),
     ...(times.length ? [row(...times)] : []),
-    row(big('Umbenennen', rename, { quiet: true }), big('Loop speichern', keep, { quiet: true }), big('Löschen', del, { quiet: true })),
+    row(big('Folgen üben', () => drill([id]), { quiet: true }), big('Umbenennen', rename, { quiet: true }),
+      big('Loop speichern', keep, { quiet: true }), big('Löschen', del, { quiet: true })),
   ]);
 }
 
@@ -923,7 +947,7 @@ async function paintTabs() {
 function paintEdit() {
   $('#sp-sheetview').hidden = st.editing;
   $('#sp-text-edit').hidden = !st.editing;
-  $('#sp-addsec').hidden = st.editing;
+  $('#sp-addsec').hidden = $('#sp-drill').hidden = st.editing;
   $('#sp-edit').textContent = st.editing ? 'Fertig' : song().tabText ? 'Tabs ändern' : 'Tabs einfügen';
 }
 
