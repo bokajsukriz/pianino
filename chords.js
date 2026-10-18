@@ -1,6 +1,14 @@
-/* chords.js — REIN: Akkord-Bibliothek (Arbeitsanweisung 6.2).
+/* chords.js — REIN: feste Akkorde, Tonnamen und Bewegungssätze.
    Kein DOM, keine Zeit, kein Zufall. MIDI 60 = C4 (eingestrichenes c).
-   Fingersätze sind Vorschläge und lassen sich hier ändern. */
+
+   Die festen :root-Griffe sind die Karten des Akkord-Blitz (Stufen 1–2).
+   Die :song-Griffe der alten Version stimmen nicht mit dem Unterricht
+   überein; sie dienen nur noch den Selbsttests und der Simulation der
+   Erkenner (docs/archiv/mikro-sim/). Die Griffe eines Songs stehen im Song
+   (voicing.js: voicingFor). moveText, bassText und transition arbeiten mit
+   Griff-Objekten (voicing.js). */
+
+import { voicingDiff, handStill } from './voicing.js';
 
 const NAMES = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
 
@@ -52,38 +60,27 @@ export function songChord(symbol) {
   return BY_ID.get(`${symbol}:song`);
 }
 
-/** Alle Töne eines Akkords (LH zuerst), z. B. zum Vorspielen. */
-export function chordNotes(chord) {
-  return [chord.lh, ...chord.rh];
+/** Tonnamen eines Griffs: { rh: ['A3', 'C4', 'E4'], lh: ['A2', 'E3'] }. */
+export function gripNoteNames(v) {
+  return { rh: (v?.rh || []).map(noteName), lh: (v?.lh || []).map(noteName) };
 }
 
-/** Tonnamen eines Akkords: { rh: ['A3', 'C4', 'E4'], lh: 'A2' }. */
-export function chordNoteNames(chord) {
-  return { rh: chord.rh.map(noteName), lh: noteName(chord.lh) };
+/** Fester Akkord aus CHORDS als Griff-Objekt (voicing.js).
+ *  ANNAHME: Der Basston der linken Hand wird mit dem kleinen Finger (5) gespielt. */
+export function gripOf(chord) {
+  return { rh: [...chord.rh], rhFingers: [...chord.fingers], lh: [chord.lh], lhFingers: [5] };
 }
 
-/** Übergang der rechten Hand von einem Akkord zum nächsten.
- *  Gleiche MIDI-Töne bleiben liegen (stay). Die übrigen Töne werden nach
- *  Fingerposition einander zugeordnet: von unten nach oben der Reihe nach.
- *  finger = Fingersatz des Zieltons im Zielakkord.
- *  → { stay: [midi…], moves: [{ from, to, finger }] } */
-export function transition(fromId, toId) {
-  const a = chordById(fromId), b = chordById(toId);
-  if (!a || !b) throw new Error(`Unbekannter Akkord: ${!a ? fromId : toId}`);
-  const stay = a.rh.filter((m) => b.rh.includes(m));
-  const from = a.rh.filter((m) => !stay.includes(m)); // aufsteigend, weil rh aufsteigend
-  const to = b.rh.filter((m) => !stay.includes(m));
-  const moves = [];
-  for (let i = 0; i < Math.min(from.length, to.length); i++) {
-    moves.push({ from: from[i], to: to[i], finger: b.fingers[b.rh.indexOf(to[i])] });
-  }
-  return { stay, moves };
-}
-
-/** Finger eines Tons im Akkord (rechte Hand) oder null. */
-export function fingerFor(chord, midi) {
-  const i = chord.rh.indexOf(midi);
-  return i < 0 ? null : chord.fingers[i];
+/** Übergang der rechten Hand von einem Griff zum nächsten (voicingDiff).
+ *  → { stay: [midi…], moves: [{ from, to, finger }], release: [midi…], add: [midi…] } */
+export function transition(prev, next) {
+  const d = voicingDiff(prev, next).rh;
+  return {
+    stay: d.keep.map((x) => x.key),
+    moves: d.move.map((m) => ({ from: m.from, to: m.to, finger: m.finger })),
+    release: d.release.map((x) => x.key),
+    add: d.add.map((x) => x.key),
+  };
 }
 
 /** Schwarze Taste? */
@@ -91,53 +88,81 @@ export function isBlack(midi) {
   return [1, 3, 6, 8, 10].includes(((midi % 12) + 12) % 12);
 }
 
-/* ---------- Bewegungssätze (Geführt) ----------------------------------- */
+/* ---------- Bewegungssätze (Geführt, Kurze Wege, Griff-Editor) ------- */
 
 const joinDe = (xs) => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} und ${xs[xs.length - 1]}`);
+const fingerDe = (f) => (f === 1 ? 'Daumen' : String(f));
+const pcn = (m) => pitchClassName(m);
+const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
 
-/** „Daumen“, „Finger 3“, „Finger 3 und 5“, „Daumen und Finger 5“. */
-function fingersDe(fs) {
-  const others = fs.filter((f) => f !== 1);
-  const rest = others.length ? `Finger ${joinDe(others.map(String))}` : '';
-  if (!fs.includes(1)) return rest;
-  if (!rest) return 'Daumen';
-  return others.length > 1 ? `Daumen, ${rest}` : `Daumen und ${rest}`;
-}
-
-/** Wie kommt die rechte Hand von einem Akkord zum nächsten? Ein Satz, z. B.
- *  „Daumen bleibt auf dem A. Finger 3 und 5 rutschen hoch: aufs D und F♯.“
- *  Ohne fromId: der Tipp zum Griff selbst. */
-export function moveText(fromId, toId) {
-  const b = chordById(toId);
-  if (!fromId) return b.tip;
-  const a = chordById(fromId);
-  if (fromId === toId) return 'Gleicher Griff – liegen lassen.';
-  const t = transition(fromId, toId);
-  const parts = [];
-  if (t.stay.length) {
-    const fs = t.stay.map((m) => a.fingers[a.rh.indexOf(m)]);
-    parts.push(`${fingersDe(fs)} ${fs.length > 1 ? 'bleiben' : 'bleibt'} auf ${joinDe(t.stay.map((m) => `dem ${pitchClassName(m)}`))}.`);
+/** Satz für eine Hand aus voicingDiff, z. B. „Daumen bleibt auf A. C und E
+ *  loslassen, 3 auf D.“ oder „Daumen bleibt auf A, 2 auf C und 5 auf G
+ *  dazu.“ Ohne Fingersätze nur Töne: „A bleibt. C loslassen, D dazu.“ */
+function handText(d) {
+  if (handStill(d)) return 'bleibt liegen.';
+  let keep = '';
+  if (d.keep.length) {
+    const many = d.keep.length > 1;
+    keep = d.keep.every((x) => x.finger)
+      ? `${joinDe(d.keep.map((x) => fingerDe(x.finger)))} ${many ? 'bleiben' : 'bleibt'} auf ${joinDe(d.keep.map((x) => pcn(x.key)))}`
+      : `${joinDe(d.keep.map((x) => pcn(x.key)))} ${many ? 'bleiben' : 'bleibt'}`;
   }
-  if (t.moves.length) {
-    const up = t.moves.every((m) => m.to > m.from), down = t.moves.every((m) => m.to < m.from);
-    const fs = t.moves.map((m) => m.finger);
-    if ((up || down) && t.moves.length === 3) {
-      parts.push(`Die ganze Hand rutscht ${up ? 'hoch' : 'runter'}: aufs ${joinDe(t.moves.map((m) => pitchClassName(m.to)))}.`);
-    } else if (up || down) {
-      parts.push(`${fingersDe(fs)} ${fs.length > 1 ? 'rutschen' : 'rutscht'} ${up ? 'hoch' : 'runter'}: aufs ${joinDe(t.moves.map((m) => pitchClassName(m.to)))}.`);
-    } else {
-      parts.push(`${t.moves.map((m) => `${fingersDe([m.finger])} ${m.to > m.from ? 'hoch' : 'runter'} aufs ${pitchClassName(m.to)}`).join(', ')}.`);
-    }
+  const rel = d.release.length ? `${joinDe(d.release.map((x) => pcn(x.key)))} loslassen` : '';
+  const addPlain = d.add.some((x) => !x.finger);
+  const add = d.add.length ? joinDe(d.add.map((x) => (x.finger && !addPlain ? `${fingerDe(x.finger)} auf ${pcn(x.key)}` : pcn(x.key)))) : '';
+  let mv = '';
+  if (d.move.length) {
+    const up = d.move.every((m) => m.semis > 0), down = d.move.every((m) => m.semis < 0);
+    const alone = !d.keep.length && !d.add.length && !d.release.length;
+    if (alone && (up || down) && d.move.every((m) => Math.abs(m.semis) <= 2)) mv = `eine Stufe ${up ? 'höher' : 'tiefer'}`;
+    else if (alone && d.move.every((m) => m.semis === d.move[0].semis && Math.abs(m.semis) === 12)) mv = `eine Oktave ${up ? 'höher' : 'tiefer'}`;
+    else mv = d.move.map((m) => `${fingerDe(m.finger)} von ${pcn(m.from)} auf ${pcn(m.to)}`).join(', ');
   }
-  return parts.join(' ');
+  if (rel) {
+    const rest = [rel, add && (addPlain ? `${add} dazu` : add), mv].filter(Boolean).join(', ');
+    return keep ? `${cap(keep)}. ${cap(rest)}.` : `${cap(rest)}.`;
+  }
+  const rest = [add && `${add} dazu`, mv].filter(Boolean).join(', ');
+  // „eine Stufe tiefer.“ bleibt klein (steht hinter „Links:“).
+  return (keep || add ? cap([keep, rest].filter(Boolean).join(', ')) : rest) + '.';
 }
 
-/** Bass-Hinweis: „Bass: hoch zum D“, „Bass: runter zum F“, „Bass: bleibt auf dem A“, „Bass: A“. */
-export function bassText(fromId, toId) {
-  const b = chordById(toId), n = pitchClassName(b.lh);
-  if (!fromId) return `Bass: ${n}`;
-  const a = chordById(fromId);
-  if (a.lh === b.lh) return `Bass: bleibt auf dem ${n}`;
-  return `Bass: ${b.lh > a.lh ? 'hoch' : 'runter'} zum ${n}`;
+/** Kurze Beschreibung eines Griffs (ohne Vorgänger): die Notiz, sonst die Töne. */
+export function gripText(v) {
+  if (!v) return '';
+  if (v.note) return v.note;
+  const part = (keys, fs) => keys.map((m, i) => (fs?.[i] ? `${pcn(m)} (${fs[i]})` : pcn(m))).join(' ');
+  const out = [];
+  if (v.rh?.length) out.push(`Rechts ${part(v.rh, v.rhFingers)}`);
+  if (v.lh?.length) out.push(`links ${part(v.lh, v.lhFingers)}`);
+  return `${cap(out.join(', '))}.`;
 }
 
+/** Wie kommen die Hände von einem Griff zum nächsten? Aus voicingDiff, z. B.
+ *  „Rechts: Daumen bleibt auf A, 2 auf C und 5 auf G dazu. Links: eine Stufe
+ *  tiefer.“ Ändert sich nur rechts, ohne „Rechts:“. lh: false → nur rechts.
+ *  Ohne Vorgänger: der Griff selbst (gripText). */
+export function moveText(prev, next, { lh = true } = {}) {
+  if (!next) return '';
+  if (!prev) return gripText(next);
+  const d = voicingDiff(prev, next);
+  const rStill = handStill(d.rh), lStill = !lh || handStill(d.lh);
+  if (rStill && lStill) return 'Gleicher Griff – liegen lassen.';
+  if (lStill) return handText(d.rh);
+  if (rStill) return `Links: ${handText(d.lh)}`;
+  return `Rechts: ${handText(d.rh)} Links: ${handText(d.lh)}`;
+}
+
+const bassOf = (v) => (v?.lh?.length ? Math.min(...v.lh) : null);
+
+/** Bass-Hinweis: „Bass: hoch zum D“, „Bass: runter zum F“, „Bass: bleibt auf
+ *  dem A“, „Bass: A“ (tiefster Ton der linken Hand). Ohne linke Hand: ''. */
+export function bassText(prev, next) {
+  const b = bassOf(next);
+  if (b === null) return '';
+  const n = pcn(b);
+  const a = bassOf(prev);
+  if (a === null) return `Bass: ${n}`;
+  if (a === b) return `Bass: bleibt auf dem ${n}`;
+  return `Bass: ${b > a ? 'hoch' : 'runter'} zum ${n}`;
+}

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; media-src 'self'; connect-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.youtube.com https://s.ytimg.com; frame-src https://www.youtube-nocookie.com https://www.youtube.com; style-src 'self'; img-src 'self' data:; font-src 'self'; media-src 'self'; connect-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="theme-color" content="#fff7ec">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
@@ -52,11 +52,20 @@
     <div class="portrait-inner">
       <h1 class="h1">Kurz ans Klavier?</h1>
       <button type="button" id="start-plan" class="plan-line" hidden></button>
-      <button type="button" id="go-mix" class="btn btn-primary btn-hero">
-        <span class="hero-main">5 Minuten</span>
-        <span id="mix-label" class="hero-sub"></span>
-      </button>
-      <button type="button" id="go-one" class="btn btn-secondary btn-wide">Nur 1 Minute</button>
+      <div id="start-go" class="start-go">
+        <button type="button" id="go-mix" class="btn btn-primary btn-hero">
+          <span class="hero-main">5 Minuten</span>
+          <span id="mix-label" class="hero-sub"></span>
+        </button>
+        <button type="button" id="go-one" class="btn btn-secondary btn-wide">Nur 1 Minute</button>
+      </div>
+      <div id="start-todo" class="card todo" hidden>
+        <p class="kicker">Als Erstes</p>
+        <h2 class="h2">Die Wechsel heraushören</h2>
+        <p class="small"><span id="todo-title"></span> hat noch keine Akkordwechsel. Hör sie mit dem Video heraus und tipp sie ein – danach geht „Geführt“. Die Griffe aus dem Unterricht kannst du schon jetzt eintragen.</p>
+        <button type="button" id="go-transcribe" class="btn btn-primary btn-wide">Transkribieren</button>
+        <button type="button" id="go-griffe-todo" class="btn btn-secondary btn-wide">Griffe eintragen</button>
+      </div>
 
       <div class="card week">
         <div class="card-head">
@@ -68,11 +77,17 @@
 
       <div class="card song">
         <div class="card-head">
-          <h2 class="h2">Perfect Ruin</h2>
+          <h2 class="h2" id="song-title"></h2>
           <span id="song-percent" class="small muted"></span>
         </div>
+        <p id="song-by" class="small muted"></p>
         <div class="bar" role="progressbar" aria-label="Fortschritt im Song" aria-valuemin="0" aria-valuemax="100" id="song-bar"><div class="bar-fill"></div></div>
         <p id="song-status" class="small muted"></p>
+        <div class="song-actions">
+          <button type="button" id="go-songs" class="btn btn-secondary btn-sm">Songs</button>
+          <button type="button" id="go-griffe" class="btn btn-secondary btn-sm">Griffe</button>
+          <button type="button" id="go-tr" class="btn btn-secondary btn-sm">Transkribieren</button>
+        </div>
       </div>
 
       <p class="small muted extras-label">Einzeln üben</p>
@@ -80,8 +95,91 @@
         <button type="button" class="btn btn-tile" data-direct="blitz">Akkord-Blitz</button>
         <button type="button" class="btn btn-tile" data-direct="wege">Kurze Wege</button>
         <button type="button" class="btn btn-tile" data-direct="groove">Groove</button>
+        <button type="button" class="btn btn-tile" data-direct="wann" data-needs="events">Wann</button>
+        <button type="button" class="btn btn-tile" data-direct="playalong" data-needs="events">Play-Along</button>
       </div>
       <button type="button" id="go-about" class="link-btn">Über</button>
+    </div>
+  </section>
+
+  <!-- Songs -->
+  <section id="s-songs" class="screen portrait" data-screen="songs" hidden>
+    <div class="portrait-inner">
+      <button type="button" class="link-btn back" data-home>Zurück</button>
+      <h1 class="h1">Songs</h1>
+      <ul id="song-list" class="song-list"></ul>
+      <button type="button" id="songs-import" class="btn btn-secondary btn-wide">Importieren</button>
+      <p class="small muted">Ein Song ist eine JSON-Datei mit Akkorden, Griffen, Wechseln und Abschnitten
+        (Aufbau: docs/song-schema.md im Quellcode). Exportieren ist ohne Liedtext voreingestellt.</p>
+    </div>
+  </section>
+
+  <!-- Import -->
+  <section id="s-import" class="screen portrait" data-screen="import" hidden>
+    <div class="portrait-inner">
+      <button type="button" class="link-btn back" id="imp-back">Zurück</button>
+      <h1 class="h1">Song importieren</h1>
+      <label class="btn btn-secondary btn-wide file-btn">Datei wählen
+        <input type="file" id="imp-file" accept=".json,application/json,text/plain" class="visually-hidden">
+      </label>
+      <label class="field">
+        <span>Oder JSON einfügen</span>
+        <textarea id="imp-text" rows="8" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
+      </label>
+      <ul id="imp-errors" class="err-list" aria-live="polite"></ul>
+      <div id="imp-preview" class="card" hidden>
+        <p class="small muted">Vorschau</p>
+        <h2 class="h2" id="imp-title"></h2>
+        <p class="song-chords" id="imp-chords"></p>
+        <p class="small muted" id="imp-facts"></p>
+      </div>
+      <button type="button" id="imp-ok" class="btn btn-primary btn-wide" disabled>Übernehmen</button>
+    </div>
+  </section>
+
+  <!-- Griff-Editor -->
+  <section id="s-griffe" class="screen landscape" data-screen="griffe" hidden>
+    <header class="ex-head gr-head">
+      <button type="button" class="icon-btn" id="gr-back" aria-label="Zurück">
+        <svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22"><path d="M15 5 8 12l7 7" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <span class="gr-song" id="gr-song"></span>
+      <ol class="gr-chords" id="gr-chords" aria-label="Akkorde des Songs"></ol>
+      <button type="button" class="btn btn-secondary btn-sm" id="gr-add">+ Akkord</button>
+      <button type="button" class="btn btn-secondary btn-sm" id="gr-sheet">Alle Griffe</button>
+    </header>
+    <div class="rotate-hint">Dreh das Handy quer – dann ist mehr Platz.</div>
+    <div class="gr-kbwrap" id="gr-kbwrap"><div class="gr-kb" id="gr-kb"></div></div>
+    <p class="gr-move" id="gr-move" hidden></p>
+    <p class="gr-hint" id="gr-hint" aria-live="polite"></p>
+    <div class="gr-tools">
+      <div class="seg" role="group" aria-label="Hand">
+        <button type="button" class="seg-btn" data-hand="lh" aria-pressed="false">Links</button>
+        <button type="button" class="seg-btn" data-hand="rh" aria-pressed="true">Rechts</button>
+      </div>
+      <div class="seg" role="group" aria-label="Finger">
+        <button type="button" class="seg-btn" data-finger="1" aria-pressed="false">1</button>
+        <button type="button" class="seg-btn" data-finger="2" aria-pressed="false">2</button>
+        <button type="button" class="seg-btn" data-finger="3" aria-pressed="false">3</button>
+        <button type="button" class="seg-btn" data-finger="4" aria-pressed="false">4</button>
+        <button type="button" class="seg-btn" data-finger="5" aria-pressed="false">5</button>
+        <button type="button" class="seg-btn" data-finger="0" aria-pressed="false" aria-label="Finger löschen">–</button>
+      </div>
+      <button type="button" class="btn btn-secondary btn-sm" id="gr-play">Anhören</button>
+      <button type="button" class="btn btn-secondary btn-sm" id="gr-arp">Gebrochen</button>
+      <button type="button" class="btn btn-secondary btn-sm" id="gr-undo">Rückgängig</button>
+      <button type="button" class="toggle toggle-sm" id="gr-prev" aria-pressed="false">Mit Vorgänger</button>
+      <button type="button" class="btn btn-ghost btn-sm" id="gr-prevnext" hidden></button>
+      <input type="text" id="gr-note" class="gr-note" maxlength="140" autocomplete="off" aria-label="Notiz zum Griff">
+    </div>
+  </section>
+
+  <!-- Spickzettel: alle Griffe -->
+  <section id="s-sheet" class="screen portrait" data-screen="sheet" hidden>
+    <div class="portrait-inner">
+      <button type="button" class="link-btn back" id="sheet-back">Zurück</button>
+      <h1 class="h1" id="sheet-title">Alle Griffe</h1>
+      <ul id="sheet-list" class="sheet-list"></ul>
     </div>
   </section>
 
@@ -99,7 +197,12 @@
     <div class="rotate-hint">Dreh das Handy quer – dann ist mehr Platz.</div>
     <div class="g-main" data-f="main">
       <div class="g-chords">
-        <span class="g-now" data-f="now"></span>
+        <span class="g-nowrow">
+          <span class="g-now" data-f="now"></span>
+          <button type="button" class="icon-btn g-edit" data-f="edit" aria-label="Griff bearbeiten" title="Griff bearbeiten">
+            <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20"><path d="M4 20h4L19 9l-4-4L4 16v4Zm11-15 4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+          </button>
+        </span>
         <span class="g-next"><span class="g-next-label">dann</span> <span class="g-next-sym" data-f="next"></span></span>
       </div>
       <div class="g-help">
@@ -110,6 +213,7 @@
       </div>
     </div>
     <div class="g-tempo" data-f="tempo" hidden>
+      <span class="g-pattern" data-f="pattern" aria-hidden="true" hidden></span>
       <span class="g-cur" data-f="t-now"></span>
       <span class="g-card" data-f="t-card">
         <span class="g-card-label" data-f="t-label">dann</span>
@@ -217,6 +321,7 @@
     <div class="rotate-hint">Dreh das Handy quer – dann ist mehr Platz.</div>
     <div class="groove-main">
       <div class="now-next">
+        <span class="g-phrase" data-f="title"></span>
         <span class="now-label">jetzt</span>
         <span class="now-symbol" data-f="now"></span>
         <span class="next-line"><span class="next-label">gleich</span> <span class="next-symbol" data-f="next"></span></span>
@@ -239,34 +344,175 @@
     </div>
   </section>
 
-  <!-- S7 Play-Along -->
+  <!-- S7 Play-Along: YouTube links, Akkordband rechts (oder eigene Begleitung) -->
   <section id="s-play" class="screen landscape dark" data-screen="play" hidden>
     <header class="ex-head">
-      <div class="ex-title"><span class="ex-name">Play-Along</span> <span class="ex-level">Strophe</span></div>
+      <div class="ex-title"><span class="ex-name">Play-Along</span> <span class="ex-level" data-f="range-label"></span></div>
       <div class="ex-count" data-f="count"></div>
-      <div class="ex-meta" data-f="bpm"></div>
+      <div class="ex-meta" data-f="meta"></div>
       <button type="button" class="icon-btn" data-pause aria-label="Pause">
         <svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
       </button>
     </header>
     <div class="rotate-hint">Dreh das Handy quer – dann ist mehr Platz.</div>
-    <div class="play-main">
-      <div class="now-next">
-        <span class="now-label">jetzt</span>
-        <span class="now-symbol now-xl" data-f="now"></span>
-        <span class="next-line"><span class="next-label">gleich</span> <span class="next-symbol" data-f="next"></span></span>
+    <div class="pa-main">
+      <div class="pa-video" data-f="video" hidden>
+        <div class="yt-host" data-f="yt"></div>
+        <p class="vnote" data-f="vnote" aria-live="polite"></p>
       </div>
-      <div class="play-side">
-        <ol class="bars" data-f="bars" aria-label="Takte der Strophe"></ol>
-        <div class="toggles">
-          <button type="button" class="toggle" data-toggle="melody" aria-pressed="false">Melodie</button>
-          <button type="button" class="toggle" data-toggle="melodyLow" aria-pressed="false">Melodie tiefer</button>
-          <button type="button" class="toggle" data-toggle="click" aria-pressed="true">Klick</button>
-          <span class="toggle-note" data-f="melody-note"></span>
+      <div class="pa-side">
+        <div class="pa-band" data-f="band"></div>
+        <div class="pa-controls">
+          <select class="select" data-f="range" aria-label="Bereich"></select>
+          <div class="seg" data-f="rates" role="group" aria-label="Tempo"></div>
+          <button type="button" class="btn btn-primary btn-sm" data-f="start" hidden>Abspielen</button>
+          <div class="toggles" data-f="own" hidden>
+            <button type="button" class="toggle toggle-sm" data-toggle="click" aria-pressed="true">Klick</button>
+          </div>
         </div>
-        <p class="tip">Summ mit. Wenn du rausfällst: nur den Bass, und bei der nächsten Eins wieder rein.</p>
+        <p class="tip" data-f="tip"></p>
       </div>
     </div>
+  </section>
+
+  <!-- Wann: nur der Zeitpunkt der Wechsel -->
+  <section id="s-wann" class="screen landscape" data-screen="wann" hidden>
+    <header class="ex-head">
+      <div class="ex-title"><span class="ex-name">Wann</span> <span class="ex-level" data-f="level"></span></div>
+      <div class="ex-count" data-f="count"></div>
+      <div class="ex-meta" data-f="meta"></div>
+      <button type="button" class="toggle toggle-sm" data-f="mic" aria-pressed="false">Mikro</button>
+      <button type="button" class="icon-btn" data-pause aria-label="Pause">
+        <svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
+      </button>
+    </header>
+    <div class="rotate-hint">Dreh das Handy quer – dann ist mehr Platz.</div>
+    <div class="wann-main">
+      <div class="pa-video" data-f="video" hidden>
+        <div class="yt-host" data-f="yt"></div>
+        <p class="vnote" data-f="vnote" aria-live="polite"></p>
+      </div>
+      <button type="button" class="wann-pad" data-f="pad" aria-label="Tippen beim Wechsel">
+        <span class="wann-band" data-f="band"></span>
+        <span class="beat-dots" data-f="dots" aria-hidden="true"></span>
+        <span class="wann-hint" data-f="hint">Tippen bei jedem Wechsel – oder Leertaste, Pedal.</span>
+      </button>
+    </div>
+    <p class="wann-result" data-f="result" aria-live="polite"></p>
+  </section>
+
+  <!-- Transkribieren -->
+  <section id="s-tr" class="screen landscape" data-screen="tr" hidden>
+    <header class="ex-head tr-head">
+      <button type="button" class="icon-btn" id="tr-back" aria-label="Zurück"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22"><path d="M15 5 8 12l7 7" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <span class="tr-title" id="tr-title"></span>
+      <div class="seg tr-steps" role="group" aria-label="Schritte">
+        <button type="button" class="seg-btn" data-step-btn="1" aria-pressed="true">1 Video</button>
+        <button type="button" class="seg-btn" data-step-btn="2" aria-pressed="false">2 Eins</button>
+        <button type="button" class="seg-btn" data-step-btn="3" aria-pressed="false">3 Wechsel</button>
+        <button type="button" class="seg-btn" data-step-btn="4" aria-pressed="false">4 Prüfen</button>
+      </div>
+      <span class="tr-status" id="tr-status" aria-live="polite"></span>
+    </header>
+    <div class="rotate-hint">Dreh das Handy quer – dann ist mehr Platz.</div>
+    <div class="tr-main">
+      <div class="tr-video">
+        <div class="yt-host" id="tr-yt"></div>
+        <p class="vnote" id="tr-vnote" aria-live="polite"></p>
+      </div>
+      <div class="tr-panel">
+        <div class="tr-row">
+          <button type="button" class="btn btn-primary btn-sm" id="tr-play">Abspielen</button>
+          <button type="button" class="btn btn-secondary btn-sm" id="tr-rew">−2 s</button>
+          <div class="seg" id="tr-rates" role="group" aria-label="Tempo"></div>
+          <button type="button" class="btn btn-secondary btn-sm" id="tr-undo">Rückgängig</button>
+          <span class="tr-time" id="tr-time"></span>
+        </div>
+        <div class="tr-row">
+          <button type="button" class="toggle toggle-sm" id="tr-loop" aria-pressed="false">Loop</button>
+          <label class="tr-num">Takt <input type="number" id="tr-loop-a" min="1" value="1" inputmode="numeric"></label>
+          <label class="tr-num">bis <input type="number" id="tr-loop-b" min="1" value="4" inputmode="numeric"></label>
+          <select class="select" id="tr-loop-sec" aria-label="Loop über einen Abschnitt"></select>
+        </div>
+
+        <div class="tr-step" data-step="1">
+          <label class="field"><span>YouTube-Link oder Video-ID</span>
+            <span class="tr-row"><input type="text" id="tr-url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://youtu.be/…"><button type="button" class="btn btn-secondary btn-sm" id="tr-load">Laden</button></span>
+          </label>
+          <div class="tr-row">
+            <span>Tempo</span>
+            <button type="button" class="btn btn-secondary btn-sm" id="tr-bpm-down" aria-label="Tempo minus 1">−1</button>
+            <b class="tr-bpm"><span id="tr-bpm">–</span> BPM</b>
+            <button type="button" class="btn btn-secondary btn-sm" id="tr-bpm-up" aria-label="Tempo plus 1">+1</button>
+            <button type="button" class="btn btn-secondary" id="tr-tap">Tippen</button>
+          </div>
+          <p class="small muted"><span id="tr-tapinfo"></span> Im Takt der Musik tippen, mindestens 8-mal – auch bei 0,75× stimmt das Tempo.</p>
+        </div>
+
+        <div class="tr-step" data-step="2" hidden>
+          <div class="tr-row">
+            <button type="button" class="btn btn-primary" id="tr-one">Hier ist Takt 1</button>
+            <span class="small" id="tr-offset"></span>
+          </div>
+          <div class="tr-row">
+            <button type="button" class="btn btn-secondary btn-sm" data-nudge="-beat">−1 Schlag</button>
+            <button type="button" class="btn btn-secondary btn-sm" data-nudge="-20">−20 ms</button>
+            <button type="button" class="btn btn-secondary btn-sm" data-nudge="+20">+20 ms</button>
+            <button type="button" class="btn btn-secondary btn-sm" data-nudge="+beat">+1 Schlag</button>
+          </div>
+          <div class="tr-row">
+            <span class="beat-dots small-dots" id="tr-dots" aria-hidden="true"></span>
+            <button type="button" class="toggle toggle-sm" id="tr-click" aria-pressed="false">Klick</button>
+          </div>
+          <p class="small muted">Läuft der Klick am Ende noch mit? Wenn nicht: Tempo um 1 ändern.</p>
+          <label class="field"><span>Anzeige-Vorlauf <b id="tr-lead-v">80 ms</b></span>
+            <input type="range" id="tr-lead" min="0" max="300" step="10" value="80"></label>
+        </div>
+
+        <div class="tr-step" data-step="3" hidden>
+          <div class="tr-row">
+            <span>Raster</span>
+            <div class="seg" role="group" aria-label="Raster">
+              <button type="button" class="seg-btn" data-grid="0.5" aria-pressed="true">½</button>
+              <button type="button" class="seg-btn" data-grid="0.25" aria-pressed="false">¼</button>
+            </div>
+          </div>
+          <p class="small muted">Beim Wechsel den Akkord tippen – auch mit den Tasten 1–9. Leertaste: Pause. Ein Wechsel an derselben Stelle ersetzt den alten.</p>
+        </div>
+
+        <div class="tr-step" data-step="4" hidden>
+          <p class="small muted" id="tr-sel-none">Einen Wechsel im Band antippen, um ihn zu verschieben, zu ändern oder zu löschen.</p>
+          <div class="tr-row" id="tr-sel" hidden>
+            <b id="tr-sel-label"></b>
+            <button type="button" class="btn btn-secondary btn-sm" id="tr-sel-left" aria-label="Früher">◀</button>
+            <button type="button" class="btn btn-secondary btn-sm" id="tr-sel-right" aria-label="Später">▶</button>
+            <select class="select" id="tr-sel-chord" aria-label="Akkord"></select>
+            <button type="button" class="btn btn-secondary btn-sm" id="tr-sel-del">Löschen</button>
+          </div>
+          <div class="tr-row">
+            <button type="button" class="toggle toggle-sm" id="tr-piano" aria-pressed="false">Klavier dazu</button>
+            <button type="button" class="btn btn-secondary btn-sm" id="tr-done">Fertig gehört</button>
+          </div>
+          <div class="tr-row">
+            <select class="select" id="tr-secname" aria-label="Name des Abschnitts"></select>
+            <button type="button" class="btn btn-secondary btn-sm" id="tr-secstart">Abschnitt beginnt hier</button>
+          </div>
+          <ul class="tr-seclist" id="tr-seclist"></ul>
+          <details class="tr-lyrics">
+            <summary>Text (optional)</summary>
+            <p class="small muted">Text bleibt nur auf diesem Gerät. Eine Zeile pro Zeile einfügen, dann beim Abspielen je Zeile einmal tippen.</p>
+            <textarea id="tr-lyrics-text" rows="4" spellcheck="false"></textarea>
+            <div class="tr-row">
+              <button type="button" class="btn btn-secondary btn-sm" id="tr-lyrics-tap">Zeile tippen</button>
+              <button type="button" class="btn btn-ghost btn-sm" id="tr-lyrics-reset">Von vorn</button>
+            </div>
+            <p class="small" id="tr-lyrics-info"></p>
+          </details>
+        </div>
+      </div>
+    </div>
+    <div class="tr-band" id="tr-band" hidden></div>
+    <div class="tr-chords" id="tr-chords" hidden></div>
   </section>
 
   <!-- S8 Abschluss -->
@@ -274,7 +520,7 @@
     <div class="portrait-inner">
       <h1 class="h1">Das war's schon.</h1>
       <ul id="done-lines" class="done-lines"></ul>
-      <div class="card reward">
+      <div class="card reward" id="reward">
         <p class="kicker">Zum Schluss</p>
         <h2 class="h2">8 Takte Play-Along</h2>
         <p id="reward-note" class="small"></p>
@@ -355,15 +601,10 @@
       <div class="card">
         <table class="mt-table">
           <thead><tr><th>Akkord</th><th>eigen</th><th>essentia</th></tr></thead>
-          <tbody>
-          <tr><th>Am</th><td id="mt-e-Am">–</td><td id="mt-x-Am">–</td></tr>
-          <tr><th>D</th><td id="mt-e-D">–</td><td id="mt-x-D">–</td></tr>
-          <tr><th>F</th><td id="mt-e-F">–</td><td id="mt-x-F">–</td></tr>
-          <tr><th>Dm</th><td id="mt-e-Dm">–</td><td id="mt-x-Dm">–</td></tr>
-          <tr><th>C</th><td id="mt-e-C">–</td><td id="mt-x-C">–</td></tr>
+          <tbody id="mt-rows">
           </tbody>
         </table>
-        <p class="small muted">eigen erkennt den Akkord in jeder engen Lage (Grundstellung oder Umkehrung, jede Oktave) und achtet auf fremde Töne. essentia: Vorsprung vor dem nächstbesten Akkord, ab +0,02 zählt er.</p>
+        <p class="small muted">Die Akkorde des aktuellen Songs. eigen erkennt den Akkord in jeder engen Lage seiner rechten Hand (Grundstellung oder Umkehrung, jede Oktave) und achtet auf fremde Töne. essentia: Vorsprung vor dem nächstbesten Akkord, ab +0,02 zählt er.</p>
       </div>
     </div>
   </section>
@@ -385,6 +626,7 @@
     <div class="overlay-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
       <h2 id="modal-title" class="h2"></h2>
       <p id="modal-text" class="muted"></p>
+      <input type="text" id="modal-input" class="modal-input" autocomplete="off" autocapitalize="off" spellcheck="false" hidden>
       <div id="modal-buttons" class="row-buttons"></div>
     </div>
   </div>
