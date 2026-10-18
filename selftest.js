@@ -543,6 +543,9 @@ function pureTests() {
     && back.includes('     Am     Dm       F') && back.includes('Zeile drei ohne Einzug') && back.includes('                C    F')
     && back.includes('Zeile fuenf ganz am Ende A long line') && back.includes('Dm Dm F')
     && eq(chordsInText(glued), ['Am', 'D/F#', 'F', 'Dm', 'C']), JSON.stringify(back));
+  const head = parseTabText('X\nTestsong Chords\n by Test\n\n[Intro]\nAm F', { title: 'Testsong', artist: 'Test' });
+  check('15 Tab-Text: kopierte Kopfzeilen (Titel, „by …“, „X“) fallen weg', head[0].text === '[Intro]'
+    && parseTabText('Zeile A\n[Intro]', { title: 'Testsong' })[0].text === 'Zeile A');
   check('15 Export ohne Tabs und Text, auf Wunsch mit', !('tabText' in JSON.parse(exportSong({ ...TS, tabText: 'Zeile A' })))
     && JSON.parse(exportSong({ ...TS, tabText: 'Zeile A' }, { lyrics: true })).tabText === 'Zeile A' && validateSong({ ...TS, chords: [], events: [] }).ok);
 

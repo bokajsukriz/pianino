@@ -409,7 +409,7 @@ function paintText() {
   $('#sp-text-edit').hidden = !st.editing;
   $('#sp-edit').textContent = st.editing ? 'Fertig' : text ? 'Bearbeiten' : 'Text einfügen';
   $('#sp-text-empty').hidden = !!text || st.editing;
-  view.replaceChildren(...parseTabText(text).map((l) => {
+  view.replaceChildren(...parseTabText(text, song()).map((l) => {
     const div = document.createElement('div');
     div.className = `tl tl-${l.kind}`;
     // Akkorde wie eingefügt (# statt ♯): ♯ ist in der Festbreitenschrift schmaler und verschöbe die Spalten.
