@@ -57,12 +57,15 @@ am besten in der App selbst heraus („Transkribieren“).
 | `beatsPerBar` | ja | Schläge je Takt (1–12) |
 | `bpm` | nein | 30–220 oder `null` (noch nicht bestimmt). Ein festes Tempo |
 | `verified` | nein | `true`, wenn mit der Aufnahme gegengehört |
-| `chords` | ja | mindestens ein Akkordsymbol, keins doppelt |
+| `chords` | ja | Akkordsymbole, keins doppelt (darf leer sein; Akkorde aus eingefügten Tabs kommen von selbst dazu) |
 | `voicings` | nein | Griff je Symbol aus `chords` (unten); sonst gilt die Standardlage |
 | `sources` | nein | Quellen; `youtube` mit `videoId` (11 Zeichen), `offsetSec` (Sekunde im Video, an der Schlag 0 liegt, ≥ 0 oder `null`), `durationSec` |
 | `sections` | ja (darf `[]` sein) | `{ id, name, bar, bars }`, Takte 1-basiert, ohne Überlappung |
 | `events` | ja (darf `[]` sein) | `{ at, chord }`: ab Schlag `at` klingt `chord` |
 | `grid` | nein | `0.5` (Standard) oder `0.25`, wenn Wechsel auf Sechzehnteln liegen |
+| `marks` | nein | Abschnitte der Liedseite: `{ id, name, sec }` (Sekunde im Video, ab der der Abschnitt beginnt) |
+| `tabText` | nein | eingefügte Tabs als Text — nur vom Nutzer, bleibt auf dem Gerät (Export nur auf Wunsch) |
+| `tabMode` | nein | `"text"` oder `"pdf"`: was die Liedseite zeigt (das PDF selbst liegt nur auf dem Gerät, nie im JSON) |
 | `lyrics` | nein | `{ at, line }` — nur vom Nutzer selbst eingegeben, bleibt auf dem Gerät |
 | `melody` | nein | `{ at, dur, midi }` in Schlägen (Groove ab Stufe 2) |
 | `beatTimes` | nein | für schwankendes Tempo vorgesehen, in Version 1 ignoriert, aber erhalten |
