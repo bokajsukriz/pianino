@@ -19,6 +19,7 @@ import { runMigrations } from './migrations.js';
 import {
   sectionList, addSection, resizeSection, deleteSection, setBeatsPerBar, setChordAt, sectionGrid, sectionTimes, playPos,
   tabBlocks, blocksForSections, sectionsFromTabs, marksToSections,
+  orderByStart, sectionProgress,
 } from './leadsheet.js';
 import { drillChunks, cycleBeats, cyclePhase, nextChunk, stepBpm, startBpm, DRILL } from './drill.js';
 import { addMark, removeMark, markRange, markAt, nextMarkName, fmtClock, addLoop, updateLoop, removeLoop } from './marks.js';
@@ -601,6 +602,20 @@ function pureTests() {
   check('16 Migration 3: Marken → Abschnitte, Songs mit Abschnitten bleiben, zweiter Lauf ändert nichts',
     mig3.records.find((r) => r.id === 'song:a').song.sections[0].startSec === 1 && eq(mig3.records.find((r) => r.id === 'song:b'), v2rec[2])
     && mig3b.steps[0].put.length === 0);
+
+  let ob = { ...TS, sections: [], events: [] };
+  ob = addSection(ob, { name: 'Intro', bars: 2, startSec: 0 });
+  ob = addSection(ob, { name: 'Refrain 1', bars: 2, startSec: 40 });
+  ob = addSection(ob, { name: 'Strophe 1', bars: 4, startSec: 10 });
+  ob = setChordAt(setChordAt(setChordAt(ob, 0, 'Am'), 8, 'F'), 10, 'C');
+  ob = setChordAt(ob, 16, 'Dm');
+  const ob2 = orderByStart(ob);
+  check('16 Nach Startzeit ordnen: Abschnitte nehmen ihre Akkorde mit, klingender Akkord bleibt',
+    eq(sectionList(ob2).map((x) => [x.name, x.bar]), [['Intro', 1], ['Strophe 1', 3], ['Refrain 1', 7]])
+    && eq(ob2.events, [{ at: 0, chord: 'Am' }, { at: 8, chord: 'Dm' }, { at: 24, chord: 'F' }, { at: 26, chord: 'C' }])
+    && orderByStart(ob2) === ob2, JSON.stringify(ob2.events));
+  const sp = sectionProgress(ob2, 25, 60);
+  check('16 Fortschritt im Abschnitt aus Start und Ende', sp.id === sectionList(ob2)[1].id && Math.abs(sp.frac - 0.5) < 1e-9 && sectionProgress(ob2, 50, 0) === null);
 
   /* 17 — Folgen üben: 2-Takt-Folgen, Vorlauf, Wiederholen, Tempo */
   let dr = { ...TS, sections: [], events: [] };

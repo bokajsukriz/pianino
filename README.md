@@ -24,7 +24,9 @@ früher/später. An der Karte: ▶ ab hier, ↻ Loop, ⋯ Takte, „Start hier�
 (Sekunde im Video), Umbenennen, Loop speichern, Löschen. „Mehr“ → „Takt und
 Tempo“ (4/4, 3/4, 6/8, 2/4; Tempo ±1 oder tippen); mit Tempo und der
 Startzeit des ersten Abschnitts läuft die Markierung im Raster mit dem
-Video mit. „Abschnitte aus den Tabs“ macht aus den Überschriften der Tabs
+Video mit; eine dünne Linie oben in der Karte zeigt, wie weit man ungefähr
+im Abschnitt ist (bis zum Start des nächsten). Abschnitte stehen nach
+Startzeit im Video, auch wenn man sie in anderer Reihenfolge anlegt. „Abschnitte aus den Tabs“ macht aus den Überschriften der Tabs
 Abschnitte (eine Akkordzeile = 2 Takte, nur ein Vorschlag). Tabs sind
 eingefügter Text (z. B. bei Ultimate Guitar kopiert; Akkordzeilen
 hervorgehoben, Schrift größer/kleiner, die Akkorde landen in der

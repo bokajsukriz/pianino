@@ -272,3 +272,63 @@ export function marksToSections(song) {
   delete s.marks;
   return normalizeSong(s);
 }
+
+/** Abschnitte nach ihrer Startzeit im Video ordnen (aufsteigend). Abschnitte
+ *  ohne bekannte Startzeit bleiben hinter ihrem Vorgänger. Jeder Abschnitt
+ *  nimmt seine Akkorde (und Textzeilen) mit; der Akkord, der an seinem
+ *  Anfang klingt, wird dort als Wechsel festgehalten, damit er nach dem
+ *  Umstellen derselbe bleibt. Schon geordnet → derselbe Song zurück. */
+export function orderByStart(song) {
+  const list = sectionList(song);
+  if (list.length < 2) return song;
+  const times = sectionTimes(song);
+  let key = -Infinity;
+  const keyed = list.map((s, i) => {
+    if (times[i].start != null) key = times[i].start;
+    return { s, key, i };
+  });
+  const order = [...keyed].sort((a, b) => a.key - b.key || a.i - b.i);
+  if (order.every((x, k) => x.i === k)) return song;
+  const bpb = song.beatsPerBar;
+  // Klingenden Akkord am Abschnittsanfang festhalten.
+  let base = song;
+  for (const s of list) {
+    if ((base.events || []).some((e) => Math.abs(e.at - s.fromBeat) < EPS)) continue;
+    const i = eventIndexAt(base, s.fromBeat);
+    if (i >= 0) base = { ...base, events: [...base.events, { at: s.fromBeat, chord: base.events[i].chord }].sort((a, b) => a.at - b.at) };
+  }
+  const end = list[list.length - 1].toBeat;
+  let bar = 1;
+  const moved = new Map(); // id → Verschiebung in Schlägen
+  const sections = order.map(({ s }) => {
+    const { fromBeat, toBeat, ...x } = s;
+    void toBeat;
+    moved.set(s.id, (bar - 1) * bpb - fromBeat);
+    const out = { ...x, bar };
+    bar += s.bars;
+    return out;
+  });
+  const shift = (at) => {
+    if (at < list[0].fromBeat - EPS || at >= end - EPS) return at;
+    const s = list.find((x) => at >= x.fromBeat - EPS && at < x.toBeat - EPS);
+    return s ? at + moved.get(s.id) : at;
+  };
+  const out = { ...base, sections, events: (base.events || []).map((e) => ({ ...e, at: shift(e.at) })).sort((a, b) => a.at - b.at) };
+  if (Array.isArray(song.lyrics)) out.lyrics = song.lyrics.map((l) => (l.at == null ? l : { ...l, at: shift(l.at) }));
+  return normalizeSong(out);
+}
+
+/** Wie weit ist die Stelle t durch ihren Abschnitt (0…1)? Bis zum Start
+ *  des nächsten Abschnitts im Video, sonst bis zum Ende aus dem Tempo —
+ *  so stimmt es ungefähr, auch wenn die Taktzahl noch nicht passt.
+ *  → { id, frac } oder null */
+export function sectionProgress(song, t, durationSec = 0) {
+  const times = sectionTimes(song, durationSec);
+  let k = -1;
+  times.forEach((x, i) => { if (x.start != null && x.start <= t + EPS && (k < 0 || x.start >= times[k].start)) k = i; });
+  if (k < 0) return null;
+  const { id, start } = times[k];
+  const end = times.slice(k + 1).find((x) => x.start != null && x.start > start)?.start ?? times[k].end;
+  if (end == null || end <= start || t > end + EPS) return null;
+  return { id, frac: Math.max(0, Math.min(1, (t - start) / (end - start))) };
+}
