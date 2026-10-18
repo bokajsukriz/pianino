@@ -579,6 +579,9 @@ button.band-ev { cursor: pointer; min-height: 30px; font: inherit; font-weight: 
 .sp-sections { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 .sp-card { background: var(--surface); border: 2px solid var(--line); border-radius: 16px; overflow: hidden; scroll-margin: 12px; }
 .sp-card.now { border-color: var(--accent-text); box-shadow: 0 0 0 3px var(--from); }
+.sp-prog { height: 3px; background: transparent; }
+.sp-prog i { display: block; height: 100%; width: 0; background: var(--accent-text); opacity: 0; border-radius: 0 2px 2px 0; }
+.sp-prog.on i { opacity: .55; }
 .sp-card-head { display: flex; align-items: center; gap: 6px; padding: 6px 8px 6px 12px; }
 .sp-card-name { flex: 1; min-width: 0; margin: 0; font-size: 17px; font-weight: 800; line-height: 1.2; }
 .sp-card-name small { margin-left: 6px; font-size: 12px; font-weight: 650; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }

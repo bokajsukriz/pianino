@@ -20,6 +20,7 @@ import { nextMarkName, fmtClock, addLoop, updateLoop, removeLoop, sortLoops } fr
 import {
   METERS, MAX_BARS, sectionList, addSection, resizeSection, deleteSection, updateSection, setBeatsPerBar,
   setChordAt, shiftChordAt, sectionGrid, sectionTimes, playPos, tabBlocks, blocksForSections, sectionsFromTabs,
+  orderByStart, sectionProgress,
 } from './leadsheet.js';
 import { drillChunks } from './drill.js';
 import { openDrill } from './drillpage.js';
@@ -112,12 +113,15 @@ function wire() {
 /** Liedseite öffnen. → Promise, erfüllt mit „Zurück“. */
 export function openSongPage(songId) {
   wire();
-  const s = S.songs.get(songId);
+  let s = S.songs.get(songId);
   if (!s) return Promise.resolve();
+  // Ältere Songs: Abschnitte nach Startzeit, nicht nach Anlegen.
+  const ordered = orderByStart(s);
+  if (ordered !== s) { putSong(ordered); s = ordered; }
   return new Promise((resolve) => {
     st = {
       songId, resolve, player: null, loop: null, loopOn: false, rate: 1, editing: false, pdfUrl: null,
-      stop: null, drag: null, lastPos: null, lastSec: null, folded: new Set(), sheet: null, taps: [],
+      stop: null, drag: null, lastPos: null, lastSec: null, progId: null, folded: new Set(), sheet: null, taps: [],
     };
     $('#sp-title').textContent = s.title;
     $('#sp-artist').textContent = s.artist || '';
@@ -396,9 +400,10 @@ async function addHere() {
   const s = song();
   const name = NUMBERED.has(base) || s.sections.some((x) => x.name === base) ? nextMarkName(s.sections, base) : base;
   const t = st.player ? st.player.now() : null;
-  const next = addSection(s, { name, startSec: t });
-  await save(next);
-  const id = next.sections[next.sections.length - 1].id;
+  const added = addSection(s, { name, startSec: t });
+  const id = added.sections[added.sections.length - 1].id;
+  // Einsortiert nach Startzeit, nicht hinten angehängt.
+  await save(orderByStart(added));
   $(`#sp-sections [data-id="${id}"]`)?.scrollIntoView({ block: 'nearest' });
 }
 
@@ -480,6 +485,7 @@ function paintSections() {
   paintTicks(times);
   st.lastPos = null;
   st.lastSec = null;
+  st.progId = null;
 }
 
 function paintLines(host, lines) {
@@ -526,7 +532,10 @@ function card(s, sec, time, block, sel) {
     bar.append(beats);
     bars.append(bar);
   }
-  li.append(head, bars);
+  // Dünne Linie oben: wie weit man (ungefähr) im Abschnitt ist.
+  const prog = el('div', 'sp-prog');
+  prog.append(el('i'));
+  li.append(prog, head, bars);
   if (block) {
     const folded = st.folded.has(sec.id);
     const tab = el('div', 'sp-text sp-cardtab');
@@ -702,7 +711,7 @@ function sectionSheet(id) {
     }
     await save(resizeSection(song(), id, n));
   };
-  const setStart = (sec2) => save(updateSection(song(), id, { startSec: Math.max(0, Math.round(sec2 * 100) / 100) }));
+  const setStart = (sec2) => save(orderByStart(updateSection(song(), id, { startSec: Math.max(0, Math.round(sec2 * 100) / 100) })));
   const del = async () => {
     const a = await modal(`„${sec.name}“ löschen?`, 'Seine Akkorde fallen weg; die Abschnitte danach rücken auf.', [
       { label: 'Abbrechen', value: '' }, { label: 'Löschen', value: 'yes', primary: true },
@@ -863,6 +872,7 @@ function tick() {
   } else reg.hidden = true;
   const playing = !!p?.playing();
   if (playing !== $('#sp-play').classList.contains('on')) paintTransport();
+  paintProgress(p ? sectionProgress(song(), t, d) : null);
   // Wo im Leadsheet: Karte, Takt, Schlag.
   const pos = p ? playPos(song(), t, d) : null;
   const key = pos ? `${pos.id}:${pos.beat == null ? '' : Math.floor(pos.beat + EPS)}` : '';
@@ -870,6 +880,19 @@ function tick() {
     st.lastPos = key;
     paintPlayhead(pos, playing);
   }
+}
+
+function paintProgress(prog) {
+  const id = prog?.id || '';
+  if (id !== st.progId) {
+    for (const x of $$('#sp-sections .sp-prog.on')) x.classList.remove('on');
+    st.progId = id;
+  }
+  if (!prog) return;
+  const bar = $(`#sp-sections .sp-card[data-id="${prog.id}"] .sp-prog`);
+  if (!bar) return;
+  bar.classList.add('on');
+  bar.firstChild.style.width = `${(prog.frac * 100).toFixed(2)}%`;
 }
 
 function paintPlayhead(pos, playing) {
