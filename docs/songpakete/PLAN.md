@@ -33,9 +33,11 @@ Ehrlich vorweg, weil das den ganzen Ablauf bestimmt:
   bezeichnungen („Strophe 1, Zeile 2“). Eigene Stichworte kann der Nutzer
   später in der App eintragen (bleiben lokal, Phase 4).
 
-Empfehlung für Perfect Ruin: die Musicnotes-Noten (MN0148299) als PDF oder
-Fotos mitgeben. Ohne Noten liefert der Prompt ein Paket mit Akkorden und
-leerer Melodie – wie heute.
+Entscheidung für Perfect Ruin: nur frei verfügbare Akkord-Tabs per
+Internetrecherche, Melodie bleibt leer. Kein YouTube-Audio (Herunterladen
+verstößt gegen die YouTube-Bedingungen, Claude kann Videos nicht anhören).
+Das Format behält das Feld `melody`, damit eine Melodie später aus Noten
+ergänzt werden kann.
 
 ## Paketformat `pianino-song`, Version 1
 
@@ -139,9 +141,4 @@ Heute hängt der Song an vielen Stellen fest:
 
 ## Offene Fragen an den Nutzer
 
-1. Welche Quelle gibt es für Perfect Ruin? Noten gekauft (PDF), Audiodatei,
-   nur Tabs?
-2. Welche Umgebung für die Transkription: claude.ai-Chat (Noten als Bild/PDF)
-   oder Claude Code in der Cloud (kann auch Audio analysieren und das Paket
-   selbst prüfen)?
-3. Mehrere Songs gleichzeitig nötig, oder reicht vorerst „ein aktiver Song“?
+1. Mehrere Songs gleichzeitig nötig, oder reicht vorerst „ein aktiver Song“?

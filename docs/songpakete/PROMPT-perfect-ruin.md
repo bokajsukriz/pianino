@@ -1,8 +1,10 @@
 # Prompt: Songpaket „Perfect Ruin“ (Kwabs)
 
 Alles unterhalb der Linie in einen neuen Chat/Agenten kopieren. Websuche
-einschalten; Code-Ausführung einschalten, wenn vorhanden. Eigene Quellen
-(Noten-PDF/Fotos, MIDI/MusicXML) zusätzlich anhängen, falls vorhanden.
+einschalten; Code-Ausführung einschalten, wenn vorhanden (dann prüft Claude
+die Datei per Skript und liefert sie als Download).
+
+Grundlage sind nur frei verfügbare Akkord-Tabs. Die Melodie bleibt leer.
 
 ---
 
@@ -11,75 +13,56 @@ Klavier. Die Nutzerin/der Nutzer lernt Klavier, um Gesang zu begleiten: rechte
 Hand Dreiklänge, linke Hand ein Basston. Das Paket ist eine einzige JSON-Datei,
 die in der App importiert wird. Es geht um **„Perfect Ruin“ von Kwabs**.
 
+Quelle sind **Akkord-Tabs aus dem Internet**. Recherchiere sie selbst.
+
 ## Harte Regeln
 
-1. **Nichts erfinden.** Jede Angabe stammt aus einer Quelle (angehängt oder
-   im Internet gefunden, mit URL). Was du nicht aus einer Quelle ablesen
-   kannst, bleibt weg oder kommt unter `uncertain`. Insbesondere: **Melodie
-   nie aus dem Gedächtnis** und nie aus einer Textbeschreibung „rekonstruiert“.
-   Melodie nur aus Notentext (Noten, MIDI, MusicXML, TheoryTab o. ä.); ohne
-   so eine Quelle ist `melody` leer (`{}`).
-2. **Kein Liedtext.** Kein Wort des Songtexts im Paket, auch nicht in
-   `tip`, `name` oder `note`. Zeilen heißen „Zeile 1“, „Strophe 2, Zeile 3“ usw.
-   Tab-Seiten im Internet enthalten fast immer den Text über den Akkorden:
-   nur die Akkorde und die Zeilenstruktur übernehmen, den Text nicht
-   wiedergeben, auch nicht im Bericht.
-3. **Unsicherheit markieren.** Jede Melodienote hat `conf`
-   (`"sicher"` | `"wahrscheinlich"` | `"geraten"`). Jede Annahme zu Akkorden,
-   Form oder Rhythmus steht in `uncertain` mit Ort und Grund.
-   `verified` bleibt überall `false` – das setzt nur der Mensch.
-4. **Tonart a-Moll** (Aufnahmetonart). Stehen die Noten in einer anderen
-   Tonart, transponiere nach a-Moll und vermerke das in `sources[].note`.
-5. **Bestehende ids beibehalten** (siehe unten), damit Übe-Fortschritt
+1. **Nichts erfinden.** Jede Angabe stammt aus einer Quelle, die du
+   tatsächlich geöffnet hast (mit URL). Was keine Quelle hergibt, bleibt weg
+   oder kommt unter `uncertain`.
+2. **Keine Melodie.** `melody` ist `{}`. Auch nicht teilweise, auch nicht
+   „aus dem Gedächtnis“.
+3. **Kein Liedtext.** Tab-Seiten enthalten den Text über den Akkorden. Nur
+   Akkorde und Zeilenstruktur übernehmen; kein Wort des Texts im Paket (auch
+   nicht in `tip`, `name`, `note`) und nicht im Bericht. Zeilen heißen
+   „Zeile 1“, „Strophe 2, Zeile 3“ usw.
+4. **Unsicherheit markieren.** Jede Annahme zu Akkorden, Form oder Rhythmus
+   steht in `uncertain` mit Ort und Grund. `verified` bleibt überall `false` –
+   das setzt nur der Mensch.
+5. **Tonart a-Moll** (Aufnahmetonart, laut Musicnotes auch „Original
+   Published Key“). Tabs in anderer Tonart oder mit Kapo nach a-Moll
+   umrechnen und das in `sources[].note` vermerken.
+6. **Bestehende ids beibehalten** (siehe unten), damit Übe-Fortschritt
    erhalten bleibt.
+7. Keine Bezahlschranken umgehen, keine Audio-/Video-Downloads.
 
 ## Vorgehen
 
-1. **Quellen sammeln** (Anhänge und Internetrecherche, siehe unten). Liste
-   jede Quelle mit URL und was sie liefert. Gibt es keinen Notentext für die
-   Melodie: sag das, und liefere ein Paket mit Akkorden und leerer Melodie.
-2. **Form bestimmen**: Intro, Strophen, Pre-Chorus, Refrain, Bridge, Outro –
-   mit Taktzahlen. Wiederholungen ausschreiben (`form` darf Abschnitte mehrfach
-   nennen). Zwei Strophen mit gleichen Akkorden, aber anderer Melodie →
-   zwei Abschnitte.
-3. **Akkorde und harmonischer Rhythmus** je Takt. Mehrere Akkorde pro Takt
-   mit Schlägen angeben. Slash-Akkorde (z. B. F/A) als eigener Griff mit
-   passendem `lh`.
-4. **Griffe** für alle vorkommenden Akkorde (Regeln unten).
-5. **Melodie** je Abschnitt, Takt für Takt, in notierter Höhe.
+1. **Recherche**: mindestens drei unabhängige Akkordseiten suchen und öffnen
+   (z. B. Ultimate Guitar – mehrere Versionen, nach Bewertung –, Chordify,
+   chordu, Songsterr, deutsche Akkordseiten). Tonart und Tempo aus Tunebat,
+   SongBPM oder der Musicnotes-Produktseite (MN0148299).
+2. **Abgleichen**: Akkordfolge je Abschnitt nur übernehmen, wenn mindestens
+   zwei Quellen übereinstimmen. Bei Abweichung die häufigere bzw. besser
+   bewertete nehmen und die andere in `uncertain` nennen. Vereinfachte
+   „Anfänger“-Versionen nur, wenn nichts anderes da ist.
+3. **Form**: Intro, Strophen, Pre-Chorus, Refrain, Bridge, Outro in der
+   Reihenfolge des Songs. Gleiche Akkordfolge → derselbe Abschnitt, in `form`
+   mehrfach genannt. Abweichende Wiederholung → eigener Abschnitt.
+4. **Takte**: Tabs zeigen selten, wie lange ein Akkord dauert. Nutze, was
+   die Quellen hergeben (Taktstriche in Tabs, Chordify-Raster, Akkorde pro
+   Textzeile). Sonst gilt **ein Akkord pro Takt** – als Annahme in
+   `uncertain`. Zeilen auf eine gerade Taktzahl (meist 4) auffüllen, indem der
+   letzte Akkord verlängert wird, und das ebenfalls vermerken.
+5. **Griffe** für alle vorkommenden Akkorde (Regeln unten).
 6. **Phrasen** für die Übung „Geführt“ in sinnvoller Lernreihenfolge
    (leichteste, häufigste Stelle zuerst; ganzer Song zuletzt).
-7. **Selbstprüfung** (Liste unten). Wenn du Code ausführen kannst: schreib ein
+7. **Selbstprüfung** (Liste unten). Kannst du Code ausführen: schreib ein
    kleines Skript, das die Datei gegen die Liste prüft, und führe es aus.
-8. **Ausgabe**: die Datei `perfect-ruin.pianino.json` (als Datei/Anhang, wenn
+8. **Ausgabe**: die Datei `perfect-ruin.pianino.json` (als Download, wenn
    möglich, sonst ein einziger ```json-Block), danach ein kurzer Bericht auf
-   Deutsch: Quellen, Form in einer Zeile, Zahl der Takte und Melodienoten,
-   die wichtigsten unsicheren Stellen.
-
-## Internetrecherche
-
-Suche gezielt, nicht nur eine Seite:
-
-- **Akkorde und Form**: mehrere Tab-/Akkordseiten (z. B. Ultimate Guitar,
-  Chordify, Songsterr, chordu, deutsche Akkordseiten). Übernimm eine Akkord-
-  folge erst, wenn mindestens zwei unabhängige Quellen übereinstimmen; bei
-  Abweichung die häufigere bzw. besser bewertete nehmen und die andere in
-  `uncertain` nennen. Tabs mit Kapo zurückrechnen.
-- **Tonart und Tempo**: Datenbanken wie Tunebat, SongBPM, Musicnotes-
-  Produktseite (MN0148299, dort „Original Published Key“ und Tempo).
-- **Melodie**: Hooktheory/TheoryTab, frei verfügbare MuseScore-Partituren,
-  MIDI- oder MusicXML-Dateien, Notenvorschauen von Verlagen. Nur Seiten, die
-  du tatsächlich öffnen und lesen kannst. Eine Vorschauseite deckt meist nur
-  die ersten Takte ab: diese Takte übernehmen, den Rest leer lassen und das
-  sagen. Keine Bezahlschranken umgehen, keine Audio-/Video-Downloads.
-- **Harmonischer Rhythmus** (wann der Akkord wechselt): aus Noten, TheoryTab
-  oder Chordify-Rasterdarstellung; sonst „ein Akkord pro Takt“ als Annahme
-  in `uncertain`.
-- Kannst du Code ausführen und findest MIDI/MusicXML: lies die Datei per
-  Skript aus (Tonhöhen, Einsätze, Dauern, Takte), statt sie abzuschreiben.
-
-In `sources` jede genutzte Quelle mit `kind` (`"web"`, `"noten"`, `"midi"`,
-…), `ref` (URL bzw. Bezeichnung) und `note` (wofür genutzt).
+   Deutsch: Quellen mit URL, Form in einer Zeile mit Taktzahlen, Abweichungen
+   zum „bisher Bekannten“ (unten), die wichtigsten unsicheren Stellen.
 
 ## Format `pianino-song`, Version 1
 
@@ -92,14 +75,13 @@ In `sources` jede genutzte Quelle mit `kind` (`"web"`, `"noten"`, `"midi"`,
   "artist": "Kwabs",
   "createdAt": "YYYY-MM-DD",
   "sources": [
-    { "kind": "noten", "ref": "Musicnotes MN0148299", "note": "Tonart der Noten; ggf. „nach a-Moll transponiert“" }
+    { "kind": "web", "ref": "https://…", "note": "Akkorde Strophe/Refrain, Kapo 0" }
   ],
   "key": { "tonic": "A", "mode": "minor", "label": "a-Moll" },
   "meter": { "beatsPerBar": 4, "beatUnit": 4 },
   "tempo": {
     "original": 78,
     "sheet": 72,
-    "feel": "Freely",
     "practice": { "start": 55, "min": 50, "target": 60 }
   },
 
@@ -110,19 +92,15 @@ In `sources` jede genutzte Quelle mit `kind` (`"web"`, `"noten"`, `"midi"`,
 
   "sections": [
     { "id": "intro", "name": "Intro", "bars": ["Am", "Am"] },
-    { "id": "verse1", "name": "Strophe 1",
+    { "id": "verse", "name": "Strophe",
       "bars": ["Am", "D", [{ "chord": "F", "beats": 2 }, { "chord": "C", "beats": 2 }], "F"] }
   ],
-  "form": ["intro", "verse1", "chorus", "verse2", "chorus", "outro"],
+  "form": ["intro", "verse", "chorus", "verse", "chorus", "outro"],
 
-  "melody": {
-    "verse1": [
-      { "bar": 1, "beat": 2.5, "dur": 0.5, "midi": 72, "conf": "sicher" }
-    ]
-  },
+  "melody": {},
 
   "phrases": [
-    { "id": "z1", "name": "Zeile 1", "section": "verse1", "from": 1, "to": 4,
+    { "id": "z1", "name": "Zeile 1", "section": "verse", "from": 1, "to": 4,
       "tip": "Daumen bleibt auf dem A." },
     { "id": "form", "name": "Ganzer Song", "whole": true, "tip": "Einmal durch." }
   ],
@@ -132,7 +110,7 @@ In `sources` jede genutzte Quelle mit `kind` (`"web"`, `"noten"`, `"midi"`,
   },
 
   "uncertain": [
-    { "where": "Strophe 1, Takt 3", "what": "F oder F/C – Bass in den Noten unklar" }
+    { "where": "Strophe, Takt 4", "what": "aufgefüllt: F verlängert, Tabs zeigen keine Dauer" }
   ],
   "verified": { "chords": false, "rhythm": false, "melody": false }
 }
@@ -140,20 +118,18 @@ In `sources` jede genutzte Quelle mit `kind` (`"web"`, `"noten"`, `"midi"`,
 
 Feldregeln:
 
+- **`tempo`**: `original` = Tempo der Aufnahme (BPM, ganze Zahl), `sheet` =
+  Tempo der Noten, falls bekannt, sonst weglassen. `practice` so lassen.
 - **Takte** (`sections[].bars[]`): entweder ein Akkordschlüssel (ganzer Takt)
   oder eine Liste `{ chord, beats }`, deren `beats` zusammen `beatsPerBar`
-  ergeben. `"-"` = kein Akkord (N.C.). Ein Auftakt-/Sondertakt darf
-  `{ "beats": 2, "chords": [...] }` sein und muss in `uncertain` oder `note`
-  erklärt werden.
-- **Melodie**: `bar` ab 1 innerhalb des Abschnitts, `beat` ab 1 in Vierteln
-  (`1.5` = „1 und“, Triolen als Dezimalzahl auf 3 Stellen), `dur` in
-  Vierteln, `midi` 60 = C4, notiert im Violinschlüssel (nicht oktavieren).
-  Pausen nicht eintragen. Überbindungen über den Taktstrich: Note im ersten
-  Takt mit voller Dauer, nicht doppelt. Auftakt-Töne vor Takt 1 gehören ans
-  Ende des vorigen Abschnitts.
+  ergeben. `"-"` = kein Akkord (N.C.). Ein Sondertakt darf
+  `{ "beats": 2, "chords": [...] }` sein und muss in `uncertain` erklärt
+  werden.
 - **Phrasen**: `section` + `from`/`to` (Takte des Abschnitts) oder
   `sections: [...]` für mehrere ganze Abschnitte oder `whole: true`.
   Maximal 8 Takte für Lernphrasen, dazu am Ende größere Einheiten.
+- **Loops**: kurze Akkordfolgen, die im Song wörtlich vorkommen und sich zum
+  Kreisen eignen (ein Akkord je Eintrag).
 - Unbekannte Felder werden von der App ignoriert; erfinde keine neuen, die
   Inhalte tragen.
 
@@ -162,13 +138,14 @@ Feldregeln:
 - Rechte Hand: **genau 3 Töne**, aufsteigend, Dreiklang des Akkords in enger
   Lage, möglichst nah an der Lage „Daumen auf A4 (MIDI 69)“, mit möglichst
   wenig Bewegung zum Nachbarakkord. Gemeinsame Töne liegen bleiben lassen.
-  Bereich `rh` 60–81.
+  Bereich `rh` 60–81. MIDI 60 = C4.
 - Linke Hand: ein Ton, der Grundton (bei Slash-Akkord der Basston),
   Bereich 36–52.
 - `fingers`: Fingersatz der rechten Hand (1 = Daumen) passend zu `rh`.
 - `tip`: ein kurzer deutscher Satz, wie man vom bisher Gelernten hinkommt.
 - Septakkorde, sus usw.: als Dreiklang reduzieren, der den Klang trägt, und
-  in `uncertain` vermerken (z. B. „Am7 als Am gegriffen“).
+  in `uncertain` vermerken (z. B. „Am7 als Am gegriffen“). Slash-Akkorde
+  (z. B. F/A) als eigener Schlüssel mit passendem `lh`.
 
 **Diese Griffe gibt es schon – unverändert übernehmen**, falls der Akkord
 vorkommt (Schlüssel = Symbol):
@@ -183,19 +160,18 @@ vorkommt (Schlüssel = Symbol):
 
 ## Was bisher bekannt ist (unverifiziert, nur als Ausgangspunkt)
 
-Aus Nutzer-Tabs, ein Akkord pro Takt angenommen. **Durch die Quellen
-ersetzen**, wo sie etwas anderes sagen, und Abweichungen im Bericht nennen.
+Aus Nutzer-Tabs, ein Akkord pro Takt angenommen. **Durch die Recherche
+ersetzen**, wo sie etwas anderes sagt, und Abweichungen im Bericht nennen.
 
-- Tonart a-Moll, Original etwa 76–79 BPM, in den Noten „Freely“, Viertel = 72.
+- Tonart a-Moll, Original etwa 76–79 BPM, Musicnotes: Viertel = 72.
 - Strophe (16 Takte): Am D F F | Am D F F | Am Dm C F | Am Dm F F
   (die Tabs nennen „Am – D – F (zweimal), dann Am – Dm – C – F, Am – Dm – F“;
   die Takte 4, 8, 16 sind aufgefüllt).
 - Refrain (8 Takte): C F Dm C | F Dm C F, danach 1 Takt Am als Auflösung.
 
 Diese Phrasen-ids gibt es schon. Verwende sie für die entsprechenden Stellen
-der **ersten Strophe** bzw. des **ersten Refrains**, in dieser
-Lernreihenfolge, und hänge weitere Phrasen mit neuen ids dahinter oder
-dazwischen:
+der **Strophe** bzw. des **Refrains**, in dieser Lernreihenfolge, und hänge
+weitere Phrasen mit neuen ids dahinter oder dazwischen:
 
 | id | Bedeutung |
 |---|---|
@@ -211,15 +187,17 @@ die naheliegendste Entsprechung und erkläre es im Bericht.
 
 ## Selbstprüfung vor der Ausgabe
 
-- [ ] Gültiges JSON, `format`/`formatVersion`/`id` wie oben.
+- [ ] Gültiges JSON, `format`/`formatVersion`/`id` wie oben, `melody` ist `{}`.
 - [ ] Jeder Takt: Summe `beats` = `beatsPerBar` (oder begründeter Sondertakt).
-- [ ] Jeder Akkordschlüssel in `sections`, `loops` ist in `chords` definiert.
+- [ ] Jeder Akkordschlüssel in `sections` und `loops` ist in `chords`
+      definiert; jeder Griff in `chords` wird auch benutzt.
 - [ ] Jeder Griff: 3 aufsteigende `rh`-Töne in 60–81, Töne passen zum
-      Symbol, `lh` in 36–52, `fingers` 3 Zahlen 1–5 aufsteigend.
-- [ ] Jede Abschnitt-id in `form`, `melody`, `phrases` existiert.
-- [ ] Melodie: `bar` im Abschnitt vorhanden, `beat + dur` ≤ `beatsPerBar + 1`
-      (sonst Überbindung prüfen), `midi` 48–84, keine Überlappung in einer
-      Stimme, Noten nach `bar`, `beat` sortiert, jede hat `conf`.
-- [ ] Phrasen-ids eindeutig, `from` ≤ `to`, innerhalb des Abschnitts.
-- [ ] Kein Liedtext irgendwo. Kein Wort, das aus dem Text stammt.
-- [ ] `verified` alles `false`; jede Annahme steht in `uncertain`.
+      Symbol, `lh` in 36–52 und passend zum Grund-/Basston, `fingers`
+      3 Zahlen 1–5 aufsteigend; die fünf bestehenden Griffe unverändert.
+- [ ] Jede Abschnitt-id in `form` und `phrases` existiert.
+- [ ] Phrasen-ids eindeutig, `from` ≤ `to`, innerhalb des Abschnitts;
+      `z1`, `z4`, `z3`, `ref`, `strophe`, `form` vorhanden.
+- [ ] Jede Loop-Folge kommt im Song so vor.
+- [ ] Jede Quelle mit URL in `sources`; jede Annahme in `uncertain`.
+- [ ] Kein Liedtext irgendwo, auch nicht im Bericht.
+- [ ] `verified` alles `false`.
