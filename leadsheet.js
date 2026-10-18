@@ -231,9 +231,10 @@ export function nextBarSelection(sel, bar) {
   return { from: bar, to: bar };
 }
 
-/** Pause vor dem Loop und zwischen den Durchgängen: ein Takt (bei der
- *  Abspielrate `rate`). ANNAHME: ohne Tempo 2 Sekunden. */
-export const loopPause = (song, rate = 1) => (song.bpm ? (song.beatsPerBar * 60) / song.bpm : 2) / (rate || 1);
+/** Vorlauf vor dem Loop und zwischen den Durchgängen: der Takt davor im
+ *  Video (Sekunden Videozeit), damit man den Einsatz findet.
+ *  ANNAHME: ohne Tempo 2 Sekunden. */
+export const loopLead = (song) => (song.bpm ? (song.beatsPerBar * 60) / song.bpm : 2);
 
 /* ---------- Tabs auf die Abschnitte aufteilen -------------------------- */
 
