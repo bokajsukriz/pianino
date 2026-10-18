@@ -18,9 +18,13 @@ Klavier. Ich lerne Klavier, um Gesang zu begleiten: rechte Hand Dreiklänge,
 linke Hand ein Basston. Das Paket ist eine einzige JSON-Datei, die ich in der
 App importiere. Es geht um **„Perfect Ruin“ von Kwabs**.
 
-**Quelle sind die Tabs, die ich unten einfüge oder anhänge.** Die Websuche
-nutzt du nur für Tonart und Tempo (z. B. Tunebat, SongBPM, Musicnotes
-MN0148299) – nicht für Akkorde.
+**Quelle sind Akkord-Tabs.** Hole sie zuerst selbst: such per Websuche nach
+„Perfect Ruin Kwabs chords“ (Ultimate Guitar, Chordify, chordu, AZChords,
+Chordie u. ä.) und öffne 2–3 Versionen. Sag mir, welche Seiten du wirklich
+lesen konntest und welche blockiert waren. Konntest du keine lesen, stopp und
+bitte mich, die Tabs einzufügen – nicht aus dem Gedächtnis weitermachen.
+Tabs, die ich unten einfüge oder anhänge, haben Vorrang. Tonart und Tempo
+außerdem aus Tunebat, SongBPM oder Musicnotes (MN0148299).
 
 ## Was du aus den Tabs herausziehst
 
@@ -227,4 +231,4 @@ die naheliegendste Entsprechung und erkläre es im Bericht.
 
 TABS:
 
-(hier einfügen oder als PDF anhängen)
+(optional: hier einfügen oder als PDF anhängen)
