@@ -332,3 +332,29 @@ export function sectionProgress(song, t, durationSec = 0) {
   if (end == null || end <= start || t > end + EPS) return null;
   return { id, frac: Math.max(0, Math.min(1, (t - start) / (end - start))) };
 }
+
+/** Taktzahlen aus der Zeit: Ist das Tempo bekannt, bekommt jeder Abschnitt,
+ *  dessen Takte nicht von Hand gesetzt sind (barsSet), so viele Takte, wie
+ *  bis zum Start des nächsten Abschnitts (mit eigener Startzeit) passen.
+ *  ANNAHME: auf ganze Takte gerundet, mindestens 1. Der letzte Abschnitt
+ *  behält seine Takte (sein Ende ist noch offen). Würde das Kürzen Akkorde
+ *  wegnehmen, bleibt der Abschnitt, wie er ist. */
+export function fitBars(song) {
+  if (!song.bpm) return song;
+  const bpb = song.beatsPerBar;
+  let s = song;
+  for (const id of sectionList(song).map((x) => x.id)) {
+    const list = sectionList(s);
+    const i = list.findIndex((x) => x.id === id);
+    const sec = list[i], next = list[i + 1];
+    if (!next || sec.barsSet || next.startSec == null) continue;
+    const start = sectionTimes(s)[i].start;
+    if (start == null || next.startSec <= start) continue;
+    const n = Math.max(1, Math.min(MAX_BARS, Math.round(((next.startSec - start) * s.bpm) / 60 / bpb)));
+    if (n === sec.bars) continue;
+    const cutFrom = sec.fromBeat + n * bpb;
+    if (n < sec.bars && (s.events || []).some((e) => e.at >= cutFrom - EPS && e.at < sec.toBeat - EPS)) continue;
+    s = resizeSection(s, id, n);
+  }
+  return s;
+}

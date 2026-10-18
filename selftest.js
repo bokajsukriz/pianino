@@ -19,7 +19,7 @@ import { runMigrations } from './migrations.js';
 import {
   sectionList, addSection, resizeSection, deleteSection, setBeatsPerBar, setChordAt, sectionGrid, sectionTimes, playPos,
   tabBlocks, blocksForSections, sectionsFromTabs, marksToSections,
-  orderByStart, sectionProgress,
+  orderByStart, sectionProgress, fitBars, updateSection,
 } from './leadsheet.js';
 import { drillChunks, cycleBeats, cyclePhase, nextChunk, stepBpm, startBpm, DRILL } from './drill.js';
 import { addMark, removeMark, markRange, markAt, nextMarkName, fmtClock, addLoop, updateLoop, removeLoop } from './marks.js';
@@ -616,6 +616,18 @@ function pureTests() {
     && orderByStart(ob2) === ob2, JSON.stringify(ob2.events));
   const sp = sectionProgress(ob2, 25, 60);
   check('16 Fortschritt im Abschnitt aus Start und Ende', sp.id === sectionList(ob2)[1].id && Math.abs(sp.frac - 0.5) < 1e-9 && sectionProgress(ob2, 50, 0) === null);
+
+  let fb = { ...TS, bpm: 80, sections: [], events: [] };
+  fb = addSection(fb, { name: 'Intro', startSec: 0 });
+  fb = addSection(fb, { name: 'Strophe 1', startSec: 12 });
+  fb = addSection(fb, { name: 'Refrain 1', startSec: 36 });
+  fb = setChordAt(fb, sectionList(fb)[2].fromBeat, 'F');
+  const fb2 = fitBars(fb);
+  check('16 Takte aus der Zeit: 12 s bei 80 BPM = 4 Takte, 24 s = 8, letzter bleibt; Akkorde rücken mit',
+    eq(sectionList(fb2).map((x) => x.bars), [4, 8, 8]) && fb2.events[0].at === sectionList(fb2)[2].fromBeat && fitBars(fb2) === fb2
+    && eq(sectionList(fitBars({ ...fb, bpm: null })).map((x) => x.bars), [8, 8, 8]));
+  const fb3 = fitBars(updateSection(fb, sectionList(fb)[0].id, { barsSet: true }));
+  check('16 Takte von Hand bleiben', eq(sectionList(fb3).map((x) => x.bars), [8, 8, 8]));
 
   /* 17 — Folgen üben: 2-Takt-Folgen, Vorlauf, Wiederholen, Tempo */
   let dr = { ...TS, sections: [], events: [] };

@@ -60,7 +60,7 @@ am besten in der App selbst heraus („Transkribieren“).
 | `chords` | ja | Akkordsymbole, keins doppelt (darf leer sein; Akkorde aus eingefügten Tabs kommen von selbst dazu) |
 | `voicings` | nein | Griff je Symbol aus `chords` (unten); sonst gilt die Standardlage |
 | `sources` | nein | Quellen; `youtube` mit `videoId` (11 Zeichen), `offsetSec` (Sekunde im Video, an der Schlag 0 liegt, ≥ 0 oder `null`), `durationSec` |
-| `sections` | ja (darf `[]` sein) | `{ id, name, bar, bars, startSec? }`, Takte 1-basiert, ohne Überlappung; `startSec`: Sekunde im Video, an der der Abschnitt beginnt (Liedseite, „Start hier“) |
+| `sections` | ja (darf `[]` sein) | `{ id, name, bar, bars, startSec? }`, Takte 1-basiert, ohne Überlappung; `startSec`: Sekunde im Video, an der der Abschnitt beginnt (Liedseite, „Start hier“); `barsSet: true`: Takte von Hand gesetzt (sonst rechnet die Liedseite sie mit Tempo aus dem Abstand zum nächsten Start) |
 | `events` | ja (darf `[]` sein) | `{ at, chord }`: ab Schlag `at` klingt `chord` |
 | `grid` | nein | `0.5` (Standard) oder `0.25`, wenn Wechsel auf Sechzehnteln liegen |
 | `marks` | nein | veraltet: frühere Abschnitts-Marken `{ id, name, sec }`; Datenstand 3 macht daraus `sections` mit `startSec` (je 8 Takte) |
