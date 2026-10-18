@@ -6,6 +6,7 @@
 import { SONG as OLD_SONG, songForm } from './song-perfect-ruin.js';
 import { chordById } from './chords.js';
 import { normalizeSong } from './songdata.js';
+import { marksToSections } from './leadsheet.js';
 
 /** Der Song „Perfect Ruin“ aus der alten Datei: Titel, Tonart, Takt und
  *  Akkorde — keine Griffe (die alten :song-Lagen stimmten nicht mit dem
@@ -53,6 +54,17 @@ export const MIGRATIONS = Object.freeze({
       del.push(id);
     }
     return { put, del };
+  },
+  /** 3: Liedseite als Leadsheet. Die Abschnitts-Marken (song.marks, Sekunden)
+   *  werden Abschnitte mit Startzeit (song.sections, je 8 Takte); Songs, die
+   *  schon Abschnitte haben, bleiben, wie sie sind. */
+  3(records) {
+    const put = [];
+    for (const r of records) {
+      if (!String(r.id).startsWith('song:') || !r.song?.marks?.length || r.song.sections?.length) continue;
+      put.push({ ...r, song: marksToSections(r.song) });
+    }
+    return { put, del: [] };
   },
 });
 

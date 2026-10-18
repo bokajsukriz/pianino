@@ -60,10 +60,10 @@ am besten in der App selbst heraus („Transkribieren“).
 | `chords` | ja | Akkordsymbole, keins doppelt (darf leer sein; Akkorde aus eingefügten Tabs kommen von selbst dazu) |
 | `voicings` | nein | Griff je Symbol aus `chords` (unten); sonst gilt die Standardlage |
 | `sources` | nein | Quellen; `youtube` mit `videoId` (11 Zeichen), `offsetSec` (Sekunde im Video, an der Schlag 0 liegt, ≥ 0 oder `null`), `durationSec` |
-| `sections` | ja (darf `[]` sein) | `{ id, name, bar, bars }`, Takte 1-basiert, ohne Überlappung |
+| `sections` | ja (darf `[]` sein) | `{ id, name, bar, bars, startSec? }`, Takte 1-basiert, ohne Überlappung; `startSec`: Sekunde im Video, an der der Abschnitt beginnt (Liedseite, „Start hier“) |
 | `events` | ja (darf `[]` sein) | `{ at, chord }`: ab Schlag `at` klingt `chord` |
 | `grid` | nein | `0.5` (Standard) oder `0.25`, wenn Wechsel auf Sechzehnteln liegen |
-| `marks` | nein | Abschnitte der Liedseite: `{ id, name, sec }` (Sekunde im Video, ab der der Abschnitt beginnt) |
+| `marks` | nein | veraltet: frühere Abschnitts-Marken `{ id, name, sec }`; Datenstand 3 macht daraus `sections` mit `startSec` (je 8 Takte) |
 | `loops` | nein | gespeicherte Loops der Liedseite: `{ id, name, start, end, pre }` (Sekunden im Video; `pre` = Vorlauf) |
 | `tabText` | nein | eingefügte Tabs als Text — nur vom Nutzer, bleibt auf dem Gerät (Export nur auf Wunsch) |
 | `tabMode` | nein | `"text"` oder `"pdf"`: was die Liedseite zeigt (das PDF selbst liegt nur auf dem Gerät, nie im JSON) |

@@ -16,6 +16,10 @@ import {
 } from './timeline.js';
 import { tapTempo, parseYouTubeId, scoreTaps, tapSummary, applyWann, newWann } from './tap.js';
 import { runMigrations } from './migrations.js';
+import {
+  sectionList, addSection, resizeSection, deleteSection, setBeatsPerBar, setChordAt, sectionGrid, sectionTimes, playPos,
+  tabBlocks, blocksForSections, sectionsFromTabs, marksToSections,
+} from './leadsheet.js';
 import { addMark, removeMark, markRange, markAt, nextMarkName, fmtClock, addLoop, updateLoop, removeLoop } from './marks.js';
 import { classifyLine, parseTabText, chordsInText, stripMarkup } from './tabtext.js';
 import {
@@ -554,6 +558,48 @@ function pureTests() {
     && parseTabText('Zeile A\n[Intro]', { title: 'Testsong' })[0].text === 'Zeile A');
   check('15 Export ohne Tabs und Text, auf Wunsch mit', !('tabText' in JSON.parse(exportSong({ ...TS, tabText: 'Zeile A' })))
     && JSON.parse(exportSong({ ...TS, tabText: 'Zeile A' }, { lyrics: true })).tabText === 'Zeile A' && validateSong({ ...TS, chords: [], events: [] }).ok);
+
+  /* 16 — Leadsheet: Abschnitte als Takte, Akkorde auf Schlägen */
+  let ls = { ...TS, sections: [], events: [] };
+  ls = addSection(ls, { name: 'Intro', bars: 2, startSec: 4 });
+  ls = addSection(ls, { name: 'Strophe 1', bars: 4, startSec: 11 });
+  ls = setChordAt(setChordAt(setChordAt(ls, 0, 'Am'), 3, 'D/F#'), 8, 'F6/9');
+  ls = setChordAt(ls, 12, 'C');
+  check('16 Abschnitte lückenlos ab Takt 1', eq(sectionList(ls).map((x) => [x.name, x.bar, x.fromBeat, x.toBeat]), [['Intro', 1, 0, 8], ['Strophe 1', 3, 8, 24]]));
+  const g = sectionGrid(ls, sectionList(ls)[0]);
+  check('16 Raster: je Takt 4 Schläge, vorgezogener Wechsel auf 4 erkannt', g.length === 2 && g[0].cells.length === 4
+    && g[0].cells[0].chord === 'Am' && g[0].cells[3].chord === 'D/F#' && g[0].cells[3].early && g[1].cells.every((c) => !c.chord));
+  check('16 Raster: am Abschnittsanfang klingt der Akkord weiter (Zelle 1)', sectionGrid(setChordAt(ls, 8, null), sectionList(ls)[1])[0].cells[0].chord === 'D/F#');
+  const big = resizeSection(ls, sectionList(ls)[0].id, 3);
+  check('16 Takte ändern: spätere Abschnitte und Akkorde rücken mit', sectionList(big)[1].bar === 4
+    && big.events.find((e) => e.chord === 'F6/9').at === 12 && big.events.find((e) => e.chord === 'C').at === 16);
+  const small = resizeSection(setChordAt(ls, 20, 'Dm'), sectionList(ls)[1].id, 2);
+  check('16 Takte kürzen: Akkorde der weggefallenen Takte fallen weg', !small.events.some((e) => e.chord === 'Dm') && small.events.some((e) => e.chord === 'C')
+    && sectionList(small)[1].bars === 2);
+  const del = deleteSection(ls, sectionList(ls)[0].id);
+  check('16 Abschnitt löschen: Rest rückt auf Takt 1', sectionList(del)[0].bar === 1 && del.events[0].at === 0 && del.events[0].chord === 'F6/9');
+  const m34 = setBeatsPerBar(ls, 3);
+  check('16 Taktart 3/4: Takt und Zählzeit bleiben, Schlag 4 fällt weg', m34.beatsPerBar === 3 && !m34.events.some((e) => e.chord === 'D/F#')
+    && m34.events.find((e) => e.chord === 'F6/9').at === 6);
+  const tm = sectionTimes({ ...ls, bpm: 60 }, 200);
+  check('16 Zeiten: Start aus „Start hier“, Ende aus Tempo bzw. nächstem Abschnitt', tm[0].start === 4 && tm[0].end === 11 && tm[1].start === 11 && tm[1].end === 27);
+  const pp = playPos({ ...ls, bpm: 60 }, 13.5, 200);
+  check('16 Stelle zur Videozeit: Abschnitt und Schlag', pp.id === sectionList(ls)[1].id && Math.abs(pp.beat - 10.5) < 1e-9 && playPos({ ...ls, bpm: null }, 13.5).beat === null && playPos(ls, 2) === null);
+  const tb = tabBlocks('X\n[Intro]\nAm F\n\n[Verse]\nAm  D/F#  F\nZeile A\nAm  Dm  C  F\nZeile B\n[Chorus]\nC F');
+  check('16 Tabs in Blöcke an den Überschriften', eq(tb.map((b) => b.header), [null, 'Intro', 'Verse', 'Chorus']) && tb[2].lines.length === 4
+    && blocksForSections(ls, tb).map[sectionList(ls)[1].id].header === 'Verse');
+  const ft = sectionsFromTabs({ ...TS, chords: [] }, '[Intro]\nAm D/F# F\n[Verse]\nAm  D/F#  F\nZeile A\nAm  Dm  C  F\nZeile B\n[Chorus]\nC  F\n[Verse]\nAm F');
+  check('16 Abschnitte aus Tabs: Namen, 2 Takte je Akkordzeile, Akkorde als Vorschlag',
+    eq(sectionList(ft).map((x) => [x.name, x.bars]), [['Intro', 2], ['Strophe 1', 4], ['Refrain 1', 2], ['Strophe 2', 2]])
+    && eq(ft.events.slice(0, 5), [{ at: 0, chord: 'Am' }, { at: 4, chord: 'D/F#' }, { at: 6, chord: 'F' }, { at: 8, chord: 'Am' }, { at: 12, chord: 'D/F#' }])
+    && ft.chords.includes('Dm') && validateSong(ft).ok, JSON.stringify(ft.events.slice(0, 6)));
+  const mk3 = marksToSections({ ...TS, sections: [], marks: [{ id: 'm1', name: 'Strophe 1', sec: 11 }, { id: 'm2', name: 'Intro', sec: 2 }] });
+  check('16 Alte Marken werden Abschnitte mit Startzeit', eq(sectionList(mk3).map((x) => [x.name, x.startSec, x.bars]), [['Intro', 2, 8], ['Strophe 1', 11, 8]]) && !('marks' in mk3));
+  const v2rec = [{ id: 'dataVersion', v: 2 }, { id: 'song:a', song: { ...TS, id: 'a', sections: [], marks: [{ id: 'm1', name: 'Intro', sec: 1 }] } }, { id: 'song:b', song: TS }];
+  const mig3 = runMigrations(v2rec, 2, 3), mig3b = runMigrations(mig3.records, 2, 3);
+  check('16 Migration 3: Marken → Abschnitte, Songs mit Abschnitten bleiben, zweiter Lauf ändert nichts',
+    mig3.records.find((r) => r.id === 'song:a').song.sections[0].startSec === 1 && eq(mig3.records.find((r) => r.id === 'song:b'), v2rec[2])
+    && mig3b.steps[0].put.length === 0);
 
   check('14 Migration 2: zweiter Lauf ändert nichts', m2.steps[0].put.length === 0 && m2.steps[0].del.length === 0 && eq(m2.records, m1.records));
   }
