@@ -11,7 +11,7 @@
    Anfragen an andere Herkünfte (YouTube) bearbeitet er nicht: kein Cache,
    kein Abfangen. */
 
-const SW_VERSION = 'v17';
+const SW_VERSION = 'v18';
 const CACHE = `pianino-shell-${SW_VERSION}`;
 const SAMPLES_CACHE = 'pianino-samples-v1';
 
