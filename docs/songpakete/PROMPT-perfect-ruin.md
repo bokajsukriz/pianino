@@ -1,7 +1,8 @@
 # Prompt: Songpaket „Perfect Ruin“ (Kwabs)
 
-Alles unterhalb der Linie in einen neuen Chat/Agenten kopieren und die Quellen
-(Noten-PDF/Fotos, Tabs, Audiodatei) anhängen.
+Alles unterhalb der Linie in einen neuen Chat/Agenten kopieren. Websuche
+einschalten; Code-Ausführung einschalten, wenn vorhanden. Eigene Quellen
+(Noten-PDF/Fotos, MIDI/MusicXML) zusätzlich anhängen, falls vorhanden.
 
 ---
 
@@ -12,12 +13,17 @@ die in der App importiert wird. Es geht um **„Perfect Ruin“ von Kwabs**.
 
 ## Harte Regeln
 
-1. **Nichts erfinden.** Jede Angabe stammt aus einer angehängten Quelle. Was
-   du nicht aus einer Quelle ablesen oder hören kannst, bleibt weg oder kommt
-   unter `uncertain`. Insbesondere: **Melodie nie aus dem Gedächtnis.** Ohne
-   Noten oder Audioanalyse ist `melody` leer (`{}`).
+1. **Nichts erfinden.** Jede Angabe stammt aus einer Quelle (angehängt oder
+   im Internet gefunden, mit URL). Was du nicht aus einer Quelle ablesen
+   kannst, bleibt weg oder kommt unter `uncertain`. Insbesondere: **Melodie
+   nie aus dem Gedächtnis** und nie aus einer Textbeschreibung „rekonstruiert“.
+   Melodie nur aus Notentext (Noten, MIDI, MusicXML, TheoryTab o. ä.); ohne
+   so eine Quelle ist `melody` leer (`{}`).
 2. **Kein Liedtext.** Kein Wort des Songtexts im Paket, auch nicht in
    `tip`, `name` oder `note`. Zeilen heißen „Zeile 1“, „Strophe 2, Zeile 3“ usw.
+   Tab-Seiten im Internet enthalten fast immer den Text über den Akkorden:
+   nur die Akkorde und die Zeilenstruktur übernehmen, den Text nicht
+   wiedergeben, auch nicht im Bericht.
 3. **Unsicherheit markieren.** Jede Melodienote hat `conf`
    (`"sicher"` | `"wahrscheinlich"` | `"geraten"`). Jede Annahme zu Akkorden,
    Form oder Rhythmus steht in `uncertain` mit Ort und Grund.
@@ -29,8 +35,9 @@ die in der App importiert wird. Es geht um **„Perfect Ruin“ von Kwabs**.
 
 ## Vorgehen
 
-1. **Quellen sichten.** Liste, was angehängt ist und was davon taugt. Fehlen
-   Noten und Audio: sag das, und liefere ein Paket nur mit Akkorden.
+1. **Quellen sammeln** (Anhänge und Internetrecherche, siehe unten). Liste
+   jede Quelle mit URL und was sie liefert. Gibt es keinen Notentext für die
+   Melodie: sag das, und liefere ein Paket mit Akkorden und leerer Melodie.
 2. **Form bestimmen**: Intro, Strophen, Pre-Chorus, Refrain, Bridge, Outro –
    mit Taktzahlen. Wiederholungen ausschreiben (`form` darf Abschnitte mehrfach
    nennen). Zwei Strophen mit gleichen Akkorden, aber anderer Melodie →
@@ -48,6 +55,31 @@ die in der App importiert wird. Es geht um **„Perfect Ruin“ von Kwabs**.
    möglich, sonst ein einziger ```json-Block), danach ein kurzer Bericht auf
    Deutsch: Quellen, Form in einer Zeile, Zahl der Takte und Melodienoten,
    die wichtigsten unsicheren Stellen.
+
+## Internetrecherche
+
+Suche gezielt, nicht nur eine Seite:
+
+- **Akkorde und Form**: mehrere Tab-/Akkordseiten (z. B. Ultimate Guitar,
+  Chordify, Songsterr, chordu, deutsche Akkordseiten). Übernimm eine Akkord-
+  folge erst, wenn mindestens zwei unabhängige Quellen übereinstimmen; bei
+  Abweichung die häufigere bzw. besser bewertete nehmen und die andere in
+  `uncertain` nennen. Tabs mit Kapo zurückrechnen.
+- **Tonart und Tempo**: Datenbanken wie Tunebat, SongBPM, Musicnotes-
+  Produktseite (MN0148299, dort „Original Published Key“ und Tempo).
+- **Melodie**: Hooktheory/TheoryTab, frei verfügbare MuseScore-Partituren,
+  MIDI- oder MusicXML-Dateien, Notenvorschauen von Verlagen. Nur Seiten, die
+  du tatsächlich öffnen und lesen kannst. Eine Vorschauseite deckt meist nur
+  die ersten Takte ab: diese Takte übernehmen, den Rest leer lassen und das
+  sagen. Keine Bezahlschranken umgehen, keine Audio-/Video-Downloads.
+- **Harmonischer Rhythmus** (wann der Akkord wechselt): aus Noten, TheoryTab
+  oder Chordify-Rasterdarstellung; sonst „ein Akkord pro Takt“ als Annahme
+  in `uncertain`.
+- Kannst du Code ausführen und findest MIDI/MusicXML: lies die Datei per
+  Skript aus (Tonhöhen, Einsätze, Dauern, Takte), statt sie abzuschreiben.
+
+In `sources` jede genutzte Quelle mit `kind` (`"web"`, `"noten"`, `"midi"`,
+…), `ref` (URL bzw. Bezeichnung) und `note` (wofür genutzt).
 
 ## Format `pianino-song`, Version 1
 
