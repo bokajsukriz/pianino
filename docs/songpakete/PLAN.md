@@ -33,8 +33,10 @@ Ehrlich vorweg, weil das den ganzen Ablauf bestimmt:
   bezeichnungen („Strophe 1, Zeile 2“). Eigene Stichworte kann der Nutzer
   später in der App eintragen (bleiben lokal, Phase 4).
 
-Entscheidung für Perfect Ruin: nur frei verfügbare Akkord-Tabs per
-Internetrecherche, Melodie bleibt leer. Kein YouTube-Audio (Herunterladen
+Entscheidung für Perfect Ruin: nur Akkord-Tabs, die der Nutzer selbst
+öffnet und in den Claude-Chat einfügt (Ultimate Guitar u. ä. lassen sich von
+Claude nicht verlässlich abrufen). Websuche nur für Tonart und Tempo. Melodie
+bleibt leer. Kein YouTube-Audio (Herunterladen
 verstößt gegen die YouTube-Bedingungen, Claude kann Videos nicht anhören).
 Das Format behält das Feld `melody`, damit eine Melodie später aus Noten
 ergänzt werden kann.
