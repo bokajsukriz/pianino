@@ -19,7 +19,7 @@ import { runMigrations } from './migrations.js';
 import {
   sectionList, addSection, resizeSection, deleteSection, setBeatsPerBar, setChordAt, sectionGrid, sectionTimes, playPos,
   tabBlocks, blocksForSections, sectionsFromTabs, marksToSections,
-  orderByStart, fitBars, updateSection, tapChordAt, barsTime, nextBarSelection, loopPause,
+  orderByStart, fitBars, updateSection, tapChordAt, barsTime, nextBarSelection, loopLead,
 } from './leadsheet.js';
 import { drillChunks, cycleBeats, cyclePhase, nextChunk, stepBpm, startBpm, DRILL } from './drill.js';
 import { addMark, removeMark, markRange, markAt, nextMarkName, fmtClock, addLoop, updateLoop, removeLoop } from './marks.js';
@@ -621,7 +621,7 @@ function pureTests() {
     && barsTime({ ...ob2, bpm: 60 }, sectionList(ob2)[1].id, 1, 3).end === 14 && barsTime({ ...ob2, bpm: null }, sectionList(ob2)[1].id, 3, 3).end === 17.5);
   check('16 Takt-Auswahl: einer, Bereich, derselbe hebt auf, neuer wählt neu', eq(nextBarSelection(null, 5), { from: 5, to: 5 })
     && eq(nextBarSelection({ from: 5, to: 5 }, 3), { from: 3, to: 5 }) && nextBarSelection({ from: 5, to: 5 }, 5) === null
-    && eq(nextBarSelection({ from: 3, to: 5 }, 7), { from: 7, to: 7 }) && loopPause({ bpm: 120, beatsPerBar: 4 }, 0.5) === 4 && loopPause({ bpm: null }) === 2);
+    && eq(nextBarSelection({ from: 3, to: 5 }, 7), { from: 7, to: 7 }) && loopLead({ bpm: 120, beatsPerBar: 4 }) === 2 && loopLead({ bpm: null }) === 2 && loopLead({ bpm: 60, beatsPerBar: 3 }) === 3);
 
   let fb = { ...TS, bpm: 80, sections: [], events: [] };
   fb = addSection(fb, { name: 'Intro', startSec: 0 });

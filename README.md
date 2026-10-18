@@ -34,7 +34,8 @@ Startzeit des ersten Abschnitts läuft die Markierung im Raster mit dem
 Video mit (Takt und Viertel hervorgehoben; ohne Tempo ungefähr, aus dem
 Abstand zum nächsten Start). Beim Loop über einen Abschnitt (↻) lassen sich
 einzelne Takte wählen (Taktnummer antippen, ein zweiter Takt: Bereich);
-vor dem ersten und zwischen den Durchgängen ist ein Takt Pause. Abschnitte stehen nach
+vor dem ersten und zwischen den Durchgängen spielt der Takt davor als
+Vorlauf (ohne Tempo 2 s), der ↻-Knopf zählt bis zum Einsatz herunter. Abschnitte stehen nach
 Startzeit im Video, auch wenn man sie in anderer Reihenfolge anlegt. Mit
 Tempo ergeben sich die Takte eines Abschnitts aus dem Abstand zum nächsten
 Start (gerundet), bis man sie selbst ändert („aus der Zeit“ stellt das
