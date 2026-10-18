@@ -231,15 +231,47 @@ p { margin: 0 0 .6em; }
 }
 .status { font-weight: 700; }
 
-/* S9 Geführt */
-.status-line { font-weight: 650; transition: background .15s; }
-.status-line.good { background: #e3f6ec; border-color: #9fd8bb; }
-.now-symbol.got { color: #1f8a5b; }
-.chord-strip li.hit { border-color: #1f8a5b; }
-.chord-strip li.now.hit { box-shadow: 0 0 0 2px #1f8a5b; }
-.chord-strip li.miss { border-style: dotted; color: var(--muted); }
+/* Kleine Schalter, Startscreen-Zwischentitel */
 .toggle-sm { min-height: 40px; padding: 4px 12px; font-size: 14px; }
 .extras-label { margin: 6px 0 -8px; }
+
+/* S9 Geführt — Gerüst nach dem Design „kombiniert“: links der Akkord groß,
+   rechts die Hilfe der Stufe (Tastenbild, Bewegungssatz, Bass, Knopf). */
+.g-head { gap: 8px; }
+.g-phrase { font-weight: 750; color: var(--muted); font-size: 14px; white-space: nowrap; }
+.g-pills { list-style: none; margin: 0; padding: 0; display: flex; gap: 6px; flex: 1; min-width: 0; overflow: hidden; }
+.g-pills li { padding: 4px 12px; border-radius: 99px; border: 2px solid var(--line); font-size: 14px; font-weight: 700; color: var(--muted); white-space: nowrap; }
+.g-pills li.now { background: var(--text); border-color: var(--text); color: var(--bg); }
+.g-pills li.next { border-style: dashed; border-color: var(--accent-text); color: var(--text); }
+.g-meta { font-size: 13px; font-weight: 700; color: var(--muted); white-space: nowrap; }
+.g-main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(170px, 30%) minmax(0, 1fr); gap: 22px; align-items: center; }
+.g-chords { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.g-now { font-size: clamp(88px, 34dvh, 140px); font-weight: 800; line-height: .85; letter-spacing: -.04em; min-height: .85em; transition: color .25s; }
+.g-now.got { color: #8a5a00; }
+.g-next { display: flex; align-items: baseline; gap: 8px; margin-top: 6px; min-height: 1em; }
+.g-next-label { font-size: 14px; font-weight: 700; color: var(--muted); }
+.g-next-sym { font-size: clamp(44px, 17dvh, 68px); font-weight: 800; line-height: 1; color: var(--accent-text); }
+.g-help { display: flex; flex-direction: column; justify-content: center; gap: 10px; min-height: 0; height: 100%; }
+.g-kb { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+.g-move { margin: 0; font-size: 20px; font-weight: 750; line-height: 1.25; }
+.g-help.big .g-move { font-size: clamp(22px, 8dvh, 32px); font-weight: 800; }
+.g-bass { margin: 0; font-size: 15px; font-weight: 700; color: #8a5a00; }
+.g-helpbtn { align-self: flex-start; }
+.g-tempo { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; gap: 44px; }
+.g-cur { font-size: clamp(96px, 42dvh, 170px); font-weight: 800; line-height: .85; letter-spacing: -.04em; color: var(--muted); }
+.g-card { display: flex; flex-direction: column; gap: 4px; padding: 12px 22px; border-radius: 20px; min-width: 150px; opacity: .45; transition: opacity .15s, background .15s; }
+.g-card.soon { opacity: .8; }
+.g-card.now { opacity: 1; background: var(--from); box-shadow: inset 0 0 0 3px var(--accent-text); }
+.g-card-label { font-size: 15px; font-weight: 750; color: var(--accent-text); }
+.g-card-sym { font-size: clamp(72px, 30dvh, 120px); font-weight: 800; line-height: .9; }
+.g-after { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; gap: 12px; padding: 0 20px; }
+.g-after-title { margin: 0; font-size: clamp(34px, 13dvh, 52px); font-weight: 800; line-height: 1.05; }
+.g-after-text { margin: 0; font-size: 20px; color: var(--muted); font-weight: 650; }
+.g-after-auto { margin: 0; font-size: 13px; color: var(--muted); }
+.g-foot { display: flex; flex-direction: column; gap: 4px; flex: none; }
+.g-progress { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.g-progress-fill { height: 100%; width: 0; background: var(--text); }
+.g-status { margin: 0; font-size: 13px; color: var(--muted); min-height: 1.3em; }
 
 /* S6 Groove */
 .groove-grid-wrap { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
@@ -288,8 +320,6 @@ p { margin: 0 0 .6em; }
 .mt-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
 .mt-table th, .mt-table td { text-align: left; padding: 6px 4px; border-bottom: 1px solid var(--line); }
 .mt-table td.yes { color: #1f8a5b; font-weight: 800; }
-.mic-diag { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; min-width: 0; }
-.mic-diag .bar { width: 60px; height: 8px; margin: 0; flex: none; }
 
 /* Über */
 .update-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }

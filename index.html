@@ -85,32 +85,46 @@
     </div>
   </section>
 
-  <!-- S9 Geführt -->
+  <!-- S9 Geführt: ein Gerüst, rechts so viel Hilfe wie der Übergang braucht -->
   <section id="s-guided" class="screen landscape" data-screen="guided" hidden>
-    <header class="ex-head">
-      <div class="ex-title"><span class="ex-name">Geführt</span> <span class="ex-level" data-f="level"></span></div>
-      <div class="ex-count" data-f="count"></div>
-      <div class="ex-meta" data-f="bpm"></div>
+    <header class="ex-head g-head">
+      <span class="g-phrase" data-f="level"></span>
+      <ol class="g-pills" data-f="strip" aria-label="Akkorde der Phrase"></ol>
+      <span class="g-meta" data-f="bpm"></span>
       <button type="button" class="toggle toggle-sm" data-toggle="mic" aria-pressed="false">Mikro</button>
-      <button type="button" class="toggle toggle-sm" data-ear aria-label="Erkenner wechseln">Hören: eigen</button>
       <button type="button" class="icon-btn" data-pause aria-label="Pause">
         <svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
       </button>
     </header>
     <div class="rotate-hint">Dreh das Handy quer – dann ist mehr Platz.</div>
-    <ol class="chord-strip" data-f="strip" aria-label="Akkorde"></ol>
-    <div class="wege-main">
-      <div class="now-next">
-        <span class="now-label">jetzt</span>
-        <span class="now-symbol" data-f="now"></span>
-        <span class="next-line"><span class="next-label">dann</span> <span class="next-symbol" data-f="next"></span></span>
+    <div class="g-main" data-f="main">
+      <div class="g-chords">
+        <span class="g-now" data-f="now"></span>
+        <span class="g-next"><span class="g-next-label">dann</span> <span class="g-next-sym" data-f="next"></span></span>
       </div>
-      <div class="wege-kb" data-f="kb"></div>
+      <div class="g-help">
+        <div class="g-kb" data-f="kb" hidden></div>
+        <p class="g-move" data-f="move" hidden></p>
+        <p class="g-bass" data-f="bass" hidden></p>
+        <button type="button" class="btn btn-secondary g-helpbtn" data-f="helpbtn" hidden>Tastenbild zeigen</button>
+      </div>
     </div>
-    <div class="ex-foot">
-      <span class="beat-dots small-dots" data-f="dots" aria-hidden="true"></span>
-      <p class="tip status-line" data-f="status" aria-live="polite"></p>
-      <span class="mic-diag" data-f="diag" hidden title="Was das Mikrofon hört"><span class="bar"><span class="bar-fill level-fill"></span></span><span data-f="diag-notes"></span></span>
+    <div class="g-tempo" data-f="tempo" hidden>
+      <span class="g-cur" data-f="t-now"></span>
+      <span class="g-card" data-f="t-card">
+        <span class="g-card-label" data-f="t-label">dann</span>
+        <span class="g-card-sym" data-f="t-next"></span>
+      </span>
+    </div>
+    <div class="g-after" data-f="after" hidden>
+      <p class="g-after-title" data-f="after-title"></p>
+      <p class="g-after-text" data-f="after-text"></p>
+      <div class="row-buttons" data-f="after-buttons"></div>
+      <p class="g-after-auto" data-f="after-auto"></p>
+    </div>
+    <div class="g-foot">
+      <div class="g-progress" aria-hidden="true"><div class="g-progress-fill" data-f="progress"></div></div>
+      <p class="g-status" data-f="status" aria-live="polite"></p>
     </div>
     <div class="ask-row" data-f="ask" hidden role="group" aria-label="Wie lief der Durchgang?">
       <button type="button" class="btn btn-answer" data-answer="ok"><b>Drangeblieben</b><span>bis zum Ende mitgekommen</span></button>

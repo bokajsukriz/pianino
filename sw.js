@@ -6,7 +6,7 @@
    SW_VERSION gebunden. Ändern sich Dateien in samples/, SAMPLES_CACHE erhöhen.
    Der Service Worker fasst IndexedDB nie an. */
 
-const SW_VERSION = 'v7';
+const SW_VERSION = 'v8';
 const CACHE = `pianino-shell-${SW_VERSION}`;
 const SAMPLES_CACHE = 'pianino-samples-v1';
 
