@@ -1,68 +1,88 @@
-# Prompt: Songpaket „Perfect Ruin“ (Kwabs)
+# Prompt: Songpaket „Perfect Ruin“ (Kwabs) – für Claude-Chat
 
-Alles unterhalb der Linie in einen neuen Chat/Agenten kopieren. Websuche
-einschalten; Code-Ausführung einschalten, wenn vorhanden (dann prüft Claude
-die Datei per Skript und liefert sie als Download).
+So benutzen:
 
-Grundlage sind nur frei verfügbare Akkord-Tabs. Die Melodie bleibt leer.
+1. Tab(s) im Browser öffnen (z. B. Ultimate Guitar) und den Text kopieren
+   oder die Seite als PDF speichern. Gern 2–3 verschiedene Versionen.
+2. Neuen Claude-Chat öffnen, Websuche und Code-Ausführung einschalten.
+3. Alles unterhalb der Linie einfügen und darunter bei „TABS“ die kopierten
+   Tabs einfügen bzw. die PDFs anhängen.
+
+Ergebnis: `perfect-ruin.pianino.json` zum Herunterladen und ein kurzer
+Bericht.
 
 ---
 
 Du erstellst ein **Songpaket** für „Pianino“, eine private Übe-App fürs
-Klavier. Die Nutzerin/der Nutzer lernt Klavier, um Gesang zu begleiten: rechte
-Hand Dreiklänge, linke Hand ein Basston. Das Paket ist eine einzige JSON-Datei,
-die in der App importiert wird. Es geht um **„Perfect Ruin“ von Kwabs**.
+Klavier. Ich lerne Klavier, um Gesang zu begleiten: rechte Hand Dreiklänge,
+linke Hand ein Basston. Das Paket ist eine einzige JSON-Datei, die ich in der
+App importiere. Es geht um **„Perfect Ruin“ von Kwabs**.
 
-Quelle sind **Akkord-Tabs aus dem Internet**. Recherchiere sie selbst.
+**Quelle sind die Tabs, die ich unten einfüge oder anhänge.** Die Websuche
+nutzt du nur für Tonart und Tempo (z. B. Tunebat, SongBPM, Musicnotes
+MN0148299) – nicht für Akkorde.
+
+## Was du aus den Tabs herausziehst
+
+| Was | Wohin im Paket | Wie |
+|---|---|---|
+| Kapo, Stimmung, Tonart der Tabs | `sources[].note` | nach a-Moll umrechnen (Kapo 3 + Em-Griffe = Gm usw.) |
+| Abschnitte (Intro, Strophe, Pre-Chorus, Refrain, Bridge, Outro) | `sections[]` | gleiche Akkordfolge = ein Abschnitt; abweichende Wiederholung = eigener |
+| Reihenfolge der Abschnitte im Song | `form[]` | Wiederholungen ausschreiben („Refrain ×2“ → zweimal) |
+| Akkordfolge je Abschnitt | `sections[].bars[]` | siehe Takte unten |
+| Zeilen je Abschnitt | Grundlage für `phrases[]` | Zeile = Textzeile im Tab, ohne den Text |
+| Wann der Akkord wechselt | `bars[]` mit `beats` | Taktstriche (`|`) oder Notation wie „Am . . .“ nutzen; sonst Annahme |
+| Alle vorkommenden Akkordsymbole | `chords{}` | als Klaviergriffe (Regeln unten) |
+| Riffs, Einzeltöne, Gitarrenmuster | – | weglassen, höchstens in `uncertain` erwähnen |
+| Liedtext | – | **nie** übernehmen |
+| Tonart, Tempo der Aufnahme | `key`, `tempo` | aus Websuche, mit URL in `sources` |
+
+Mehrere Tab-Versionen: Abschnitt für Abschnitt vergleichen. Stimmen sie
+überein, übernehmen. Weichen sie ab, die plausiblere/besser bewertete Version
+nehmen und die andere in `uncertain` nennen.
 
 ## Harte Regeln
 
-1. **Nichts erfinden.** Jede Angabe stammt aus einer Quelle, die du
-   tatsächlich geöffnet hast (mit URL). Was keine Quelle hergibt, bleibt weg
-   oder kommt unter `uncertain`.
-2. **Keine Melodie.** `melody` ist `{}`. Auch nicht teilweise, auch nicht
-   „aus dem Gedächtnis“.
-3. **Kein Liedtext.** Tab-Seiten enthalten den Text über den Akkorden. Nur
-   Akkorde und Zeilenstruktur übernehmen; kein Wort des Texts im Paket (auch
-   nicht in `tip`, `name`, `note`) und nicht im Bericht. Zeilen heißen
-   „Zeile 1“, „Strophe 2, Zeile 3“ usw.
+1. **Nichts erfinden.** Jede Angabe stammt aus den Tabs oder einer
+   Webquelle mit URL. Was keine Quelle hergibt, bleibt weg oder kommt unter
+   `uncertain`.
+2. **Keine Melodie.** `melody` ist `{}`.
+3. **Kein Liedtext.** Kein Wort des Songtexts im Paket (auch nicht in
+   `tip`, `name`, `note`) und nicht im Bericht. Zeilen heißen „Zeile 1“,
+   „Strophe 2, Zeile 3“ usw.
 4. **Unsicherheit markieren.** Jede Annahme zu Akkorden, Form oder Rhythmus
    steht in `uncertain` mit Ort und Grund. `verified` bleibt überall `false` –
-   das setzt nur der Mensch.
-5. **Tonart a-Moll** (Aufnahmetonart, laut Musicnotes auch „Original
-   Published Key“). Tabs in anderer Tonart oder mit Kapo nach a-Moll
-   umrechnen und das in `sources[].note` vermerken.
-6. **Bestehende ids beibehalten** (siehe unten), damit Übe-Fortschritt
+   das setze ich selbst nach dem Nachspielen.
+5. **Tonart a-Moll** (Aufnahmetonart, laut Musicnotes „Original Published
+   Key“). Tabs in anderer Tonart oder mit Kapo umrechnen.
+6. **Bestehende ids beibehalten** (siehe unten), damit mein Übe-Fortschritt
    erhalten bleibt.
-7. Keine Bezahlschranken umgehen, keine Audio-/Video-Downloads.
 
-## Vorgehen
+## Takte
 
-1. **Recherche**: mindestens drei unabhängige Akkordseiten suchen und öffnen
-   (z. B. Ultimate Guitar – mehrere Versionen, nach Bewertung –, Chordify,
-   chordu, Songsterr, deutsche Akkordseiten). Tonart und Tempo aus Tunebat,
-   SongBPM oder der Musicnotes-Produktseite (MN0148299).
-2. **Abgleichen**: Akkordfolge je Abschnitt nur übernehmen, wenn mindestens
-   zwei Quellen übereinstimmen. Bei Abweichung die häufigere bzw. besser
-   bewertete nehmen und die andere in `uncertain` nennen. Vereinfachte
-   „Anfänger“-Versionen nur, wenn nichts anderes da ist.
-3. **Form**: Intro, Strophen, Pre-Chorus, Refrain, Bridge, Outro in der
-   Reihenfolge des Songs. Gleiche Akkordfolge → derselbe Abschnitt, in `form`
-   mehrfach genannt. Abweichende Wiederholung → eigener Abschnitt.
-4. **Takte**: Tabs zeigen selten, wie lange ein Akkord dauert. Nutze, was
-   die Quellen hergeben (Taktstriche in Tabs, Chordify-Raster, Akkorde pro
-   Textzeile). Sonst gilt **ein Akkord pro Takt** – als Annahme in
-   `uncertain`. Zeilen auf eine gerade Taktzahl (meist 4) auffüllen, indem der
-   letzte Akkord verlängert wird, und das ebenfalls vermerken.
-5. **Griffe** für alle vorkommenden Akkorde (Regeln unten).
-6. **Phrasen** für die Übung „Geführt“ in sinnvoller Lernreihenfolge
+Tabs zeigen selten, wie lange ein Akkord dauert. Reihenfolge der Quellen:
+
+1. Taktstriche oder Schlagnotation im Tab → übernehmen.
+2. Sonst: **ein Akkord pro Takt**, als Annahme in `uncertain`.
+3. Zeilen auf eine gerade Taktzahl (meist 4) auffüllen, indem der letzte
+   Akkord verlängert wird – ebenfalls in `uncertain`.
+
+## Ablauf
+
+1. Tabs lesen, Kapo/Tonart bestimmen, Websuche nach Tonart und Tempo.
+2. Tabelle oben abarbeiten.
+3. Griffe für alle Akkorde (Regeln unten).
+4. Phrasen für die Übung „Geführt“ in sinnvoller Lernreihenfolge
    (leichteste, häufigste Stelle zuerst; ganzer Song zuletzt).
-7. **Selbstprüfung** (Liste unten). Kannst du Code ausführen: schreib ein
-   kleines Skript, das die Datei gegen die Liste prüft, und führe es aus.
-8. **Ausgabe**: die Datei `perfect-ruin.pianino.json` (als Download, wenn
-   möglich, sonst ein einziger ```json-Block), danach ein kurzer Bericht auf
-   Deutsch: Quellen mit URL, Form in einer Zeile mit Taktzahlen, Abweichungen
-   zum „bisher Bekannten“ (unten), die wichtigsten unsicheren Stellen.
+5. Selbstprüfung (Liste unten) **per Skript** mit der Code-Ausführung.
+6. Datei `perfect-ruin.pianino.json` zum Herunterladen erzeugen.
+7. Bericht auf Deutsch, kurz:
+   - Quellen (welcher Tab, Kapo; URLs für Tonart/Tempo)
+   - Form in einer Zeile mit Taktzahlen, z. B. „Intro 4 · Strophe 16 · …“
+   - Akkordfolge je Abschnitt als Zeile (nur Akkorde)
+   - Abweichungen zum „bisher Bekannten“ (unten)
+   - die wichtigsten unsicheren Stellen
+   - Ergebnis der Skript-Prüfung
 
 ## Format `pianino-song`, Version 1
 
@@ -75,7 +95,8 @@ Quelle sind **Akkord-Tabs aus dem Internet**. Recherchiere sie selbst.
   "artist": "Kwabs",
   "createdAt": "YYYY-MM-DD",
   "sources": [
-    { "kind": "web", "ref": "https://…", "note": "Akkorde Strophe/Refrain, Kapo 0" }
+    { "kind": "tab", "ref": "Ultimate Guitar, Version 1 (vom Nutzer eingefügt)", "note": "Akkorde aller Abschnitte, Kapo 0" },
+    { "kind": "web", "ref": "https://…", "note": "Tempo" }
   ],
   "key": { "tonic": "A", "mode": "minor", "label": "a-Moll" },
   "meter": { "beatsPerBar": 4, "beatUnit": 4 },
@@ -160,8 +181,8 @@ vorkommt (Schlüssel = Symbol):
 
 ## Was bisher bekannt ist (unverifiziert, nur als Ausgangspunkt)
 
-Aus Nutzer-Tabs, ein Akkord pro Takt angenommen. **Durch die Recherche
-ersetzen**, wo sie etwas anderes sagt, und Abweichungen im Bericht nennen.
+Aus Nutzer-Tabs, ein Akkord pro Takt angenommen. **Durch die eingefügten
+Tabs ersetzen**, wo sie etwas anderes sagt, und Abweichungen im Bericht nennen.
 
 - Tonart a-Moll, Original etwa 76–79 BPM, Musicnotes: Viertel = 72.
 - Strophe (16 Takte): Am D F F | Am D F F | Am Dm C F | Am Dm F F
@@ -201,3 +222,9 @@ die naheliegendste Entsprechung und erkläre es im Bericht.
 - [ ] Jede Quelle mit URL in `sources`; jede Annahme in `uncertain`.
 - [ ] Kein Liedtext irgendwo, auch nicht im Bericht.
 - [ ] `verified` alles `false`.
+
+---
+
+TABS:
+
+(hier einfügen oder als PDF anhängen)
