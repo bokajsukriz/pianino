@@ -288,13 +288,18 @@ function wire() {
   initSongPage({ menu: songMenu });
   $('#go-one').addEventListener('click', () => start([{ exercise: 'guided', seconds: 60 }]));
   for (const b of $$('[data-direct]')) b.addEventListener('click', () => start([{ exercise: b.dataset.direct, seconds: 180 }]));
-  $('#go-about').addEventListener('click', () => {
+  // „Über und Einstellungen“ von der Songliste und vom Übe-Start; „Zurück“ führt dorthin zurück.
+  let aboutBack = showStart;
+  const openAbout = (back) => {
+    aboutBack = back;
     for (const b of $$('#s-about [data-toggle="mic"]')) setToggle(b, !!S.settings.mic, !micSupported());
     paintEar();
     askVersion();
     $('#about-update-note').textContent = '';
     showScreen('about');
-  });
+  };
+  $('#go-about').addEventListener('click', () => openAbout(showStart));
+  $('#songs-about').addEventListener('click', () => openAbout(showSongs));
 
   // S8
   $('#go-reward').addEventListener('click', () => start([{ exercise: 'playalong', bars: 8, range: 'song' }], { keepDone: true }));
@@ -302,7 +307,7 @@ function wire() {
   $('#go-home').addEventListener('click', showStart);
 
   // Über
-  $('[data-back]').addEventListener('click', showStart);
+  $('[data-back]').addEventListener('click', () => aboutBack());
   $('#about-plan').addEventListener('click', showPlan);
   $('#about-update').addEventListener('click', checkUpdate);
   $('#about-mictest').addEventListener('click', () => { if (!sessionRunning()) openMicTest(); });
