@@ -3,15 +3,16 @@
    session.js, die Regeln rein in leitner.js, tempo.js und mix.js. */
 
 import * as audio from './audio.js';
-import { S, loadAll, today, saveSettings, currentSong, phraseStates } from './store.js';
+import { S, loadAll, today, saveSettings, currentSong, phraseStates, putSong, setCurrentSong } from './store.js';
 import { buildMix, mixLabel, weekDots, practicedThisWeek, WEEK_GOAL, DAY_MIN_SECONDS } from './mix.js';
 import { phraseDefs, guideProgress, unlocked, newPhrase } from './phrases.js';
 import { youtubeSource } from './timeline.js';
 import { runSession, pause, resume, end, sessionRunning } from './session.js';
-import { initSongs, showSongs, songFacts } from './songs.js';
+import { initSongs, showSongs as paintSongs, songFacts, exportOne, removeSong } from './songs.js';
+import { initSongPage, openSongPage, refreshSongPage } from './songpage.js';
 import { openGriffe } from './exercises/griffe.js';
 import { openTranscribe } from './exercises/transcribe.js';
-import { $, $$, showScreen, setToggle, onScreen, screenName } from './ui.js';
+import { $, $$, showScreen, setToggle, onScreen, screenName, modal, ask } from './ui.js';
 import { supported as micSupported, EARS, earMode } from './mic.js';
 import { openMicTest, closeMicTest } from './mictest.js';
 import { logError } from './log.js';
@@ -46,7 +47,7 @@ async function savePlan(plan) {
   S.settings.plan = plan;
   S.settings.onboarded = true;
   await saveSettings();
-  showStart();
+  showSongs();
 }
 
 /* ---------- S2 Start --------------------------------------------------- */
@@ -68,6 +69,58 @@ function phraseStatus(defs, states) {
 }
 
 let reloadPending = false;
+
+/** Startpunkt: die Songliste. */
+function showSongs() {
+  if (reloadPending) { location.reload(); return; }
+  paintSongs();
+}
+
+/* ---------- Liedseite --------------------------------------------------- */
+let afterSong = null; // was nach „Zurück“ von der Liedseite kommt (Menü „Mehr“)
+
+async function toSongPage(id) {
+  afterSong = null;
+  await openSongPage(id);
+  const next = afterSong || showSongs;
+  afterSong = null;
+  next();
+}
+
+/** Menü „Mehr“ der Liedseite. */
+async function songMenu(id) {
+  const song = S.songs.get(id);
+  if (!song) return;
+  const a = await modal(song.title, '', [
+    { label: 'Titel und Interpret', value: 'name' },
+    { label: 'Video ändern', value: 'video' },
+    { label: 'Griffe', value: 'griffe' },
+    { label: 'Damit üben', value: 'practice' },
+    { label: 'Exportieren', value: 'export' },
+    { label: 'Löschen', value: 'delete' },
+    { label: 'Schließen', value: '', primary: true },
+  ]);
+  const leave = (fn) => { afterSong = fn; $('#sp-back').click(); };
+  if (a === 'name') {
+    const t = await ask('Titel', '', { value: song.title, ok: 'Weiter' });
+    if (t == null) return;
+    const ar = await ask('Interpret', '', { value: song.artist || '', ok: 'Speichern' });
+    await putSong({ ...S.songs.get(id), title: t || song.title, artist: ar ?? song.artist });
+    refreshSongPage();
+  } else if (a === 'video') {
+    $('#sp-novideo').hidden = false;
+    $('#sp-url').focus();
+  } else if (a === 'griffe') {
+    leave(() => toGriffe(id, () => toSongPage(id)));
+  } else if (a === 'practice') {
+    await setCurrentSong(id);
+    leave(showStart);
+  } else if (a === 'export') {
+    await exportOne(S.songs.get(id));
+  } else if (a === 'delete') {
+    if (await removeSong(S.songs.get(id))) leave(showSongs);
+  }
+}
 
 function showStart() {
   if (reloadPending) { location.reload(); return; }
@@ -225,11 +278,8 @@ function wire() {
   $('#go-tr').addEventListener('click', () => toTranscribe(currentSong()?.id, showStart));
   $('#go-transcribe').addEventListener('click', () => toTranscribe(currentSong()?.id, showStart));
   for (const b of $$('[data-home]')) b.addEventListener('click', showStart);
-  initSongs({
-    practice: () => showStart(),
-    griffe: (id) => toGriffe(id, showSongs),
-    transcribe: (id) => toTranscribe(id, showSongs),
-  });
+  initSongs({ open: toSongPage, practice: showStart });
+  initSongPage({ menu: songMenu });
   $('#go-one').addEventListener('click', () => start([{ exercise: 'guided', seconds: 60 }]));
   for (const b of $$('[data-direct]')) b.addEventListener('click', () => start([{ exercise: b.dataset.direct, seconds: 180 }]));
   $('#go-about').addEventListener('click', () => {
@@ -304,14 +354,15 @@ const unguard = () => { if (history.state?.pianino) { ignorePop++; history.back(
 function onBack() {
   if (ignorePop) { ignorePop--; return; }
   const name = screenName();
-  if (name === 'start') return;
+  if (name === 'songs') return;
   if (sessionRunning()) { guard(); if ($('#pause').hidden) pause(); return; }
   if (!$('#modal').hidden || (name === 'plan' && !S.settings.onboarded)) { guard(); return; }
   if (name === 'mictest') { closeMicTest(); showScreen('about'); return; }
   if (name === 'griffe') { guard(); $('#gr-back').click(); return; }
   if (name === 'sheet') { guard(); $('#sheet-back').click(); return; }
   if (name === 'tr') { guard(); $('#tr-back').click(); return; }
-  if (name === 'import') { showSongs(); return; }
+  if (name === 'import' || name === 'start') { showSongs(); return; }
+  if (name === 'song') { guard(); $('#sp-back').click(); return; }
   showStart();
 }
 
@@ -344,12 +395,12 @@ async function checkUpdate() {
 }
 
 async function boot() {
-  onScreen((name) => (name === 'start' ? unguard() : guard()));
+  onScreen((name) => (name === 'songs' ? unguard() : guard()));
   window.addEventListener('popstate', onBack);
   window.runSelfTests = (...a) => import('./selftest.js').then((m) => m.runSelfTests(...a));
   wire();
   try { await loadAll(); } catch (e) { logError('boot:load', e); }
-  if (!S.settings.onboarded) showPlan(); else showStart();
+  if (!S.settings.onboarded) showPlan(); else showSongs();
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
     navigator.serviceWorker.register('sw.js').then((r) => { swReg = r; }).catch((e) => logError('sw', e));
     navigator.serviceWorker.addEventListener('message', (e) => {

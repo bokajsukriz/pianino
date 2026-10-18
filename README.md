@@ -13,7 +13,17 @@ bei jedem Wechsel, welche Finger liegen bleiben, loslassen, dazukommen oder
 wandern. Mitgeliefert ist nur „Perfect Ruin“ (Kwabs) mit seinen Akkorden,
 noch ohne Wechsel.
 
-Im Mittelpunkt steht „Geführt“: Phrasen aus dem Song am Stück, ohne aufs
+**Startpunkt sind die Songs.** Je Song eine Liedseite (`songpage.js`): oben
+der YouTube-Player mit großer Play/Pause-Taste, ±5 s, Tempo 0,5 / 0,75 / 1,
+Zeitleiste zum Ziehen, Abschnitten („+ Abschnitt“ an der aktuellen Stelle,
+Antippen springt hin, lang drücken: Loop, Umbenennen, Löschen) und Loop über
+den Abschnitt oder A–B; darunter die Tabs — eingefügter Text (z. B. bei
+Ultimate Guitar kopiert; Akkordzeilen hervorgehoben, Schrift größer/kleiner,
+die Akkorde landen in der Akkordliste des Songs) oder ein PDF vom Gerät. Ein
+iframe von Ultimate Guitar geht nicht (die Seite verbietet das Einbetten).
+Text und PDF bleiben auf dem Gerät. Tasten: Leertaste, ←/→, L.
+
+Zum Üben geht es von der Songliste aus weiter. Im Mittelpunkt steht dort „Geführt“: Phrasen aus dem Song am Stück, ohne aufs
 Handy zu tippen. Auf Wunsch hört die App übers Mikrofon, ob der erwartete
 Akkord liegt, und geht dann von selbst weiter (kein MIDI; nichts wird
 aufgenommen oder gespeichert). Ohne Mikrofon wird getippt bzw. selbst
@@ -141,7 +151,10 @@ auf dem Gerät, nie im Repo.
 | `index.html` | alle Screens, CSP |
 | `style.css` | Gestaltung, Farben (auch `--kb-rh`/`--kb-lh`), Quer-/Hochformat |
 | `app.js` | Einstieg: Laden, Start, Abschluss, Über, Verdrahtung |
-| `songs.js` | Screens „Songs“ und „Import“, Export |
+| `songs.js` | Startpunkt „Songs“ (Liste, neuer Song), „Import“, Export |
+| `songpage.js` | Liedseite: Player, Abschnitte, Loop, Tabs (Text oder PDF) |
+| `marks.js` | REIN: Abschnitte in Sekunden |
+| `tabtext.js` | REIN: eingefügten Tab-Text in Akkordzeilen, Überschriften, Text zerlegen |
 | `session.js` | führt einen Übungsplan aus: weiche Zeitlimits, Pause, Beenden, Wake Lock, Fortschrittsbalken, Übungszeit pro Tag |
 | `store.js` | Zustand im Speicher (Songs, Fortschritt je Song), schreibt nach IndexedDB durch |
 | `db.js` | IndexedDB, `DATA_VERSION`, wendet Migrationen an |
