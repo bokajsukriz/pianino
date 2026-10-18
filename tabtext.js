@@ -113,9 +113,27 @@ export function classifyLine(line) {
   return 'text';
 }
 
-/** Text in Zeilen: [{ kind, text }]. */
-export function parseTabText(text) {
-  return stripMarkup(text).split('\n').map((line) => ({ kind: classifyLine(line), text: line.replace(/\s+$/, '') }));
+/** Kopfzeilen vom Kopieren weglassen: Textzeilen vor dem ersten Abschnitt
+ *  bzw. der ersten Akkordzeile, die nur Titel, „Chords“, „by Interpret“ oder
+ *  ein einzelnes Zeichen (Schließen-Knopf „X“) sind. song: { title, artist }. */
+export function dropHeading(lines, song = {}) {
+  const norm = (x) => String(x || '').toLowerCase().replace(/[^a-z0-9äöüß]+/g, ' ').trim();
+  const known = [norm(song.title), norm(song.artist)].filter(Boolean);
+  let i = 0;
+  while (i < lines.length && (lines[i].kind === 'blank' || lines[i].kind === 'text')) {
+    const t = norm(lines[i].text.replace(/\b(chords?|tabs?|by|von|akkorde)\b/gi, ' '));
+    const junk = lines[i].kind === 'blank' || lines[i].text.trim().length <= 1 || !t || known.some((k) => t === k || t === `${known[0]} ${known[1]}`);
+    if (!junk) break;
+    i++;
+  }
+  return i < lines.length ? lines.slice(i) : lines;
+}
+
+/** Text in Zeilen: [{ kind, text }]. song: Titel/Interpret, um kopierte
+ *  Kopfzeilen wegzulassen (dropHeading). */
+export function parseTabText(text, song = null) {
+  const lines = stripMarkup(text).split('\n').map((line) => ({ kind: classifyLine(line), text: line.replace(/\s+$/, '') }));
+  return song ? dropHeading(lines, song) : lines;
 }
 
 /** Akkordsymbole in Reihenfolge des ersten Auftretens. */
