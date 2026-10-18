@@ -4,7 +4,7 @@
    Node:  node --input-type=module -e "import { runSelfTests } from './selftest.js'; const r = await runSelfTests(); process.exit(r.failed ? 1 : 0)"
    Browser: Konsole runSelfTests() oder „Über“ → „Selbsttest“. */
 
-import { CHORDS, chordById, transition, noteName } from './chords.js';
+import { CHORDS, chordById, transition, noteName, moveText, bassText } from './chords.js';
 import {
   review, buildRound, startRound, nextEntry, afterReview, newCard, levelReady,
   countdownBeats, unlockedCardIds, postponeOverflow,
@@ -14,7 +14,7 @@ import { buildMix, mixLabel, weekDots } from './mix.js';
 import { semitoneLevels, followOnset, checkChord, checkChordAny, voicings, peakNotes } from './hear.js';
 import {
   GUIDE, phraseDefs, newPhrase, waitSequence, tempoBars, applyWait, applyTempo, repairPairs, nextPhrase,
-  guideProgress, unlocked,
+  guideProgress, unlocked, transitionKeys, stageOf, applyChange,
 } from './phrases.js';
 import { SONG, songForm } from './song-perfect-ruin.js';
 import { TEST_MELODY } from './test-melody.js';
@@ -251,17 +251,39 @@ function pureTests() {
     && eq(waitSequence(z1, { continued: true }), ['D:song', 'F:song', 'Am:song']));
   check('8 Phrasen: Refrain endet auf C (übt F → C)', waitSequence(ref).at(-1) === 'C:song' && waitSequence(ref).length === 9);
   check('8 Phrasen: Tempo 4-Takt-Zeile zweimal, Strophe einmal', tempoBars(z1).length === 8 && tempoBars(pd.find((x) => x.id === 'strophe')).length === 16);
-  const ch = (...secs) => secs.map((sec) => ({ from: 'a', to: 'b', sec }));
-  const first = applyWait(newPhrase('z1'), { changes: ch(0.6, 0.9, 1.0), today: d1 });
-  check('8 Wer es kann: erster Durchgang sauber → sofort Tempo, 56 BPM', first.toTempo && first.state.mode === 'tempo' && first.state.bpm === 56, JSON.stringify(first.state));
-  check('8 Startempo aus langsamstem Wechsel (1,2 s → 50)', applyWait(newPhrase('x'), { changes: ch(0.5, 1.2), today: d1 }).state.bpm === 50);
-  let wp = applyWait(newPhrase('z1'), { changes: ch(2.5), today: d1 }).state;
-  wp = applyWait(wp, { changes: ch(1), today: d1 }).state;
-  wp = applyWait(wp, { changes: ch(1), helped: true, today: d1 }).state;
-  check('8 Warten: vorgespielt/getippt zählt nicht als sauber', wp.mode === 'wait' && wp.streak === 0);
-  for (let i = 0; i < 2; i++) wp = applyWait(wp, { changes: ch(1), today: d1 }).state;
-  const third = applyWait(wp, { changes: ch(1), today: d1 });
-  check('8 Warten: 3× sauber hintereinander → Tempo', !wp.mode.startsWith('t') && third.toTempo && third.state.bpm === 56);
+  const keys = transitionKeys(z1);
+  const pass = (secs, extra = {}) => keys.map((k, i) => { const [from, to] = k.split('>'); return { from, to, sec: secs[i % secs.length], ...extra }; });
+  const first = applyWait(newPhrase('z1'), { changes: pass([0.6, 0.9, 1.0]), keys, today: d1 });
+  check('8 Wer es kann: erster Durchgang ohne Hilfe, alle Wechsel ≤ 2 s → alle Übergänge Stufe 3, sofort Tempo 56',
+    first.fast && first.toTempo && first.state.bpm === 56 && keys.every((k) => first.state.trans[k].stage === 3), JSON.stringify(first.state.trans));
+  check('8 Startempo aus langsamstem Wechsel (1,2 s → 50)',
+    applyWait(newPhrase('x'), { changes: pass([0.5, 1.2]), keys, today: d1 }).state.bpm === 50);
+  let wp = applyWait(newPhrase('z1'), { changes: pass([5]), keys, today: d1 }).state;
+  check('8 Stufen: langsamer erster Durchgang → Stufe 1, kein Tempo', wp.mode === 'wait' && stageOf(wp, 'Am:song', 'D:song', d1) === 1);
+  wp = applyWait(wp, { changes: pass([1]), keys, today: d1 }).state;
+  wp = applyWait(wp, { changes: pass([1], { self: true }), keys, today: d1 }).state;
+  for (let i = 0; i < 2; i++) wp = applyWait(wp, { changes: pass([1]), keys, today: d1 }).state;
+  check('8 Stufen: Hilfe selbst holen unterbricht die Serie (kein Fehler, aber kein Aufstieg)', stageOf(wp, 'Am:song', 'D:song', d1) === 1);
+  wp = applyWait(wp, { changes: pass([1]), keys, today: d1 }).state;
+  check('8 Stufen: 3× sauber in 3 s → Stufe 2', stageOf(wp, 'Am:song', 'D:song', d1) === 2 && wp.mode === 'wait');
+  for (let i = 0; i < 2; i++) wp = applyWait(wp, { changes: pass([2.5]), keys, today: d1 }).state;
+  check('8 Stufen: in Stufe 2 zählen nur Wechsel ≤ 2 s', stageOf(wp, 'Am:song', 'D:song', d1) === 2 && wp.trans['Am:song>D:song'].up === 0);
+  let tw;
+  for (let i = 0; i < 3; i++) { tw = applyWait(wp, { changes: pass([1.5]), keys, today: d1 }); wp = tw.state; }
+  check('8 Stufen: alle Übergänge Stufe 3 → Tempo', tw.toTempo && wp.mode === 'tempo');
+  const tr3 = { stage: 3, up: 0, down: 0, okDay: d1 };
+  check('8 Stufen: neuer Übetag eine Stufe tiefer, nach einem sauberen Wechsel wieder voll',
+    stageOf({ trans: { 'a>b': tr3 } }, 'a', 'b', d2) === 2
+    && stageOf({ trans: { 'a>b': applyChange(tr3, { sec: 1, from: 'a', to: 'b' }, d2) } }, 'a', 'b', d2) === 3);
+  const down1 = applyChange({ ...tr3, okDay: d2 }, { sec: 9 }, d2);
+  const down2 = applyChange(down1, { sec: 3, auto: true }, d2);
+  check('8 Stufen: 2× Hilfe nötig oder > 8 s → eine Stufe tiefer, nur dieser Übergang', down1.stage === 3 && down2.stage === 2);
+  check('8 Bewegungssätze: Am → D, D → F (F mit 1-3-5), Dm → C',
+    moveText('Am:song', 'D:song') === 'Daumen bleibt auf dem A. Finger 3 und 5 rutschen hoch: aufs D und F♯.'
+    && moveText('D:song', 'F:song') === 'Daumen bleibt auf dem A. Finger 3 und 5 rutschen runter: aufs C und F.'
+    && moveText('Dm:song', 'C:song') === 'Die ganze Hand rutscht runter: aufs G, C und E.',
+    moveText('D:song', 'F:song'));
+  check('8 Bass-Hinweis: Am → D hoch, D → F runter', bassText('Am:song', 'D:song') === 'Bass: hoch zum D' && bassText('D:song', 'F:song') === 'Bass: runter zum F');
   let tp = { ...newPhrase('z1'), mode: 'tempo', bpm: 52 };
   tp = applyTempo(tp, { errors: 0, today: d1 }).state;
   check('8 Tempo: Schnellspur — sauber ohne je einen Fehler → gleich +4', tp.bpm === 56);

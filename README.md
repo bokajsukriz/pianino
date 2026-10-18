@@ -27,7 +27,7 @@ reicht es, den Branch zu veröffentlichen — alle Pfade sind relativ.
 
 | Übung | Was passiert | Regeln |
 |---|---|---|
-| Geführt | Phrasen des Songs (Zeile 1, 4, 3, Refrain, dann Strophe und ganzer Song). **Warten:** Akkord zeigen, weiter sobald er gehört wird; nach 4 s Tastenbild, nach 8 s Vorspielen. **Tempo:** Einzähler, Klick, ein Akkord pro Takt, Fehler stoppen nicht; danach wird der hakende Übergang kurz gependelt. Wer den ersten Durchgang sauber schafft, kommt sofort ins Tempo. | `phrases.js` |
+| Geführt | Phrasen des Songs (Zeile 1, 4, 3, Refrain, dann Strophe und ganzer Song) in einem Gerüst: links der Akkord groß und „dann …“, rechts die Hilfe. **Warten:** weiter, sobald der Akkord gehört wird; Hilfe je Übergang in drei Stufen (1 Tastenbild + Bewegungssatz + Bass, 2 Bewegungssatz, 3 nur der Name), Hilfe selbst holen jederzeit. **Tempo:** Einzähler, Klick, keine Bewertung im Lauf, der nächste Akkord wird angekündigt; danach Angebot zum Pendeln des hakenden Übergangs bzw. schneller. Allererster Durchgang flott und ohne Hilfe → sofort Tempo. | `phrases.js` |
 | Akkord-Blitz | Akkordsymbol, Countdown mit leisem Klick, dann Auflösung mit Klang und Tastatur. Selbsteinschätzung „Saß“ / „Wackelig“ / „Nochmal“. | Leitner-Karteikasten, 5 Fächer, 4 Stufen (`leitner.js`) |
 | Kurze Wege | Akkordwechsel im Loop mit Klick. Die Tastatur zeigt, welche Finger liegen bleiben und welche wandern. „Drangeblieben“ / „Rausgefallen“. | Tempo 50–60 BPM, 6 Stufen (`tempo.js`) |
 | Groove | Begleitmuster im Achtelraster: Vorspiel, Einzähler, 4 Takte mitspielen. „Groovt“ / „Wackelt“. | Tempo je Stufe, 4 Stufen (`tempo.js`) |

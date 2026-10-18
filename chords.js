@@ -29,8 +29,11 @@ export const CHORDS = Object.freeze([
     tip: 'Daumen auf dem A, darüber C und E.' },
   { id: 'D:song', symbol: 'D', degree: 'IV', rh: [69, 74, 78], fingers: [1, 3, 5], lh: 50,
     tip: 'Daumen bleibt auf dem A, darüber D und F♯ (schwarz).' },
-  { id: 'F:song', symbol: 'F', degree: 'VI', rh: [69, 72, 77], fingers: [1, 2, 5], lh: 41,
-    tip: 'Daumen auf dem A, Zeigefinger auf dem C, kleiner Finger auf dem F.' },
+  // ANNAHME (Klavierlehrerin): F mit 1-3-5 statt 1-2-5 — Spanne A–F ist eine
+  // Sexte; so bleibt Finger 3 der Mittelton und Finger 5 der obere in allen
+  // Song-Akkorden, und kein Wechsel braucht einen Fingertausch auf dem C.
+  { id: 'F:song', symbol: 'F', degree: 'VI', rh: [69, 72, 77], fingers: [1, 3, 5], lh: 41,
+    tip: 'Daumen auf dem A, Finger 3 auf dem C, Finger 5 auf dem F.' },
   { id: 'Dm:song', symbol: 'Dm', degree: 'iv', rh: [69, 74, 77], fingers: [1, 3, 5], lh: 50,
     tip: 'Daumen bleibt auf dem A, darüber D und F.' },
   { id: 'C:song', symbol: 'C', degree: 'III', rh: [67, 72, 76], fingers: [1, 3, 5], lh: 48,
@@ -87,3 +90,54 @@ export function fingerFor(chord, midi) {
 export function isBlack(midi) {
   return [1, 3, 6, 8, 10].includes(((midi % 12) + 12) % 12);
 }
+
+/* ---------- Bewegungssätze (Geführt) ----------------------------------- */
+
+const joinDe = (xs) => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} und ${xs[xs.length - 1]}`);
+
+/** „Daumen“, „Finger 3“, „Finger 3 und 5“, „Daumen und Finger 5“. */
+function fingersDe(fs) {
+  const others = fs.filter((f) => f !== 1);
+  const rest = others.length ? `Finger ${joinDe(others.map(String))}` : '';
+  if (!fs.includes(1)) return rest;
+  if (!rest) return 'Daumen';
+  return others.length > 1 ? `Daumen, ${rest}` : `Daumen und ${rest}`;
+}
+
+/** Wie kommt die rechte Hand von einem Akkord zum nächsten? Ein Satz, z. B.
+ *  „Daumen bleibt auf dem A. Finger 3 und 5 rutschen hoch: aufs D und F♯.“
+ *  Ohne fromId: der Tipp zum Griff selbst. */
+export function moveText(fromId, toId) {
+  const b = chordById(toId);
+  if (!fromId) return b.tip;
+  const a = chordById(fromId);
+  if (fromId === toId) return 'Gleicher Griff – liegen lassen.';
+  const t = transition(fromId, toId);
+  const parts = [];
+  if (t.stay.length) {
+    const fs = t.stay.map((m) => a.fingers[a.rh.indexOf(m)]);
+    parts.push(`${fingersDe(fs)} ${fs.length > 1 ? 'bleiben' : 'bleibt'} auf ${joinDe(t.stay.map((m) => `dem ${pitchClassName(m)}`))}.`);
+  }
+  if (t.moves.length) {
+    const up = t.moves.every((m) => m.to > m.from), down = t.moves.every((m) => m.to < m.from);
+    const fs = t.moves.map((m) => m.finger);
+    if ((up || down) && t.moves.length === 3) {
+      parts.push(`Die ganze Hand rutscht ${up ? 'hoch' : 'runter'}: aufs ${joinDe(t.moves.map((m) => pitchClassName(m.to)))}.`);
+    } else if (up || down) {
+      parts.push(`${fingersDe(fs)} ${fs.length > 1 ? 'rutschen' : 'rutscht'} ${up ? 'hoch' : 'runter'}: aufs ${joinDe(t.moves.map((m) => pitchClassName(m.to)))}.`);
+    } else {
+      parts.push(`${t.moves.map((m) => `${fingersDe([m.finger])} ${m.to > m.from ? 'hoch' : 'runter'} aufs ${pitchClassName(m.to)}`).join(', ')}.`);
+    }
+  }
+  return parts.join(' ');
+}
+
+/** Bass-Hinweis: „Bass: hoch zum D“, „Bass: runter zum F“, „Bass: bleibt auf dem A“, „Bass: A“. */
+export function bassText(fromId, toId) {
+  const b = chordById(toId), n = pitchClassName(b.lh);
+  if (!fromId) return `Bass: ${n}`;
+  const a = chordById(fromId);
+  if (a.lh === b.lh) return `Bass: bleibt auf dem ${n}`;
+  return `Bass: ${b.lh > a.lh ? 'hoch' : 'runter'} zum ${n}`;
+}
+
