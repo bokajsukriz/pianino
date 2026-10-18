@@ -11,7 +11,7 @@
    Anfragen an andere Herkünfte (YouTube) bearbeitet er nicht: kein Cache,
    kein Abfangen. */
 
-const SW_VERSION = 'v16';
+const SW_VERSION = 'v17';
 const CACHE = `pianino-shell-${SW_VERSION}`;
 const SAMPLES_CACHE = 'pianino-samples-v1';
 
@@ -36,6 +36,8 @@ const SHELL = [
   './log.js',
   './marks.js',
   './leadsheet.js',
+  './drill.js',
+  './drillpage.js',
   './melody.js',
   './mic.js',
   './mictest.js',

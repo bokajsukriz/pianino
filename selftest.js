@@ -20,6 +20,7 @@ import {
   sectionList, addSection, resizeSection, deleteSection, setBeatsPerBar, setChordAt, sectionGrid, sectionTimes, playPos,
   tabBlocks, blocksForSections, sectionsFromTabs, marksToSections,
 } from './leadsheet.js';
+import { drillChunks, cycleBeats, cyclePhase, nextChunk, stepBpm, startBpm, DRILL } from './drill.js';
 import { addMark, removeMark, markRange, markAt, nextMarkName, fmtClock, addLoop, updateLoop, removeLoop } from './marks.js';
 import { classifyLine, parseTabText, chordsInText, stripMarkup } from './tabtext.js';
 import {
@@ -600,6 +601,25 @@ function pureTests() {
   check('16 Migration 3: Marken → Abschnitte, Songs mit Abschnitten bleiben, zweiter Lauf ändert nichts',
     mig3.records.find((r) => r.id === 'song:a').song.sections[0].startSec === 1 && eq(mig3.records.find((r) => r.id === 'song:b'), v2rec[2])
     && mig3b.steps[0].put.length === 0);
+
+  /* 17 — Folgen üben: 2-Takt-Folgen, Vorlauf, Wiederholen, Tempo */
+  let dr = { ...TS, sections: [], events: [] };
+  dr = addSection(dr, { name: 'Strophe 1', bars: 5 });
+  dr = addSection(dr, { name: 'Strophe 2', bars: 2 });
+  dr = setChordAt(setChordAt(setChordAt(dr, 0, 'Am'), 7, 'F'), 8, 'C');
+  dr = setChordAt(setChordAt(dr, 20, 'Am'), 27, 'F');
+  const ch = drillChunks(dr);
+  check('17 Folgen: je 2 Takte, Rest als 1 Takt, gleiche Folge nur einmal', eq(ch.map((c) => [c.name, c.bar, c.bars]),
+    [['Strophe 1 · Takt 1–2', 1, 2], ['Strophe 1 · Takt 3–4', 3, 2], ['Strophe 1 · Takt 5', 5, 1]]), JSON.stringify(ch.map((c) => c.name)));
+  check('17 Folge beginnt mit dem klingenden Akkord', ch[2].grid[0].cells[0].chord === 'C' && ch[2].grid[0].cells[0].carried);
+  check('17 Nur gewählte Abschnitte', eq(drillChunks(dr, { sectionIds: [sectionList(dr)[1].id] }).map((c) => c.name), ['Strophe 2 · Takt 1–2']));
+  check('17 Durchgang: 1 Takt Vorlauf plus Folge', cycleBeats(ch[0], 4) === 12 && cycleBeats(ch[2], 4) === 8);
+  const ph0 = cyclePhase(ch[0], 4, 2.5), ph1 = cyclePhase(ch[0], 4, 4), ph2 = cyclePhase(ch[0], 4, 11.9);
+  check('17 Phase: Einzählen, dann Zelle mit klingendem und nächstem Akkord, danach vorbei',
+    ph0.lead && ph0.count === 3 && ph0.left === 2 && !ph1.lead && ph1.cell === 0 && ph1.chord === 'Am' && ph1.next === 'F'
+    && ph2.cell === 7 && ph2.chord === 'F' && ph2.next === null && cyclePhase(ch[0], 4, 12) === null);
+  check('17 Weiter, Wiederholen, Tempo ±5 in Grenzen', nextChunk(2, 3) === 0 && nextChunk(1, 3, true) === 1 && nextChunk(0, 0) === -1
+    && stepBpm(77, 1) === 82 && stepBpm(DRILL.min + 2, -1) === DRILL.min && startBpm({ bpm: null }) === DRILL.start && startBpm({ bpm: 90 }, 65) === 65);
 
   check('14 Migration 2: zweiter Lauf ändert nichts', m2.steps[0].put.length === 0 && m2.steps[0].del.length === 0 && eq(m2.records, m1.records));
   }
