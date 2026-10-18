@@ -16,7 +16,7 @@ import {
 } from './timeline.js';
 import { tapTempo, parseYouTubeId, scoreTaps, tapSummary, applyWann, newWann } from './tap.js';
 import { runMigrations } from './migrations.js';
-import { addMark, removeMark, markRange, markAt, nextMarkName, fmtClock } from './marks.js';
+import { addMark, removeMark, markRange, markAt, nextMarkName, fmtClock, addLoop, updateLoop, removeLoop } from './marks.js';
 import { classifyLine, parseTabText, chordsInText, stripMarkup } from './tabtext.js';
 import {
   review, buildRound, startRound, nextEntry, afterReview, newCard, levelReady,
@@ -526,6 +526,12 @@ function pureTests() {
   check('15 Abschnitte: Bereich bis zur nächsten Marke bzw. zum Ende, Marke zur Zeit',
     eq(markRange(mk, mk[0].id, 200), { start: 10, end: 30.2 }) && eq(markRange(mk, mk[1].id, 200), { start: 30.2, end: 200 })
     && markAt(mk, 5) === null && markAt(mk, 31).name === 'Strophe X' && removeMark(mk, mk[0].id).length === 1);
+  const lp = addLoop([], { name: 'Loop 1', start: 12.345, end: 20 });
+  const lp2 = addLoop(lp.loops, { name: 'Übergang', start: 30, end: 28 });
+  check('15 Loops: speichern (Start vor Ende, gerundet), ändern, löschen',
+    lp.id === 'l1' && lp.loops[0].start === 12.35 && lp2.id === 'l2' && lp2.loops[1].start === 28 && lp2.loops[1].end === 30
+    && updateLoop(lp.loops, 'l1', { end: 10 })[0].end === 12.85 && updateLoop(lp.loops, 'l1', { start: 25 })[0].start === 19.5
+    && updateLoop(lp.loops, 'l1', { pre: 2 })[0].pre === 2 && removeLoop(lp2.loops, 'l1').length === 1);
   check('15 Uhrzeit', fmtClock(65.37) === '1:05' && fmtClock(65.37, { tenths: true }) === '1:05,3');
   check('15 Tab-Text: Akkordzeilen, Überschriften, Gitarren-Tab, Text',
     classifyLine('Am      D/F#   F6/9') === 'chords' && classifyLine('[Chorus]') === 'header' && classifyLine('Strophe 2:') === 'header'
