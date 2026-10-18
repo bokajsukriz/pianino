@@ -8,10 +8,17 @@ Songs sind **Daten**: JSON mit Akkorden, Griffen, Abschnitten und
 Akkordwechseln auf halbe Schläge genau (Schema: `docs/song-schema.md`). Die
 Wechsel hört man selbst heraus — im Editor „Transkribieren“ mit dem
 eingebetteten YouTube-Video, verlangsamt und im Loop. Die Griffe aus dem
-Unterricht (Tasten und Fingersätze) kommen in den Griff-Editor; die App zeigt
-bei jedem Wechsel, welche Finger liegen bleiben, loslassen, dazukommen oder
-wandern. Mitgeliefert ist nur „Perfect Ruin“ (Kwabs) mit seinen Akkorden,
+Unterricht kommen in den Griff-Editor: Tasten antippen, fertig — Hände und
+Finger trägt man nicht ein (unter G3 gilt als linke Hand, `voicingFromKeys`). Mitgeliefert ist nur „Perfect Ruin“ (Kwabs) mit seinen Akkorden,
 noch ohne Wechsel.
+
+**Neuer Song** startet einen Assistenten auf der Liedseite
+(`songwizard.js`): 1 YouTube-Link, 2 beim Abspielen am Anfang jedes Teils
+seinen Namen tippen und einmal das Tempo mittippen (die Takte ergeben sich
+daraus), 3 Akkorde anlegen (Tabs einfügen oder „+ Akkord“) und beim
+Abspielen den Akkord tippen, sobald er wechselt (`tapChordAt`, auf ganze
+Schläge gerundet; Tasten 1–9), 4 je Akkord die Tasten im Griff-Editor.
+Später wieder über „Mehr“ → „Assistent“.
 
 **Startpunkt sind die Songs.** Je Song eine Liedseite (`songpage.js`): oben
 der YouTube-Player mit großer Play/Pause-Taste, ±5 s, Tempo 0,5 / 0,75 / 1,
@@ -177,6 +184,7 @@ Liedseite (`marks`) Abschnitte mit Startzeit (je 8 Takte, `startSec`).
 | `app.js` | Einstieg: Laden, Start, Abschluss, Über, Verdrahtung |
 | `songs.js` | Startpunkt „Songs“ (Liste, neuer Song), „Import“, Export |
 | `songpage.js` | Liedseite: Player, Loop, Leadsheet mit Abschnitten, Tabs (Text oder PDF) |
+| `songwizard.js` | Assistent für neue Songs (Video, Teile und Tempo, Akkordwechsel, Griffe) |
 | `drill.js` | REIN: 2-Takt-Folgen aus den Abschnitten, Vorlauf, Weiter/Wiederholen, Tempo |
 | `drillpage.js` | Folgen üben: Klick (clock.js), Anzeige, Wiederholen, Tempo ±5 |
 | `leadsheet.js` | REIN: Abschnitte als Taktbereiche, Raster, Zeiten im Video, Tabs je Abschnitt |

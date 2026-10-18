@@ -9,7 +9,7 @@ import { phraseDefs, guideProgress, unlocked, newPhrase } from './phrases.js';
 import { youtubeSource } from './timeline.js';
 import { runSession, pause, resume, end, sessionRunning } from './session.js';
 import { initSongs, showSongs as paintSongs, songFacts, exportOne, removeSong } from './songs.js';
-import { initSongPage, openSongPage, refreshSongPage, openMeterSheet, fromTabs, tabsHaveHeaders } from './songpage.js';
+import { initSongPage, openSongPage, refreshSongPage, openMeterSheet, fromTabs, tabsHaveHeaders, openWizard } from './songpage.js';
 import { openGriffe } from './exercises/griffe.js';
 import { openTranscribe } from './exercises/transcribe.js';
 import { $, $$, showScreen, setToggle, onScreen, screenName, modal, ask } from './ui.js';
@@ -79,9 +79,9 @@ function showSongs() {
 /* ---------- Liedseite --------------------------------------------------- */
 let afterSong = null; // was nach „Zurück“ von der Liedseite kommt (Menü „Mehr“)
 
-async function toSongPage(id) {
+async function toSongPage(id, opts = {}) {
   afterSong = null;
-  await openSongPage(id);
+  await openSongPage(id, opts);
   const next = afterSong || showSongs;
   afterSong = null;
   next();
@@ -93,6 +93,7 @@ async function songMenu(id) {
   if (!song) return;
   const a = await modal(song.title, '', [
     { label: 'Takt und Tempo', value: 'meter' },
+    { label: 'Assistent', value: 'wizard' },
     ...(tabsHaveHeaders(song) ? [{ label: 'Abschnitte aus den Tabs', value: 'fromtabs' }] : []),
     { label: 'Titel und Interpret', value: 'name' },
     { label: 'Video ändern', value: 'video' },
@@ -105,6 +106,8 @@ async function songMenu(id) {
   const leave = (fn) => { afterSong = fn; $('#sp-back').click(); };
   if (a === 'meter') {
     openMeterSheet();
+  } else if (a === 'wizard') {
+    openWizard();
   } else if (a === 'fromtabs') {
     await fromTabs();
   } else if (a === 'name') {
@@ -247,9 +250,9 @@ function paintEar() {
 
 /* ---------- Werkzeuge: Griffe, Transkribieren --------------------------- */
 /** Griff-Editor bzw. Editor öffnen; nach „Zurück“ then(). */
-async function toGriffe(id, then) {
+async function toGriffe(id, then, symbol = null) {
   if (!id || sessionRunning()) return;
-  await openGriffe(id);
+  await openGriffe(id, symbol);
   then();
 }
 async function toTranscribe(id, then) {
@@ -285,7 +288,11 @@ function wire() {
   $('#go-transcribe').addEventListener('click', () => toTranscribe(currentSong()?.id, showStart));
   for (const b of $$('[data-home]')) b.addEventListener('click', showStart);
   initSongs({ open: toSongPage, practice: showStart });
-  initSongPage({ menu: songMenu });
+  initSongPage({
+    menu: songMenu,
+    // Assistent, Schritt „Griffe“: Editor für den Akkord, danach zurück in den Assistenten.
+    griffe: (id, sym) => { afterSong = () => toGriffe(id, () => toSongPage(id, { wizard: 'grips' }), sym); $('#sp-back').click(); },
+  });
   $('#go-one').addEventListener('click', () => start([{ exercise: 'guided', seconds: 60 }]));
   for (const b of $$('[data-direct]')) b.addEventListener('click', () => start([{ exercise: b.dataset.direct, seconds: 180 }]));
   // „Über und Einstellungen“ von der Songliste und vom Übe-Start; „Zurück“ führt dorthin zurück.
