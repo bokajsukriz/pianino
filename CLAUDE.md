@@ -21,19 +21,28 @@ Dateien dort, dessen Nummer erhöhen.
 
 ## Reine Module bleiben rein
 
-`chords.js`, `leitner.js`, `tempo.js`, `mix.js`, `phrases.js`, `hear.js`,
-`song-perfect-ruin.js`,
+`chords.js`, `chordsym.js`, `voicing.js`, `songdata.js`, `timeline.js`,
+`tap.js`, `accomp.js`, `migrations.js`, `leitner.js`, `tempo.js`, `mix.js`,
+`phrases.js`, `melody.js`, `hear.js`, `song-perfect-ruin.js`,
 `test-melody.js` und `selftest.js` (bis auf die Browser-Tests, die erst bei
 Bedarf per `import()` geladen werden): kein DOM, kein `Date.now()`, kein
 `Math.random()`. Zeit und Zufall kommen als Parameter (`today: 'YYYY-MM-DD'`,
 `rand: () => number`). Nur so laufen die Tests in Node.
 
-## Songdaten sind unverifiziert
+## Songs sind Nutzerdaten
 
-`song-perfect-ruin.js` hat `verified: false`. Die Akkordfolge stammt aus
-Nutzer-Tabs, der harmonische Rhythmus (ein Akkord pro Takt) ist eine Annahme.
-Nichts dazuerfinden, keine Melodie transkribieren, **kein Liedtext** in der
-App. Musikalische Annahmen im Code mit `// ANNAHME:` markieren.
+Ein Song ist importiertes bzw. im Editor eingetipptes JSON (Schema:
+`docs/song-schema.md`, Prüfung in `songdata.js`), gespeichert in IndexedDB
+(`song:<id>`). Außer der Übernahme von „Perfect Ruin“ (Migration 2 aus
+`song-perfect-ruin.js`, das nur noch dafür da ist) kommt **kein Song ins
+Repo**. Nichts dazuerfinden, keine Melodie und keine Wechsel transkribieren.
+
+**Kein Liedtext im Repo** — auch nicht in Tests, Beispielen oder Kommentaren
+(Platzhalter wie `"Zeile A"`). Die App darf vom Nutzer selbst eingegebenen
+Text lokal speichern und anzeigen; Export ist ohne Text voreingestellt.
+Liedtext nie schreiben oder ergänzen, auch nicht auf Bitte.
+
+Musikalische Annahmen im Code mit `// ANNAHME:` markieren.
 
 ## Testen
 
@@ -41,8 +50,8 @@ App. Musikalische Annahmen im Code mit `// ANNAHME:` markieren.
 node --input-type=module -e "import { runSelfTests } from './selftest.js'; const r = await runSelfTests(); process.exit(r.failed ? 1 : 0)"
 ```
 
-prüft die reinen Module (Tests 1–4, 6). Im Browser zusätzlich Takt-Scheduler
-(Test 5, `OfflineAudioContext`) und einen Audio-Smoke-Test: Konsole
+prüft die reinen Module (Tests 1–4, 6–14). Im Browser zusätzlich Takt-Scheduler
+und vorgezogenen Wechsel im Tempo-Modus (Test 5, `OfflineAudioContext`) und einen Audio-Smoke-Test: Konsole
 `runSelfTests()` oder „Über“ → „Selbsttest“.
 
 ## Sonst
@@ -50,20 +59,28 @@ prüft die reinen Module (Tests 1–4, 6). Im Browser zusätzlich Takt-Scheduler
 - Speicher: IndexedDB `pianino`, Store `meta`, Schlüssel `id` (`db.js`).
   `localStorage` nur für das Fehlerprotokoll.
 - Ändert sich die Bedeutung gespeicherter Felder: `DATA_VERSION` in `db.js`
-  erhöhen und unter `MIGRATIONS[neue Version]` eine idempotente Umstellung
-  eintragen.
+  erhöhen und unter `MIGRATIONS[neue Version]` in `migrations.js` (rein,
+  `{ put, del }`) eine idempotente Umstellung eintragen und testen.
 - Audio-Timing nur über `clock.js` (Lookahead auf der `AudioContext`-Uhr),
   nie `setInterval`. Die Anzeige folgt der Audio-Uhr per
-  `requestAnimationFrame`.
-- Keine externen Requests zur Laufzeit; die Content-Security-Policy in
-  `index.html` erlaubt nur die eigene Herkunft.
+  `requestAnimationFrame`. Zum YouTube-Video folgt sie der geglätteten
+  Videozeit (`yt.js now()`) plus Anzeige-Vorlauf (`settings.leadMs`).
+- Keine externen Requests zur Laufzeit — einzige Ausnahme: YouTube, nur zum
+  Abspielen des Videos (`yt.js`, eingebettet über `www.youtube-nocookie.com`).
+  Die CSP in `index.html` erlaubt dafür `script-src https://www.youtube.com
+  https://s.ytimg.com` und `frame-src` für YouTube, sonst nur die eigene
+  Herkunft. `sw.js` fasst fremde Herkünfte nicht an. Der Player bleibt immer
+  sichtbar (mindestens 200 × 200, im Querformat 356 × 200) und wird nie
+  überdeckt. Ohne Netz muss alles außer Video-Play-Along und Editor laufen.
 - Einzige fremde Bibliothek: essentia.js in `vendor/essentia/` (AGPL-3.0,
   ausdrücklich gewünscht), nur im Worker `ear-worker.js` — dort, weil
   Embind `new Function` braucht und die CSP der Seite das verbietet. Nicht
   in die Seite holen und die CSP nicht um `unsafe-eval` erweitern.
 - Mikrofon-Erkenner: Änderungen an `hear.js` oder `ear-worker.js` gegen die
   Simulation in `docs/archiv/mikro-sim/` prüfen, nicht nur gegen die
-  Selbsttests.
+  Selbsttests. Die Erkenner bekommen Ziele aus `voicing.js hearTarget`
+  (`{ name, rh, lh, pcs }`), keine ids aus `chords.js`; die `:song`-Griffe
+  dort sind nur noch für Tests und Simulation da.
 - Oberfläche nur Deutsch, keine i18n-Infrastruktur.
 - Abgearbeitete Arbeitsanweisungen und Fortschrittsdateien liegen in
   `docs/archiv/`.

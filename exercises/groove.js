@@ -1,15 +1,22 @@
 /* exercises/groove.js — Groove (Ballade) (S6; 7.3).
-   Die App spielt das Muster einen Durchgang vor (Klavier, :song-Voicings mit
-   LH-Ton, RH-Offbeats halb so laut), dann Einzähler, dann 4 Takte mitspielen
-   = 1 Block → „Groovt“ / „Wackelt“. Ab Stufe 2 läuft die Melodiestimme mit,
-   falls vorhanden und passend (melody.js). Regeln rein in tempo.js. */
+   Das Muster der Stufe über die Ereignisse einer Phrase des aktuellen Songs:
+   die App spielt den Ausschnitt (höchstens 4 Takte) einmal vor (Griffe aus
+   dem Song, LH auf der Eins, RH-Offbeats halb so laut; ein Wechsel mitten im
+   Takt kommt an seiner Stelle), dann Einzähler, dann 4 Takte mitspielen
+   = 1 Block → „Groovt“ / „Wackelt“. Stufen 1–3: die Phrase, an der in
+   „Geführt“ gerade gearbeitet wird; Stufe 4: alle Phrasen im Wechsel. Ab
+   Stufe 2 läuft die Melodiestimme mit, falls der Song eine hat (melody.js).
+   Regeln rein in tempo.js, Begleitung in accomp.js. */
 
 import * as audio from '../audio.js';
-import { chordById } from '../chords.js';
-import { SONG } from '../song-perfect-ruin.js';
-import { GROOVE, GROOVE_STAGES, GROOVE_MAX_LEVEL, grooveBpm, applyGroove, grooveLoopChords } from '../tempo.js';
-import { hasMelody, melodySlice, melodyStartFor } from '../melody.js';
-import { S, saveGroove, levelUp, askedLater, mayAsk } from '../store.js';
+import { prettyChord } from '../chordsym.js';
+import { voicingFor } from '../voicing.js';
+import { chordAt } from '../timeline.js';
+import { stepHits } from '../accomp.js';
+import { phraseDefs, focusPhrase } from '../phrases.js';
+import { GROOVE, GROOVE_STAGES, GROOVE_MAX_LEVEL, grooveBpm, applyGroove, grooveWindows } from '../tempo.js';
+import { hasMelody, melodyIn } from '../melody.js';
+import { S, saveGroove, levelUp, askedLater, mayAsk, currentSong, phraseStates } from '../store.js';
 import { field, showScreen, waitChoice, frameLoop, modal, pick, setToggle } from '../ui.js';
 import { createClock } from '../clock.js';
 
@@ -23,31 +30,13 @@ const COUNTS = ['1', '+', '2', '+', '3', '+', '4', '+'];
 const LEVEL_NEWS = {
   2: 'Neu: die rechte Hand spielt auf 1 und 3.',
   3: 'Neu: gerade Achtel in der rechten Hand, leise.',
-  4: 'Neu: Strophen- und Refrain-Loop im Groove.',
+  4: 'Neu: alle Phrasen des Songs im Groove.',
 };
 
-/** Länge eines Anschlags in Achteln: bis zum nächsten aktiven Feld oder
- *  bis zum Taktende. */
-export function hitLength(pattern, e) {
-  let k = e + 1;
-  while (k < pattern.length && !pattern[k]) k++;
-  return k - e;
-}
-
-/** Begleitung eines Achtels planen (Vorspiel, Play-Along).
- *  rhLevel: Lautstärke der RH auf den Zählzeiten (Offbeats die Hälfte). */
-export function playPatternStep(stage, chord, eighth, time, stepDur, rhLevel = 1) {
-  if (stage.lh[eighth]) audio.note(chord.lh, time, { dur: hitLength(stage.lh, eighth) * stepDur, gain: 1.1 });
-  if (stage.rh[eighth]) {
-    const g = rhLevel * (eighth % 2 ? 0.5 : 1);
-    for (const m of chord.rh) audio.note(m, time, { dur: hitLength(stage.rh, eighth) * stepDur * 0.95, gain: g });
-  }
-}
-
-/** Melodie eines Takts planen. events: melodySlice(…, 1) des Takts. */
-export function playMelodyBar(events, barStart, beatDur) {
-  for (const ev of events) {
-    audio.melody(ev.midi, barStart + (ev.beat - 1) * beatDur, ev.dur * beatDur, { octaveDown: S.settings.melodyLow });
+/** Melodie eines Schlags planen (Töne, die in [beat, beat + 1) beginnen). */
+export function playMelodyBeat(song, beat, time, beatDur) {
+  for (const n of melodyIn(song, beat, beat + 1)) {
+    audio.melody(n.midi, time + (n.at - beat) * beatDur, n.dur * beatDur, { octaveDown: S.settings.melodyLow });
   }
 }
 
@@ -65,44 +54,47 @@ function buildGrid(host, stage) {
   return cells;
 }
 
-/** Ein Block. → true bei „Groovt“. */
-async function playBlock(api, scr, { stage, level, chords, bpm, demo }) {
+/** Ein Block. → true bei „Groovt“. win: grooveWindows-Eintrag. */
+async function playBlock(api, scr, { song, stage, level, win, bpm, demo }) {
   const ctx = audio.getCtx();
-  const passBars = demo ? chords.length : 0;
-  const total = (passBars + 1 + GROOVE.barsPerBlock) * 8;
+  const bpb = song.beatsPerBar;
+  const winBars = win.bars, winBeats = winBars * bpb;
+  const passBars = demo ? winBars : 0;
+  const total = (passBars + 1 + GROOVE.barsPerBlock) * bpb * 2;
   const nowEl = field(scr, 'now'), nextEl = field(scr, 'next'), count = field(scr, 'count');
   const ask = field(scr, 'ask'), foot = scr.querySelector('.ex-foot');
   ask.hidden = true; foot.hidden = false;
   const cells = buildGrid(field(scr, 'grid'), stage);
+  field(scr, 'title').textContent = win.name;
 
-  const mStart = melodyStartFor(SONG, chords);
-  const melodyOk = hasMelody(SONG) && level >= 2 && mStart !== null;
+  const melodyOk = hasMelody(song) && level >= 2;
   const melBtn = scr.querySelector('[data-toggle="melody"]');
   setToggle(melBtn, melodyOk && S.settings.melody, !melodyOk);
-  field(scr, 'melody-note').textContent = !hasMelody(SONG) ? 'Melodie noch nicht erfasst'
-    : level < 2 ? 'Melodie ab Stufe 2' : mStart === null ? 'Melodie passt nicht zu diesem Loop' : '';
+  field(scr, 'melody-note').textContent = !hasMelody(song) ? 'Melodie noch nicht erfasst' : level < 2 ? 'Melodie ab Stufe 2' : '';
   setToggle(scr.querySelector('[data-toggle="click"]'), S.settings.click);
   field(scr, 'tip').textContent = pick(level >= 2 ? [...TIPS, TIP_HUM] : TIPS);
 
+  const grip = (c) => voicingFor(song, c);
   const phase = (bar) => (bar < passBars ? 'demo' : bar === passBars ? 'count' : 'play');
-  const chordAt = (bar) => chordById(chords[(phase(bar) === 'demo' ? bar : Math.max(0, bar - passBars - 1)) % chords.length]);
-  const rhLevel = stage.rh.every(Boolean) ? 0.55 : 1; // gerade Achtel leise
+  /** Schlag im Song zu einem Schlag seit Blockbeginn (Ausschnitt im Loop). */
+  const songBeat = (b) => {
+    const r = b < passBars * bpb ? b : b - (passBars + 1) * bpb;
+    return win.fromBeat + (((r % winBeats) + winBeats) % winBeats);
+  };
 
   const clock = createClock(ctx, {
-    bpm, totalSteps: total,
+    bpm, totalSteps: total, beatsPerBar: bpb,
     onStep: (s) => {
-      const ph = phase(s.bar), beatStart = s.eighth % 2 === 0;
+      const ph = phase(s.bar), beatStart = s.eighth % 2 === 0, b = s.index / 2;
       if (ph === 'demo') {
-        playPatternStep(stage, chordAt(s.bar), s.eighth, s.time, clock.stepDur, rhLevel);
+        const sb = songBeat(b);
+        audio.playHits(stepHits(win.tl, sb, { pattern: stage, from: Math.abs(sb - win.fromBeat) < 1e-6 ? sb : -1 }), s.time, clock.stepDur * 2, grip);
         if (beatStart && S.settings.click) audio.click(s.time, s.beat === 0, 0.45);
       } else if (ph === 'count') {
         if (beatStart) audio.click(s.time, s.beat === 0, 0.8);
       } else {
         if (beatStart && S.settings.click) audio.click(s.time, s.beat === 0, 0.6);
-        if (s.eighth === 0 && melodyOk && S.settings.melody) {
-          const i = s.bar - passBars - 1;
-          playMelodyBar(melodySlice(SONG.melody, mStart + (i % chords.length), 1), s.time, clock.stepDur * 2);
-        }
+        if (beatStart && melodyOk && S.settings.melody) playMelodyBeat(song, songBeat(b), s.time, clock.stepDur * 2);
       }
     },
   });
@@ -114,18 +106,25 @@ async function playBlock(api, scr, { stage, level, chords, bpm, demo }) {
     const step = Math.floor(pos);
     if (step === last || step >= total) return;
     last = step;
-    const bar = Math.floor(step / 8), e = step % 8, ph = phase(bar);
-    cells.forEach((col, i) => col.forEach((c) => c.classList.toggle('cur', i === e)));
+    const bar = Math.floor(step / (bpb * 2)), e = step % (bpb * 2), ph = phase(bar);
+    cells.forEach((col, i) => col.forEach((c) => c.classList.toggle('cur', i === e % 8)));
     if (ph === 'demo') count.textContent = 'Vorspiel – zuhören';
     else if (ph === 'count') count.textContent = 'Einzählen';
     else count.textContent = `Mitspielen · Takt ${bar - passBars} von ${GROOVE.barsPerBlock}`;
-    const cur = ph === 'count' ? null : chordAt(bar);
-    const nb = bar + 1 < total / 8 ? chordAt(bar + 1) : null;
-    nowEl.textContent = cur ? cur.symbol : '';
-    nextEl.textContent = nb && (ph === 'count' || e >= 4) ? nb.symbol : '';
+    const sb = songBeat(step / 2);
+    const cur = ph === 'count' ? null : chordAt(win.tl, sb);
+    // Nächster Wechsel innerhalb von 2 Schlägen (im Ausschnitt, mit Loop).
+    let nb = null;
+    for (let k = 1; k <= 4; k++) {
+      const c = chordAt(win.tl, songBeat(step / 2 + k / 2));
+      if (c && c !== cur) { nb = c; break; }
+    }
+    if (ph === 'count') nb = chordAt(win.tl, win.fromBeat);
+    nowEl.textContent = cur ? prettyChord(cur) : '';
+    nextEl.textContent = nb ? prettyChord(nb) : '';
   });
   nowEl.textContent = '';
-  nextEl.textContent = chordAt(0).symbol;
+  nextEl.textContent = prettyChord(chordAt(win.tl, win.fromBeat) || '');
   count.textContent = demo ? 'Vorspiel – zuhören' : 'Einzählen';
   try {
     await api.wait(clock.done);
@@ -154,12 +153,21 @@ export async function runGroove(api, item) {
   field(scr, 'level').textContent = `· Stufe ${level}`;
   let suggest = false, block = 0, prev = null;
 
+  const song = currentSong();
+  const defs = phraseDefs(song);
+  const focus = focusPhrase(defs, phraseStates(song.id));
+  const all = grooveWindows(song, defs);
+  const wins = stage.phrases === 'focus' && focus ? all.filter((w) => w.phrase === focus.id) : all;
+  if (!wins.length) {
+    await modal('Groove', 'Der Song hat noch keine Akkorde.', [{ label: 'OK', value: 'ok', primary: true }]);
+    return;
+  }
+
   do {
-    // ANNAHME: Stufe 4 „Strophen-Loop, dann Refrain-Loop“ = je 2 Blöcke im Wechsel.
-    const name = stage.loops[Math.floor(block / 2) % stage.loops.length];
-    const chords = grooveLoopChords(name, SONG);
+    // ANNAHME: je Ausschnitt 2 Blöcke, dann der nächste (wie früher die Loops).
+    const win = wins[Math.floor(block / 2) % wins.length];
     field(scr, 'bpm').textContent = `${state.bpm} BPM${lo === hi ? '' : ` (${lo}–${hi})`}`;
-    const ok = await playBlock(api, scr, { stage, level, chords, bpm: state.bpm, demo: name !== prev });
+    const ok = await playBlock(api, scr, { song, stage, level, win, bpm: state.bpm, demo: win.id !== prev });
     const out = applyGroove(level, state, ok);
     if (out.bpm < state.bpm) res.down = true;
     suggest = suggest || out.suggest;
@@ -169,7 +177,7 @@ export async function runGroove(api, item) {
     res.blocks++;
     if (ok) res.ok++;
     res.bpmEnd = out.bpm;
-    prev = name;
+    prev = win.id;
     block++;
   } while (api.timeLeft() > 0);
 

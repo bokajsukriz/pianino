@@ -4,20 +4,22 @@
    Nochmal. Die Regeln selbst stehen rein in leitner.js. */
 
 import * as audio from '../audio.js';
-import { chordById, chordNoteNames } from '../chords.js';
+import { chordById, gripOf, gripNoteNames, gripText } from '../chords.js';
+import { prettyChord } from '../chordsym.js';
+import { voicingFor, allKeys } from '../voicing.js';
 import {
   buildRound, startRound, nextEntry, afterReview, review, countdownBeats, unlockedCardIds,
-  chordOfCard, postponeOverflow, levelReady, plannedLength, MAX_LEVEL,
+  chordOfCard, postponeOverflow, levelReady, plannedLength, MAX_LEVEL, songCardId, songOfCard,
 } from '../leitner.js';
-import { S, today, getCard, putCards, levelUp, askedLater, mayAsk } from '../store.js';
+import { S, today, getCard, putCards, levelUp, askedLater, mayAsk, currentSong } from '../store.js';
 import { field, showScreen, waitChoice, makeDots, setDots, frameLoop, fmtTime, modal, rand, pick } from '../ui.js';
 import { createClock } from '../clock.js';
-import { renderKeyboard, rangeFor, chordMarks } from '../keyboard.js';
+import { renderGrip, rangeFor } from '../keyboard.js';
 
 const RING = 578.05; // Umfang des Countdown-Rings (r = 92)
 
 const TIPS = {
-  thumb: 'Der Daumen bleibt auf dem A, nur bei C rutscht er aufs G.',
+  song: 'Die Griffe des Songs sind die aus dem Unterricht – Fingersatz wie eingetragen.',
   d: 'D-Dur ist Dm mit F♯ statt F: eine schwarze Taste höher.',
   wrong: 'Lieber falsch greifen und hören als gar nicht.',
   minor: 'Moll: der mittlere Ton liegt einen Halbton tiefer als bei Dur.',
@@ -25,16 +27,30 @@ const TIPS = {
 
 const LEVEL_NEWS = {
   2: 'Neu dazu: D-Dur in Grundstellung.',
-  3: 'Neu dazu: alle fünf Akkorde in der Lage des Songs, rund um das A.',
+  3: 'Neu dazu: alle Akkorde des Songs in deinen Griffen.',
   4: 'Neu: Bei sicheren Karten wird der Countdown kürzer.',
 };
 
+/** Karte → was gezeigt wird: { symbol, degree, grip, tip }. */
+function cardChord(id) {
+  const sc = songOfCard(id);
+  if (sc) {
+    const song = S.songs.get(sc.songId);
+    const v = song ? voicingFor(song, sc.symbol) : null;
+    return { symbol: prettyChord(sc.symbol), degree: v?.std ? 'Standardlage' : '', grip: v, tip: v ? gripText(v) : '' };
+  }
+  const c = chordById(chordOfCard(id));
+  return { symbol: c.symbol, degree: c.degree, grip: gripOf(c), tip: c.tip };
+}
+
+/** Karten der Akkorde des aktuellen Songs. */
+const songCards = () => { const s = currentSong(); return s ? s.chords.map((c) => songCardId(s.id, c)) : []; };
+
 /** Ein Tipp pro Runde, passend zu den Karten der Runde. */
 function roundTip(ids) {
-  const chords = ids.map(chordOfCard);
   const pool = [TIPS.wrong, TIPS.minor];
-  if (chords.some((c) => c.endsWith(':song'))) pool.push(TIPS.thumb, TIPS.thumb);
-  if (chords.some((c) => c.startsWith('D:'))) pool.push(TIPS.d, TIPS.d);
+  if (ids.some((id) => songOfCard(id))) pool.push(TIPS.song, TIPS.song);
+  if (ids.some((id) => chordOfCard(id).startsWith('D:'))) pool.push(TIPS.d, TIPS.d);
   return pick(pool);
 }
 
@@ -80,14 +96,16 @@ async function reveal(api, scr, chord) {
   field(scr, 'card').hidden = true;
   const box = field(scr, 'reveal');
   box.hidden = false;
-  const names = chordNoteNames(chord);
+  const v = chord.grip;
+  const names = gripNoteNames(v);
   field(scr, 'r-symbol').textContent = chord.symbol;
   field(scr, 'r-degree').textContent = chord.degree;
-  field(scr, 'r-notes').textContent = `${names.rh.join(' · ')}  –  Bass ${names.lh}`;
+  field(scr, 'r-notes').textContent = v ? `${names.rh.join(' · ')}${names.lh.length ? `  –  Bass ${names.lh.join(' · ')}` : ''}` : 'Noch kein Griff eingetragen.';
   field(scr, 'r-tip').textContent = chord.tip;
-  const [lo, hi] = rangeFor([chord.lh, ...chord.rh]);
-  renderKeyboard(field(scr, 'r-kb'), { lo, hi, marks: chordMarks(chord), title: `${chord.symbol}: ${names.rh.join(', ')}, Bass ${names.lh}` });
-  audio.chord(chord, audio.now() + 0.05, { dur: 1.5 });
+  if (v) {
+    renderGrip(field(scr, 'r-kb'), { next: v, range: rangeFor(allKeys(v), { min: 9 }), title: `${chord.symbol}: ${names.rh.join(', ')}${names.lh.length ? `, Bass ${names.lh.join(', ')}` : ''}` });
+    audio.chord(v, audio.now() + 0.05, { dur: 1.5 });
+  } else field(scr, 'r-kb').replaceChildren();
   return api.wait(waitChoice(box.querySelector('.answer-row'), 'answer'));
 }
 
@@ -97,7 +115,8 @@ export async function runBlitz(api, item) {
   const scr = showScreen('blitz');
   const level = S.progress.levels.blitz;
   const d = today();
-  const ids = item.pool || unlockedCardIds(level);
+  const sc = songCards();
+  const ids = item.pool || unlockedCardIds(level, sc);
   const cardsNow = () => ids.map(getCard);
   // Aufwärmen ohne neue Karten — außer ganz am Anfang, wenn es noch keine
   // gesehenen gibt: dann gilt auch hier der geblockte Einstieg.
@@ -118,7 +137,7 @@ export async function runBlitz(api, item) {
       round = next.round;
       if (!next.entry) break;
       const card = getCard(next.entry.id);
-      const chord = chordById(chordOfCard(card.id));
+      const chord = cardChord(card.id);
       n++;
       field(scr, 'count').textContent = `Karte ${n} von ${item.cards || Math.max(n, plannedLength(round))}`;
       await showCard(api, scr, chord, countdownBeats(card, level, next.entry.intro), item,
@@ -139,8 +158,8 @@ export async function runBlitz(api, item) {
     if (moved.length) await putCards(moved);
   }
 
-  const levelCards = unlockedCardIds(level).map(getCard);
-  if (!item.warmup && level < MAX_LEVEL && levelReady(levelCards, level) && mayAsk('blitz')) {
+  const levelCards = unlockedCardIds(level, sc).map(getCard);
+  if (!item.warmup && level < MAX_LEVEL && levelReady(levelCards, level, sc) && mayAsk('blitz')) {
     const yes = await modal(`Bereit für Stufe ${level + 1}?`, LEVEL_NEWS[level + 1],
       [{ label: 'Später', value: 'no' }, { label: 'Ja', value: 'yes', primary: true }]);
     if (yes === 'yes') await levelUp('blitz', MAX_LEVEL); else await askedLater('blitz');

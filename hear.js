@@ -125,12 +125,15 @@ export function harmonics(notes) {
   return h;
 }
 
+/** Töne der linken Hand: lh als Zahl (alt) oder als Liste (Griff, voicing.js). */
+const bassNotes = (chord) => (chord?.lh == null ? [] : [].concat(chord.lh));
+
 function median(xs) {
   const s = [...xs].sort((a, b) => a - b);
   return s[Math.floor(s.length / 2)];
 }
 
-/** Liegt `chord` ({ rh: [midi…], lh })?
+/** Liegt `chord` ({ rh: [midi…], lh: midi | [midi…] })?
  *  levels: semitoneLevels jetzt. since: followOnset(…) für dieses Spektrum
  *  (oder null: dann gelten Töne des Vorakkords nie als fremd, und es gibt
  *  keinen Spitzenpegel).
@@ -141,8 +144,9 @@ export function checkChord(levels, since, chord, { prev = null, lo = HEAR.lo, ..
   const P = { ...HEAR, ...tune };
   const L = (m) => levels[m - lo] ?? SILENT;
   const rh = chord.rh;
-  const allowed = harmonics([...rh, chord.lh]);
-  const ringing = prev ? harmonics([...prev.rh, prev.lh]) : new Set();
+  const bass = bassNotes(chord);
+  const allowed = harmonics([...rh, ...bass]);
+  const ringing = prev ? harmonics([...prev.rh, ...bassNotes(prev)]) : new Set();
   const floor = median(Array.from({ length: 36 }, (_, i) => L(55 + i)));
   const ref = Math.max(...rh.map(L));
   const loud = ref - floor >= P.loud;
@@ -151,7 +155,7 @@ export function checkChord(levels, since, chord, { prev = null, lo = HEAR.lo, ..
   // unterscheidenden Ton vortäuschen: Dm mit Bass D3 liefert ein leises F♯5 —
   // klingt das echte F5 schon aus, sähe es aus wie D. Klingt der Halbton
   // daneben mit, muss so ein Ton deshalb laut sein.
-  const fromBass = new Set([5, 7].map((k) => Math.round(chord.lh + 12 * Math.log2(k))));
+  const fromBass = new Set(bass.flatMap((b) => [5, 7].map((k) => Math.round(b + 12 * Math.log2(k)))));
   const rival = (m) => fromBass.has(m) && nb(m) >= ref - P.presence;
   const present = rh.filter((m) => L(m) >= ref - (rival(m) ? P.thirdOfBass : P.presence)
     && L(m) - nb(m) >= P.neighbour);

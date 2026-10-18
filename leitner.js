@@ -17,22 +17,33 @@ export const MAX_NEW = 3;
 export const INTRO_REPEATS = 3;
 
 const ROOT_1 = ['Am:root', 'F:root', 'C:root', 'Dm:root'];
-const SONG = ['Am:song', 'D:song', 'F:song', 'Dm:song', 'C:song'];
 
-/** Freigeschaltete Akkord-ids je Stufe. */
+/** Freigeschaltete feste Akkorde je Stufe (chords.js); ab Stufe 3 kommen
+ *  die Akkorde des aktuellen Songs in seinen Griffen dazu (songCardIds).
+ *  Karten der früheren :song-Griffe bleiben gespeichert, werden aber nicht
+ *  mehr gezeigt. */
 export const LEVEL_CHORDS = Object.freeze({
   1: Object.freeze([...ROOT_1]),
   2: Object.freeze([...ROOT_1, 'D:root']),
-  3: Object.freeze([...ROOT_1, 'D:root', ...SONG]),
-  4: Object.freeze([...ROOT_1, 'D:root', ...SONG]),
+  3: Object.freeze([...ROOT_1, 'D:root']),
+  4: Object.freeze([...ROOT_1, 'D:root']),
 });
+export const SONG_LEVEL = 3;
 
 export const cardId = (chordId) => `card:${chordId}`;
 export const chordOfCard = (id) => id.replace(/^card:/, '');
+/** Karte eines Song-Akkords: card:song:<songId>:<Symbol>. */
+export const songCardId = (songId, symbol) => `card:song:${songId}:${symbol}`;
+/** → { songId, symbol } oder null (feste Karte). */
+export function songOfCard(id) {
+  const m = /^card:song:([a-z0-9-]+):(.+)$/.exec(id);
+  return m ? { songId: m[1], symbol: m[2] } : null;
+}
 
-/** Karten-ids der Stufe. */
-export function unlockedCardIds(level) {
-  return LEVEL_CHORDS[Math.min(MAX_LEVEL, Math.max(1, level))].map(cardId);
+/** Karten-ids der Stufe; songCards: Karten der Song-Akkorde (ab Stufe 3). */
+export function unlockedCardIds(level, songCards = []) {
+  const l = Math.min(MAX_LEVEL, Math.max(1, level));
+  return [...LEVEL_CHORDS[l].map(cardId), ...(l >= SONG_LEVEL ? songCards : [])];
 }
 
 /** Neue, noch nie gesehene Karte. */
@@ -205,9 +216,9 @@ export function postponeOverflow(cards, overflowIds, reviewedIds, today, perDay 
 }
 
 /** Stufenvorschlag: ≥ 80 % der Karten der aktuellen Stufe in Fach ≥ 3. */
-export function levelReady(cards, level) {
+export function levelReady(cards, level, songCards = []) {
   if (level >= MAX_LEVEL) return false;
-  const ids = unlockedCardIds(level);
+  const ids = unlockedCardIds(level, songCards);
   const byId = new Map(cards.map((c) => [c.id, c]));
   const strong = ids.filter((id) => (byId.get(id)?.box ?? 0) >= 3).length;
   return strong / ids.length >= 0.8;

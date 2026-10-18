@@ -1,13 +1,17 @@
 /* mictest.js — Mikrofon-Test (Über → „Mikrofon testen“): Pegel, gehörte
-   Töne mit Abweichung in Cent und das Urteil beider Erkenner für die fünf
-   Song-Akkorde. Zum Ausprobieren und Fehlersuchen; kein Teil einer Übung. */
+   Töne mit Abweichung in Cent und das Urteil beider Erkenner für die
+   Akkorde des aktuellen Songs (in seinen Griffen). Zum Ausprobieren und
+   Fehlersuchen; kein Teil einer Übung. */
 
 import * as audio from './audio.js';
 import * as mic from './mic.js';
 import { noteName } from './chords.js';
+import { prettyChord } from './chordsym.js';
+import { voicingFor, hearTarget } from './voicing.js';
+import { currentSong } from './store.js';
 import { $, showScreen, frameLoop } from './ui.js';
 
-const SYMS = ['Am', 'D', 'F', 'Dm', 'C'];
+let SYMS = [];
 const PC = ['A', 'A♯', 'H', 'C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯']; // essentia-Chroma: Bin 0 = A
 let stop = null;
 
@@ -29,17 +33,34 @@ function paint(d) {
   $('#mt-chroma').textContent = hp
     ? hp.map((v, i) => [v, i]).filter(([v]) => v >= 0.5).sort((a, b) => b[0] - a[0]).map(([, i]) => PC[i]).join(' ') || '–'
     : (mic.earStatus() === 'failed' ? 'essentia nicht geladen' : 'lädt …');
-  for (const s of SYMS) {
+  SYMS.forEach((s, i) => {
     const e = d?.eigen?.[s], x = d?.essentia?.[s];
-    const ce = $(`#mt-e-${s}`), cx = $(`#mt-x-${s}`);
+    const ce = $(`#mt-e-${i}`), cx = $(`#mt-x-${i}`);
     ce.textContent = e == null ? '–' : e ? '✓' : '·';
     ce.classList.toggle('yes', !!e);
     cx.textContent = x ? `${x.ok ? '✓' : '·'} ${x.score >= 0 ? '+' : '−'}${Math.abs(x.score).toFixed(2)}` : '–';
     cx.classList.toggle('yes', !!x?.ok);
-  }
+  });
+}
+
+/** Zeilen der Tabelle: ein Akkord des Songs je Zeile. */
+function buildRows() {
+  const song = currentSong();
+  SYMS = song ? [...song.chords] : [];
+  mic.setPool(SYMS.map((s) => hearTarget(s, voicingFor(song, s))));
+  $('#mt-rows').replaceChildren(...SYMS.map((s, i) => {
+    const tr = document.createElement('tr');
+    const th = document.createElement('th');
+    th.textContent = prettyChord(s);
+    const e = document.createElement('td'); e.id = `mt-e-${i}`; e.textContent = '–';
+    const x = document.createElement('td'); x.id = `mt-x-${i}`; x.textContent = '–';
+    tr.append(th, e, x);
+    return tr;
+  }));
 }
 
 export async function openMicTest() {
+  buildRows();
   showScreen('mictest');
   $('#mt-note').textContent = 'Mikrofon wird geöffnet …';
   await audio.unlock();
