@@ -20,7 +20,7 @@ import { nextMarkName, fmtClock, addLoop, updateLoop, removeLoop, sortLoops } fr
 import {
   METERS, MAX_BARS, sectionList, addSection, resizeSection, deleteSection, updateSection, setBeatsPerBar,
   setChordAt, shiftChordAt, sectionGrid, sectionTimes, playPos, tabBlocks, blocksForSections, sectionsFromTabs,
-  orderByStart, sectionProgress,
+  orderByStart, sectionProgress, fitBars,
 } from './leadsheet.js';
 import { drillChunks } from './drill.js';
 import { openDrill } from './drillpage.js';
@@ -57,6 +57,9 @@ async function save(next) {
   paintTransport();
   refreshSheet();
 }
+
+/** Nach Startzeit ordnen, dann Takte aus Tempo und Zeit (wo nicht von Hand). */
+const tidy = (s) => fitBars(orderByStart(s));
 
 function el(tag, cls = '', text = null) {
   const e = document.createElement(tag);
@@ -116,7 +119,7 @@ export function openSongPage(songId) {
   let s = S.songs.get(songId);
   if (!s) return Promise.resolve();
   // Ältere Songs: Abschnitte nach Startzeit, nicht nach Anlegen.
-  const ordered = orderByStart(s);
+  const ordered = tidy(s);
   if (ordered !== s) { putSong(ordered); s = ordered; }
   return new Promise((resolve) => {
     st = {
@@ -403,7 +406,7 @@ async function addHere() {
   const added = addSection(s, { name, startSec: t });
   const id = added.sections[added.sections.length - 1].id;
   // Einsortiert nach Startzeit, nicht hinten angehängt.
-  await save(orderByStart(added));
+  await save(tidy(added));
   $(`#sp-sections [data-id="${id}"]`)?.scrollIntoView({ block: 'nearest' });
 }
 
@@ -709,16 +712,16 @@ function sectionSheet(id) {
       ]);
       if (a !== 'yes' || !st) return;
     }
-    await save(resizeSection(song(), id, n));
+    await save(updateSection(resizeSection(song(), id, n), id, { barsSet: true }));
   };
-  const setStart = (sec2) => save(orderByStart(updateSection(song(), id, { startSec: Math.max(0, Math.round(sec2 * 100) / 100) })));
+  const setStart = (sec2) => save(tidy(updateSection(song(), id, { startSec: Math.max(0, Math.round(sec2 * 100) / 100) })));
   const del = async () => {
     const a = await modal(`„${sec.name}“ löschen?`, 'Seine Akkorde fallen weg; die Abschnitte danach rücken auf.', [
       { label: 'Abbrechen', value: '' }, { label: 'Löschen', value: 'yes', primary: true },
     ]);
     if (a !== 'yes' || !st) return;
     closeSheet();
-    await save(deleteSection(song(), id));
+    await save(tidy(deleteSection(song(), id)));
   };
   const rename = async () => {
     const n = await ask('Abschnitt umbenennen', '', { value: sec.name, ok: 'Umbenennen' });
@@ -736,9 +739,13 @@ function sectionSheet(id) {
       big('Start +0,2 s', () => setStart(sec.startSec + 0.2), { quiet: true }),
     ] : []),
   ];
+  // Takte aus Tempo und Startzeiten, solange man sie nicht selbst ändert.
+  const next = sectionList(s).find((x) => x.bar > sec.bar);
+  const fits = !!s.bpm && next?.startSec != null;
+  const auto = big('aus der Zeit', () => save(tidy(updateSection(song(), id, { barsSet: false }))), { quiet: true, aria: 'Takte wieder aus Tempo und Startzeiten' });
   openSheet('section', id, sec.name, text, [
-    label('Takte'),
-    stepper(String(sec.bars), resize, 'Takte'),
+    label(fits && !sec.barsSet ? 'Takte (aus Tempo und Startzeiten)' : 'Takte'),
+    row(stepper(String(sec.bars), resize, 'Takte'), ...(fits && sec.barsSet ? [auto] : [])),
     ...(times.length ? [row(...times)] : []),
     row(big('Folgen üben', () => drill([id]), { quiet: true }), big('Umbenennen', rename, { quiet: true }),
       big('Loop speichern', keep, { quiet: true }), big('Löschen', del, { quiet: true })),
@@ -758,9 +765,9 @@ export function openMeterSheet() {
       ]);
       if (a !== 'yes' || !st) return;
     }
-    await save(setBeatsPerBar(song(), n));
+    await save(tidy(setBeatsPerBar(song(), n)));
   };
-  const setBpm = (bpm) => save({ ...song(), bpm });
+  const setBpm = (bpm) => save(tidy({ ...song(), bpm }));
   const step = (by) => setBpm(Math.max(30, Math.min(240, (song().bpm || 80) + by)));
   const tap = () => {
     const now = performance.now() / 1000;

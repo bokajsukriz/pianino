@@ -26,7 +26,10 @@ Tempo“ (4/4, 3/4, 6/8, 2/4; Tempo ±1 oder tippen); mit Tempo und der
 Startzeit des ersten Abschnitts läuft die Markierung im Raster mit dem
 Video mit; eine dünne Linie oben in der Karte zeigt, wie weit man ungefähr
 im Abschnitt ist (bis zum Start des nächsten). Abschnitte stehen nach
-Startzeit im Video, auch wenn man sie in anderer Reihenfolge anlegt. „Abschnitte aus den Tabs“ macht aus den Überschriften der Tabs
+Startzeit im Video, auch wenn man sie in anderer Reihenfolge anlegt. Mit
+Tempo ergeben sich die Takte eines Abschnitts aus dem Abstand zum nächsten
+Start (gerundet), bis man sie selbst ändert („aus der Zeit“ stellt das
+zurück). „Abschnitte aus den Tabs“ macht aus den Überschriften der Tabs
 Abschnitte (eine Akkordzeile = 2 Takte, nur ein Vorschlag). Tabs sind
 eingefügter Text (z. B. bei Ultimate Guitar kopiert; Akkordzeilen
 hervorgehoben, Schrift größer/kleiner, die Akkorde landen in der
