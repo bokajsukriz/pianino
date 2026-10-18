@@ -4,10 +4,14 @@
    SW_VERSION erhöhen (siehe CLAUDE.md) — sonst bekommt niemand das Update.
    Klaviersamples: eigener Cache, beim ersten Gebrauch gefüllt, nicht an
    SW_VERSION gebunden. Ändern sich Dateien in samples/, SAMPLES_CACHE erhöhen.
-   Der Service Worker fasst IndexedDB nie an. Anfragen an andere Herkünfte
-   (YouTube) bearbeitet er nicht: kein Cache, kein Abfangen. */
+   IndexedDB liest er nur an einer Stelle: ./pdf/<songId> liefert das PDF der
+   Liedseite (Datensatz pdf:<songId>) als eigene Antwort ohne die CSP der
+   Seite — als blob: geöffnet erbte es die CSP, und der PDF-Viewer des
+   Browsers bliebe leer. Geschrieben wird nie, gecacht wird das PDF nicht.
+   Anfragen an andere Herkünfte (YouTube) bearbeitet er nicht: kein Cache,
+   kein Abfangen. */
 
-const SW_VERSION = 'v10';
+const SW_VERSION = 'v11';
 const CACHE = `pianino-shell-${SW_VERSION}`;
 const SAMPLES_CACHE = 'pianino-samples-v1';
 
@@ -30,6 +34,7 @@ const SHELL = [
   './keyboard.js',
   './leitner.js',
   './log.js',
+  './marks.js',
   './melody.js',
   './mic.js',
   './mictest.js',
@@ -42,7 +47,9 @@ const SHELL = [
   './song-perfect-ruin.js',
   './songdata.js',
   './songs.js',
+  './songpage.js',
   './store.js',
+  './tabtext.js',
   './tap.js',
   './tempo.js',
   './test-melody.js',
@@ -90,11 +97,36 @@ self.addEventListener('message', (e) => {
   if (e.data?.type === 'version') e.source?.postMessage({ type: 'version', version: SW_VERSION });
 });
 
+/** PDF der Liedseite aus IndexedDB (nur lesen). → Datensatz oder null */
+function readPdf(songId) {
+  return new Promise((resolve) => {
+    const req = indexedDB.open('pianino');
+    req.onerror = () => resolve(null);
+    req.onupgradeneeded = () => { req.transaction.abort(); resolve(null); };
+    req.onsuccess = () => {
+      const db = req.result;
+      try {
+        const g = db.transaction('meta', 'readonly').objectStore('meta').get(`pdf:${songId}`);
+        g.onsuccess = () => { resolve(g.result || null); db.close(); };
+        g.onerror = () => { resolve(null); db.close(); };
+      } catch { resolve(null); db.close(); }
+    };
+  });
+}
+
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
+
+  const pdf = /\/pdf\/([a-z0-9-]+)$/.exec(url.pathname);
+  if (pdf) {
+    e.respondWith(readPdf(pdf[1]).then((rec) => (rec?.blob
+      ? new Response(rec.blob, { headers: { 'Content-Type': 'application/pdf', 'Cache-Control': 'no-store' } })
+      : new Response('Kein PDF', { status: 404, headers: { 'Content-Type': 'text/plain; charset=utf-8' } }))));
+    return;
+  }
 
   if (url.pathname.includes('/samples/')) {
     e.respondWith((async () => {

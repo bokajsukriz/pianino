@@ -69,6 +69,16 @@ export function openGriffe(songId, symbol = null) {
   wire();
   const s = S.songs.get(songId);
   if (!s) return Promise.resolve();
+  if (!s.chords.length) {
+    return modal('Noch keine Akkorde', 'Füg auf der Liedseite die Tabs ein – die Akkorde daraus landen hier. Oder leg einen Akkord an.',
+      [{ label: 'Später', value: 'no' }, { label: 'Akkord anlegen', value: 'add', primary: true }]).then(async (a) => {
+      if (a !== 'add') return;
+      const t = await ask('Neuer Akkord', 'Symbol wie Am, D/F#, F6/9.', { placeholder: 'z. B. Am', ok: 'Anlegen' });
+      if (!t || !parseChord(t)) return;
+      await putSong(addChord(S.songs.get(songId), t));
+      await openGriffe(songId, t);
+    });
+  }
   return new Promise((resolve) => {
     st = {
       songId, sym: symbol && s.chords.includes(symbol) ? symbol : s.chords[0],

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.youtube.com https://s.ytimg.com; frame-src https://www.youtube-nocookie.com https://www.youtube.com; style-src 'self'; img-src 'self' data:; font-src 'self'; media-src 'self'; connect-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.youtube.com https://s.ytimg.com; frame-src 'self' https://www.youtube-nocookie.com https://www.youtube.com blob:; style-src 'self'; img-src 'self' data:; font-src 'self'; media-src 'self'; connect-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="theme-color" content="#fff7ec">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
@@ -102,15 +102,94 @@
     </div>
   </section>
 
-  <!-- Songs -->
+  <!-- Songs: Startpunkt -->
   <section id="s-songs" class="screen portrait" data-screen="songs" hidden>
     <div class="portrait-inner">
-      <button type="button" class="link-btn back" data-home>Zurück</button>
       <h1 class="h1">Songs</h1>
       <ul id="song-list" class="song-list"></ul>
-      <button type="button" id="songs-import" class="btn btn-secondary btn-wide">Importieren</button>
-      <p class="small muted">Ein Song ist eine JSON-Datei mit Akkorden, Griffen, Wechseln und Abschnitten
-        (Aufbau: docs/song-schema.md im Quellcode). Exportieren ist ohne Liedtext voreingestellt.</p>
+      <div class="row-buttons">
+        <button type="button" id="songs-new" class="btn btn-primary">Neuer Song</button>
+        <button type="button" id="songs-import" class="btn btn-secondary">Importieren</button>
+      </div>
+      <button type="button" id="songs-practice" class="btn btn-secondary btn-wide">Üben: Geführt, Akkorde, Groove …</button>
+    </div>
+  </section>
+
+  <!-- Liedseite: Player oben (immer sichtbar), Tabs darunter -->
+  <section id="s-song" class="screen songpage" data-screen="song" hidden>
+    <header class="sp-head">
+      <button type="button" class="icon-btn" id="sp-back" aria-label="Zurück zu den Songs"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22"><path d="M15 5 8 12l7 7" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <div class="sp-titles">
+        <h1 class="sp-title" id="sp-title"></h1>
+        <span class="sp-artist" id="sp-artist"></span>
+      </div>
+      <button type="button" class="btn btn-secondary btn-sm" id="sp-more">Mehr</button>
+    </header>
+    <div class="sp-body">
+      <div class="sp-player">
+        <div class="yt-host" id="sp-yt" hidden></div>
+        <div class="sp-novideo" id="sp-novideo">
+          <label class="field"><span>YouTube-Link oder Video-ID</span>
+            <span class="tr-row"><input type="text" id="sp-url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://youtu.be/…"><button type="button" class="btn btn-primary btn-sm" id="sp-load">Laden</button></span>
+          </label>
+        </div>
+        <p class="vnote" id="sp-vnote" aria-live="polite"></p>
+        <div class="sp-seek">
+          <span class="sp-time" id="sp-cur">0:00</span>
+          <div class="sp-track" id="sp-track" role="slider" tabindex="0" aria-label="Stelle im Song">
+            <div class="sp-region" id="sp-region" hidden></div>
+            <div class="sp-fill" id="sp-fill"></div>
+            <div class="sp-ticks" id="sp-ticks"></div>
+            <div class="sp-thumb" id="sp-thumb"></div>
+          </div>
+          <span class="sp-time" id="sp-dur">–:––</span>
+        </div>
+        <div class="sp-transport">
+          <button type="button" class="sp-round" id="sp-rew" aria-label="5 Sekunden zurück">−5</button>
+          <button type="button" class="sp-play" id="sp-play" aria-label="Abspielen">
+            <svg aria-hidden="true" viewBox="0 0 24 24" width="36" height="36"><path id="sp-play-icon" d="M8 5l11 7-11 7z"/></svg>
+          </button>
+          <button type="button" class="sp-round" id="sp-fwd" aria-label="5 Sekunden vor">+5</button>
+          <div class="seg" id="sp-rates" role="group" aria-label="Tempo"></div>
+        </div>
+        <div class="sp-looprow">
+          <button type="button" class="toggle toggle-sm" id="sp-loop" aria-pressed="false">Loop</button>
+          <button type="button" class="btn btn-secondary btn-sm" id="sp-a" aria-label="Loop-Anfang hier">A</button>
+          <button type="button" class="btn btn-secondary btn-sm" id="sp-b" aria-label="Loop-Ende hier">B</button>
+          <button type="button" class="btn btn-secondary btn-sm sp-add" id="sp-addmark">+ Abschnitt</button>
+        </div>
+        <ol class="sp-marks" id="sp-marks" aria-label="Abschnitte"></ol>
+        <p class="small muted" id="sp-marks-hint">„+ Abschnitt“ an der Stelle tippen, wo er beginnt. Antippen springt hin, lang drücken: Loop, Umbenennen, Löschen.</p>
+        <span class="visually-hidden" id="sp-section" aria-live="polite"></span>
+      </div>
+      <div class="sp-tabs">
+        <div class="sp-tabbar">
+          <div class="seg" role="group" aria-label="Tabs als">
+            <button type="button" class="seg-btn" data-tabmode="text" aria-pressed="true">Text</button>
+            <button type="button" class="seg-btn" data-tabmode="pdf" aria-pressed="false">PDF</button>
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm" id="sp-smaller" aria-label="Schrift kleiner">A−</button>
+          <button type="button" class="btn btn-secondary btn-sm" id="sp-bigger" aria-label="Schrift größer">A+</button>
+          <button type="button" class="btn btn-secondary btn-sm" id="sp-edit">Bearbeiten</button>
+        </div>
+        <div id="sp-textbox">
+          <p class="small muted" id="sp-text-empty">Tab z. B. bei Ultimate Guitar markieren, kopieren und mit „Text einfügen“ hier ablegen. Akkordzeilen werden hervorgehoben. Der Text bleibt nur auf diesem Gerät.</p>
+          <div class="sp-text" id="sp-text"></div>
+          <textarea class="sp-text-edit" id="sp-text-edit" spellcheck="false" autocapitalize="off" hidden></textarea>
+        </div>
+        <div id="sp-pdfbox" hidden>
+          <div class="tr-row">
+            <label class="btn btn-secondary btn-sm file-btn">PDF wählen
+              <input type="file" id="sp-pdf-file" accept="application/pdf,.pdf" class="visually-hidden">
+            </label>
+            <button type="button" class="btn btn-secondary btn-sm" id="sp-pdf-open" hidden>Groß öffnen</button>
+            <button type="button" class="btn btn-ghost btn-sm" id="sp-pdf-del" hidden>Entfernen</button>
+            <span class="small muted" id="sp-pdf-name"></span>
+          </div>
+          <iframe class="sp-pdf" id="sp-pdf-frame" title="Tabs als PDF" hidden></iframe>
+          <p class="small muted">Das PDF bleibt nur auf diesem Gerät. Zeigt das iPhone nur die erste Seite: „Groß öffnen“.</p>
+        </div>
+      </div>
     </div>
   </section>
 
