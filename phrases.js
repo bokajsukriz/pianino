@@ -1,5 +1,7 @@
 /* phrases.js — REIN: „Geführt“ — der Song in Phrasen, am Stück gelernt.
-   Kein DOM, kein Date.now(), kein Math.random().
+   Kein DOM, kein Date.now(), kein Math.random(). Phrasen kommen aus der
+   Zeitleiste des Songs (timeline.js phrasesOf: je Abschnitt eine, gleiche
+   Abschnitte zusammengefasst); Akkorde sind Symbole ('Am', 'D/F#').
 
    Ablauf je Phrase (didaktisch nach Rücksprache mit einer Klavierlehrerin):
      Warten  Die App zeigt den Akkord und geht weiter, sobald er liegt
@@ -16,20 +18,20 @@
              Tempo, sobald alle Übergänge der Phrase in Stufe 3 sind.
              Schnellspur: allererster Durchgang ohne Hilfe, jeder Wechsel
              binnen 2 s → alle Übergänge Stufe 3, gleich Tempo.
-     Tempo   Klick, ein Akkord pro Takt, keine Bewertung im Lauf. Danach:
-             hakte etwas → Angebot, den Übergang kurz zu pendeln; sauber →
-             schneller (+4, beim ersten Fehlerlosen gleich, sonst nach 2),
-             2× mit mehr als einem Fehler → −5, unter 44 BPM zurück ins
-             Warten. Sauber bei ≥ 60 BPM → die Phrase sitzt, die nächste
-             wird frei.
+     Tempo   Klick, die Wechsel im echten Rhythmus der Phrase, keine
+             Bewertung im Lauf. Danach: hakte etwas → Angebot, den Übergang
+             kurz zu pendeln; sauber → schneller (+4, beim ersten Fehlerlosen
+             gleich, sonst nach 2), 2× mit mehr als einem Fehler → −5, unter
+             44 BPM zurück ins Warten. Sauber beim Song-Tempo (ohne bpm: 60)
+             → die Phrase sitzt, die nächste wird frei.
 
-   Zustand je Phrase (Datensatz phrase:<id>):
+   Zustand je Phrase (Datensatz phrase:<songId>:<phraseId>):
    { id, mode: 'wait' | 'tempo', bpm, streak, bad, solid, passes,
      tempoErrors, lastPlayed,
      trans: { '<von>><nach>': { stage, up, down, okDay } } } */
 
-import { songForm } from './song-perfect-ruin.js';
 import { daysBetween } from './dates.js';
+import { phrasesOf } from './timeline.js';
 
 export const GUIDE = Object.freeze({
   minBpm: 44, startMax: 56, target: 60, top: 76, up: 4, down: 5,
@@ -50,18 +52,19 @@ export const GUIDE = Object.freeze({
 });
 
 /** Phrasen in Lernreihenfolge. Jede wird erst frei, wenn die davor sitzt.
- *  ANNAHME: Zeilen und Refrain wie in song-perfect-ruin.js (unverifiziert). */
+ *  ANNAHME: Wie im Song, außer dass Phrasen mit den wenigsten verschiedenen
+ *  Übergängen zuerst kommen (bei Gleichstand Reihenfolge im Song) — leichtes
+ *  zuerst, ohne die Form zu verlieren.
+ *  → [{ id, name, chords (Folge ohne Zeiten), events (relativ), beats,
+ *       fromBeat, toBeat, once }] */
 export function phraseDefs(song) {
-  const v = song.verse;
-  return [
-    { id: 'z1', name: 'Zeile 1', chords: v.slice(0, 4), tip: 'Daumen bleibt auf dem A.' },
-    { id: 'z4', name: 'Zeile 4', chords: v.slice(12, 16), tip: 'Wie Zeile 1, nur ohne schwarze Taste.' },
-    { id: 'z3', name: 'Zeile 3', chords: v.slice(8, 12), tip: 'Bei C rutscht die ganze Hand eine Taste tiefer.' },
-    { id: 'ref', name: 'Refrain', chords: [...song.chorus], tip: 'Nur drei Akkorde, im Kreis.' },
-    { id: 'strophe', name: 'Strophe', chords: [...v], once: true, tip: 'Vier Zeilen am Stück.' },
-    { id: 'form', name: 'Ganzer Song', chords: songForm(song), once: true, tip: 'Strophe, Refrain, Schluss.' },
-  ];
+  const defs = phrasesOf(song).map((p, i) => ({ ...p, once: p.whole, order: i }));
+  const n = (d) => new Set(transitionKeys(d)).size;
+  return defs.sort((a, b) => n(a) - n(b) || a.order - b.order);
 }
+
+/** Ziel-Tempo, bei dem eine Phrase „sitzt“: das Song-Tempo, ohne bpm GUIDE.target. */
+export const targetBpm = (song) => song?.bpm ?? GUIDE.target;
 
 export function newPhrase(id) {
   return { id, mode: 'wait', bpm: null, streak: 0, bad: 0, solid: false, passes: 0, tempoErrors: 0, lastPlayed: null, trans: {} };
@@ -89,9 +92,12 @@ export function waitSequence(def, { continued = false } = {}) {
   return continued ? seq.slice(1) : seq;
 }
 
-/** Takte im Tempo-Modus: 4-Takt-Phrasen zweimal, sonst einmal. */
-export function tempoBars(def) {
-  return def.chords.length <= 4 && !def.once ? [...def.chords, ...def.chords] : [...def.chords];
+/** Ereignisse im Tempo-Modus: Phrasen bis 4 Takte zweimal, sonst einmal.
+ *  → { events: [{ at, chord }] (relativ), beats } */
+export function tempoEvents(def, beatsPerBar = 4) {
+  const twice = def.beats <= 4 * beatsPerBar && !def.once;
+  const events = twice ? [...def.events, ...def.events.map((e) => ({ ...e, at: e.at + def.beats }))] : [...def.events];
+  return { events, beats: twice ? 2 * def.beats : def.beats };
 }
 
 /** Sekunden je Schlag. */
@@ -175,20 +181,22 @@ export function applyWait(state, { changes, keys = [], today }) {
   return { state: s, clean, toTempo, fast };
 }
 
-/** Tempo-Durchgang anwenden. errors: Takte ohne erkannten Akkord.
+/** Tempo-Durchgang anwenden. errors: Wechsel ohne erkannten Akkord;
+ *  target: Tempo, bei dem die Phrase sitzt (targetBpm).
  *  → { state, clean, up, down, toWait, nowSolid } */
-export function applyTempo(state, { errors, today }) {
+export function applyTempo(state, { errors, today, target = GUIDE.target }) {
+  const top = Math.max(GUIDE.top, target);
   const s = { ...state, passes: (state.passes || 0) + 1, lastPlayed: today };
   const out = { clean: errors === 0, up: false, down: false, toWait: false, nowSolid: false };
   if (errors === 0) {
     s.bad = 0;
     s.streak = (state.streak || 0) + 1;
-    if (state.bpm >= GUIDE.target && !state.solid) { s.solid = true; out.nowSolid = true; }
+    if (state.bpm >= target && !state.solid) { s.solid = true; out.nowSolid = true; }
     // Schnellspur: solange in dieser Phrase noch nie ein Fehler war, jeder
     // saubere Durchgang ein Schritt.
     const need = state.tempoErrors ? GUIDE.cleanToUp : 1;
-    if (s.streak >= need && state.bpm < GUIDE.top) {
-      s.bpm = Math.min(GUIDE.top, state.bpm + GUIDE.up);
+    if (s.streak >= need && state.bpm < top) {
+      s.bpm = Math.min(top, state.bpm + GUIDE.up);
       s.streak = 0;
       out.up = true;
     }
@@ -206,9 +214,10 @@ export function applyTempo(state, { errors, today }) {
   return { state: s, ...out };
 }
 
-/** Übergänge, an denen es hakte: Takt i nicht erkannt → (Akkord davor → Akkord i).
- *  Gleiche Paare zusammengefasst, das häufigste zuerst. Ein verpasster Takt
- *  mit demselben Akkord wie davor zählt nicht als Übergang. */
+/** Übergänge, an denen es hakte: Ereignis i nicht erkannt → (Akkord davor →
+ *  Akkord i). chords: Akkorde der Ereignisse. Gleiche Paare zusammengefasst,
+ *  das häufigste zuerst. Ein verpasstes Ereignis mit demselben Akkord wie
+ *  davor zählt nicht als Übergang. */
 export function repairPairs(bars, missed) {
   const count = new Map();
   for (const i of missed) {
@@ -246,8 +255,18 @@ export function nextPhrase(defs, states, { today, roundPasses = {} }) {
   return { id: pick, review: false };
 }
 
+/** Die Phrase, an der gerade gearbeitet wird: die erste freie, die noch
+ *  nicht sitzt (sonst die letzte freie). → def oder null */
+export function focusPhrase(defs, states) {
+  if (!defs.length) return null;
+  const free = unlocked(defs, states);
+  const id = free.find((x) => !st(states, x).solid) ?? free[free.length - 1];
+  return defs.find((d) => d.id === id) || null;
+}
+
 /** Fortschritt im Song (0..1): sitzt = 1, im Tempo = ½, angefangen = ⅕. */
 export function guideProgress(defs, states) {
+  if (!defs.length) return 0;
   const v = (id) => {
     const s = st(states, id);
     return s.solid ? 1 : s.mode === 'tempo' ? 0.5 : s.passes > 0 ? 0.2 : 0;
