@@ -1,9 +1,12 @@
-/* song-perfect-ruin.js — REIN: Songdaten „Perfect Ruin“ (Kwabs).
-   Austauschbar: Die App liest nur dieses Objekt. Kein Liedtext.
+/* song-perfect-ruin.js — REIN: alte Songdaten „Perfect Ruin“ (Kwabs).
+   NUR NOCH QUELLE DER MIGRATION 2 (migrations.js): daraus entstehen Titel,
+   Tonart, Takt und Akkordliste des Songs in IndexedDB (song:perfect-ruin).
+   Keine Übung liest mehr hieraus. Songs sind jetzt Nutzerdaten (Import,
+   Transkribieren, Griff-Editor; Schema in docs/song-schema.md). Kein Liedtext.
 
-   NICHT VERIFIZIERT: Die Akkordfolge stammt aus Nutzer-Tabs. Prüfen gegen
-   die Noten (Musicnotes MN0148299) oder mit der Lehrkraft, dann hier
-   korrigieren und `verified: true` setzen. */
+   NICHT VERIFIZIERT und bekanntlich falsch: „ein Akkord pro Takt“ stimmt
+   für diesen Song nicht (vorgezogene Wechsel). Die Taktfolge und die
+   :song-Griffe werden deshalb nicht übernommen. Hier nichts mehr ändern. */
 
 export const SONG = Object.freeze({
   id: 'perfect-ruin',
