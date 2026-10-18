@@ -6,7 +6,7 @@
 
 import { CHORDS, chordById, transition, noteName, moveText, bassText, gripOf } from './chords.js';
 import { parseChord, nameFromKeys, sameChord, prettyChord } from './chordsym.js';
-import { validateVoicing, voicingDiff, upgradeVoicing, defaultVoicing, voicingFor } from './voicing.js';
+import { validateVoicing, voicingDiff, upgradeVoicing, defaultVoicing, voicingFor, voicingFromKeys } from './voicing.js';
 import {
   validateSong, normalizeSong, parseSongText, exportSong, setEvent, renameChord, deleteChord, addChord,
   setSectionStart, nextSectionName,
@@ -19,7 +19,7 @@ import { runMigrations } from './migrations.js';
 import {
   sectionList, addSection, resizeSection, deleteSection, setBeatsPerBar, setChordAt, sectionGrid, sectionTimes, playPos,
   tabBlocks, blocksForSections, sectionsFromTabs, marksToSections,
-  orderByStart, sectionProgress,
+  orderByStart, fitBars, updateSection, tapChordAt, barsTime, nextBarSelection, loopPause,
 } from './leadsheet.js';
 import { drillChunks, cycleBeats, cyclePhase, nextChunk, stepBpm, startBpm, DRILL } from './drill.js';
 import { addMark, removeMark, markRange, markAt, nextMarkName, fmtClock, addLoop, updateLoop, removeLoop } from './marks.js';
@@ -614,8 +614,32 @@ function pureTests() {
     eq(sectionList(ob2).map((x) => [x.name, x.bar]), [['Intro', 1], ['Strophe 1', 3], ['Refrain 1', 7]])
     && eq(ob2.events, [{ at: 0, chord: 'Am' }, { at: 8, chord: 'Dm' }, { at: 24, chord: 'F' }, { at: 26, chord: 'C' }])
     && orderByStart(ob2) === ob2, JSON.stringify(ob2.events));
-  const sp = sectionProgress(ob2, 25, 60);
-  check('16 Fortschritt im Abschnitt aus Start und Ende', sp.id === sectionList(ob2)[1].id && Math.abs(sp.frac - 0.5) < 1e-9 && sectionProgress(ob2, 50, 0) === null);
+  const pp2 = playPos({ ...ob2, bpm: null }, 25);
+  check('16 Ohne Tempo: Stelle ungefähr aus dem Abstand zum nächsten Start', pp2.id === sectionList(ob2)[1].id && Math.abs(pp2.beat - (8 + 8)) < 1e-9);
+  const bt = barsTime({ ...ob2, bpm: 60 }, sectionList(ob2)[1].id, 4, 5);
+  check('16 Takte im Video: mit Tempo je 4 s, außerhalb des Abschnitts begrenzt', bt.start === 14 && bt.end === 22
+    && barsTime({ ...ob2, bpm: 60 }, sectionList(ob2)[1].id, 1, 3).end === 14 && barsTime({ ...ob2, bpm: null }, sectionList(ob2)[1].id, 3, 3).end === 17.5);
+  check('16 Takt-Auswahl: einer, Bereich, derselbe hebt auf, neuer wählt neu', eq(nextBarSelection(null, 5), { from: 5, to: 5 })
+    && eq(nextBarSelection({ from: 5, to: 5 }, 3), { from: 3, to: 5 }) && nextBarSelection({ from: 5, to: 5 }, 5) === null
+    && eq(nextBarSelection({ from: 3, to: 5 }, 7), { from: 7, to: 7 }) && loopPause({ bpm: 120, beatsPerBar: 4 }, 0.5) === 4 && loopPause({ bpm: null }) === 2);
+
+  let fb = { ...TS, bpm: 80, sections: [], events: [] };
+  fb = addSection(fb, { name: 'Intro', startSec: 0 });
+  fb = addSection(fb, { name: 'Strophe 1', startSec: 12 });
+  fb = addSection(fb, { name: 'Refrain 1', startSec: 36 });
+  fb = setChordAt(fb, sectionList(fb)[2].fromBeat, 'F');
+  const fb2 = fitBars(fb);
+  check('16 Takte aus der Zeit: 12 s bei 80 BPM = 4 Takte, 24 s = 8, letzter bleibt; Akkorde rücken mit',
+    eq(sectionList(fb2).map((x) => x.bars), [4, 8, 8]) && fb2.events[0].at === sectionList(fb2)[2].fromBeat && fitBars(fb2) === fb2
+    && eq(sectionList(fitBars({ ...fb, bpm: null })).map((x) => x.bars), [8, 8, 8]));
+  const fb3 = fitBars(updateSection(fb, sectionList(fb)[0].id, { barsSet: true }));
+  check('16 Takte von Hand bleiben', eq(sectionList(fb3).map((x) => x.bars), [8, 8, 8]));
+
+  const tc = tapChordAt({ ...fb2, bpm: 80 }, 12 + 4 * 0.75 + 0.3, 'Dm');
+  check('16 Akkord tippen: Videozeit → nächster Schlag im Abschnitt', tc.at === sectionList(fb2)[1].fromBeat + 4 && tc.song.events.some((e) => e.at === tc.at && e.chord === 'Dm')
+    && tapChordAt({ ...fb2, bpm: null }, 13, 'Dm') === null);
+  const vk = voicingFromKeys([62, 50, 65, 69, 62]);
+  check('16 Griff aus Tasten: unter G3 links, sonst rechts, ohne Finger', eq(vk.lh, [50]) && eq(vk.rh, [62, 65, 69]) && vk.rhFingers.every((f) => f === null) && validateVoicing(vk).ok);
 
   /* 17 — Folgen üben: 2-Takt-Folgen, Vorlauf, Wiederholen, Tempo */
   let dr = { ...TS, sections: [], events: [] };

@@ -8,10 +8,17 @@ Songs sind **Daten**: JSON mit Akkorden, Griffen, Abschnitten und
 Akkordwechseln auf halbe Schläge genau (Schema: `docs/song-schema.md`). Die
 Wechsel hört man selbst heraus — im Editor „Transkribieren“ mit dem
 eingebetteten YouTube-Video, verlangsamt und im Loop. Die Griffe aus dem
-Unterricht (Tasten und Fingersätze) kommen in den Griff-Editor; die App zeigt
-bei jedem Wechsel, welche Finger liegen bleiben, loslassen, dazukommen oder
-wandern. Mitgeliefert ist nur „Perfect Ruin“ (Kwabs) mit seinen Akkorden,
+Unterricht kommen in den Griff-Editor: Tasten antippen, fertig — Hände und
+Finger trägt man nicht ein (unter G3 gilt als linke Hand, `voicingFromKeys`). Mitgeliefert ist nur „Perfect Ruin“ (Kwabs) mit seinen Akkorden,
 noch ohne Wechsel.
+
+**Neuer Song** startet einen Assistenten auf der Liedseite
+(`songwizard.js`): 1 YouTube-Link, 2 beim Abspielen am Anfang jedes Teils
+seinen Namen tippen und einmal das Tempo mittippen (die Takte ergeben sich
+daraus), 3 Akkorde anlegen (Tabs einfügen oder „+ Akkord“) und beim
+Abspielen den Akkord tippen, sobald er wechselt (`tapChordAt`, auf ganze
+Schläge gerundet; Tasten 1–9), 4 je Akkord die Tasten im Griff-Editor.
+Später wieder über „Mehr“ → „Assistent“.
 
 **Startpunkt sind die Songs.** Je Song eine Liedseite (`songpage.js`): oben
 der YouTube-Player mit großer Play/Pause-Taste, ±5 s, Tempo 0,5 / 0,75 / 1,
@@ -24,9 +31,14 @@ früher/später. An der Karte: ▶ ab hier, ↻ Loop, ⋯ Takte, „Start hier�
 (Sekunde im Video), Umbenennen, Loop speichern, Löschen. „Mehr“ → „Takt und
 Tempo“ (4/4, 3/4, 6/8, 2/4; Tempo ±1 oder tippen); mit Tempo und der
 Startzeit des ersten Abschnitts läuft die Markierung im Raster mit dem
-Video mit; eine dünne Linie oben in der Karte zeigt, wie weit man ungefähr
-im Abschnitt ist (bis zum Start des nächsten). Abschnitte stehen nach
-Startzeit im Video, auch wenn man sie in anderer Reihenfolge anlegt. „Abschnitte aus den Tabs“ macht aus den Überschriften der Tabs
+Video mit (Takt und Viertel hervorgehoben; ohne Tempo ungefähr, aus dem
+Abstand zum nächsten Start). Beim Loop über einen Abschnitt (↻) lassen sich
+einzelne Takte wählen (Taktnummer antippen, ein zweiter Takt: Bereich);
+vor dem ersten und zwischen den Durchgängen ist ein Takt Pause. Abschnitte stehen nach
+Startzeit im Video, auch wenn man sie in anderer Reihenfolge anlegt. Mit
+Tempo ergeben sich die Takte eines Abschnitts aus dem Abstand zum nächsten
+Start (gerundet), bis man sie selbst ändert („aus der Zeit“ stellt das
+zurück). „Abschnitte aus den Tabs“ macht aus den Überschriften der Tabs
 Abschnitte (eine Akkordzeile = 2 Takte, nur ein Vorschlag). Tabs sind
 eingefügter Text (z. B. bei Ultimate Guitar kopiert; Akkordzeilen
 hervorgehoben, Schrift größer/kleiner, die Akkorde landen in der
@@ -174,6 +186,7 @@ Liedseite (`marks`) Abschnitte mit Startzeit (je 8 Takte, `startSec`).
 | `app.js` | Einstieg: Laden, Start, Abschluss, Über, Verdrahtung |
 | `songs.js` | Startpunkt „Songs“ (Liste, neuer Song), „Import“, Export |
 | `songpage.js` | Liedseite: Player, Loop, Leadsheet mit Abschnitten, Tabs (Text oder PDF) |
+| `songwizard.js` | Assistent für neue Songs (Video, Teile und Tempo, Akkordwechsel, Griffe) |
 | `drill.js` | REIN: 2-Takt-Folgen aus den Abschnitten, Vorlauf, Weiter/Wiederholen, Tempo |
 | `drillpage.js` | Folgen üben: Klick (clock.js), Anzeige, Wiederholen, Tempo ±5 |
 | `leadsheet.js` | REIN: Abschnitte als Taktbereiche, Raster, Zeiten im Video, Tabs je Abschnitt |
