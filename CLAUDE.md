@@ -23,7 +23,7 @@ Dateien dort, dessen Nummer erhöhen.
 
 `chords.js`, `chordsym.js`, `voicing.js`, `songdata.js`, `timeline.js`,
 `tap.js`, `accomp.js`, `migrations.js`, `leitner.js`, `tempo.js`, `mix.js`,
-`phrases.js`, `melody.js`, `hear.js`, `song-perfect-ruin.js`,
+`phrases.js`, `melody.js`, `hear.js`, `leadsheet.js`, `drill.js`, `song-perfect-ruin.js`,
 `test-melody.js` und `selftest.js` (bis auf die Browser-Tests, die erst bei
 Bedarf per `import()` geladen werden): kein DOM, kein `Date.now()`, kein
 `Math.random()`. Zeit und Zufall kommen als Parameter (`today: 'YYYY-MM-DD'`,
