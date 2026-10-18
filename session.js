@@ -12,13 +12,16 @@ import { runWege } from './exercises/wege.js';
 import { runGroove } from './exercises/groove.js';
 import { runPlayalong } from './exercises/playalong.js';
 import { runGuided } from './exercises/guided.js';
+import { runWann } from './exercises/wann.js';
 
-const EXERCISES = { guided: runGuided, blitz: runBlitz, wege: runWege, groove: runGroove, playalong: runPlayalong };
+const EXERCISES = { guided: runGuided, blitz: runBlitz, wege: runWege, groove: runGroove, playalong: runPlayalong, wann: runWann };
 
 export class Aborted extends Error {}
 
 let current = null;
 export const sessionRunning = () => !!current;
+const pauseListeners = new Set();
+const tellPause = (paused) => { for (const fn of pauseListeners) { try { fn(paused); } catch (e) { logError('session:pause', e); } } };
 
 function elapsed(s) {
   return (s.activeMs + (s.paused ? 0 : performance.now() - s.since)) / 1000;
@@ -55,6 +58,7 @@ export async function pause() {
   s.activeMs += performance.now() - s.since;
   s.paused = true;
   await audio.suspend();
+  tellPause(true);
   $('#pause').hidden = false;
   $('#pause-go').focus();
 }
@@ -66,6 +70,7 @@ export async function resume() {
   await audio.resume();
   s.since = performance.now();
   s.paused = false;
+  tellPause(false);
 }
 
 export async function end() {
@@ -113,6 +118,9 @@ export async function runSession(plan) {
         get ended() { return s.ended; },
         result: (ex, init) => (s.results[ex] ||= init),
         countUp: () => { s.countDone++; paintBar(s); },
+        /** Pause/Weiter melden (YouTube anhalten). → abmelden */
+        onPause: (fn) => { pauseListeners.add(fn); return () => pauseListeners.delete(fn); },
+        get paused() { return s.paused; },
       };
       await EXERCISES[item.exercise](api, item);
       await record(item.exercise);
@@ -128,6 +136,7 @@ export async function runSession(plan) {
     }
   } finally {
     clearInterval(barTimer);
+    pauseListeners.clear();
     $('#session-bar').hidden = true;
     $('#pause').hidden = true;
     releaseAwake();

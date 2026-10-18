@@ -6,11 +6,17 @@ import { localIso } from './dates.js';
 import { newCard } from './leitner.js';
 import { newLoop } from './tempo.js';
 import { newPhrase } from './phrases.js';
+import { newWann } from './tap.js';
 
 export const S = {
   // mic: null = noch nicht gefragt, sonst true/false; ear: wie gehört wird
-  // ('eigen' | 'essentia' | 'beide', mic.js EARS)
-  settings: { id: 'settings', plan: '', onboarded: false, click: true, melody: true, melodyLow: false, mic: null, ear: 'eigen' },
+  // ('eigen' | 'essentia' | 'beide', mic.js EARS); currentSong: id des
+  // aktuellen Songs; leadMs: Anzeige-Vorlauf zum YouTube-Video (0–300 ms);
+  // ytMic: Mikrofon während YouTube (standardmäßig aus)
+  settings: {
+    id: 'settings', plan: '', onboarded: false, click: true, melody: true, melodyLow: false, mic: null, ear: 'eigen',
+    currentSong: null, leadMs: 80, ytMic: false,
+  },
   progress: {
     id: 'progress',
     levels: { blitz: 1, wege: 1, groove: 1 },
@@ -20,7 +26,9 @@ export const S = {
   },
   cards: new Map(),           // 'card:Am:root' → Karte
   loops: {},                  // 'am-f' → Loop-Zustand (gespeichert als 'loop:am-f')
-  phrases: {},                // 'z1' → Phrasen-Zustand für „Geführt“ ('phrase:z1')
+  songs: new Map(),           // 'perfect-ruin' → Song (gespeichert als 'song:perfect-ruin')
+  phrases: {},                // '<songId>:<phraseId>' → Phrasen-Zustand für „Geführt“ ('phrase:…')
+  wann: {},                   // '<songId>:<phraseId>' → Stufe für „Wann“ ('wann:…')
   groove: { id: 'groove', bpm: null },
   days: {},                   // 'YYYY-MM-DD' → { seconds, exercises }
 };
@@ -41,7 +49,9 @@ export async function loadAll() {
       S.progress.asked = { ...r.asked };
     } else if (id.startsWith('card:')) S.cards.set(id, r);
     else if (id.startsWith('loop:')) S.loops[id.slice(5)] = { ...r, id: id.slice(5) };
+    else if (id.startsWith('song:') && r.song) S.songs.set(r.song.id, r.song);
     else if (id.startsWith('phrase:')) S.phrases[id.slice(7)] = { ...r, id: id.slice(7) };
+    else if (id.startsWith('wann:')) S.wann[id.slice(5)] = { ...r, id: id.slice(5) };
     else if (id === 'groove') Object.assign(S.groove, r);
     else if (id.startsWith('day:')) S.days[id.slice(4)] = r;
   }
@@ -67,12 +77,60 @@ export async function putLoop(loop) {
   await DB.put({ ...loop, id: `loop:${loop.id}` });
 }
 
-export function getPhrase(id) {
-  return S.phrases[id] || newPhrase(id);
+/* ---------- Songs ------------------------------------------------------ */
+
+/** Der aktuelle Song (oder der erste, falls der gespeicherte fehlt). */
+export function currentSong() {
+  return S.songs.get(S.settings.currentSong) || S.songs.values().next().value || null;
 }
-export async function putPhrase(p) {
-  S.phrases[p.id] = p;
-  await DB.put({ ...p, id: `phrase:${p.id}` });
+export async function setCurrentSong(id) {
+  S.settings.currentSong = id;
+  await saveSettings();
+}
+export const songList = () => [...S.songs.values()].sort((a, b) => a.title.localeCompare(b.title, 'de'));
+
+/** Song speichern (normalisiert, inklusive Text). */
+export async function putSong(song) {
+  S.songs.set(song.id, song);
+  await DB.put({ id: `song:${song.id}`, song: JSON.parse(JSON.stringify(song)) });
+}
+
+/** Song löschen, mit seinem Fortschritt in „Geführt“ und „Wann“. */
+export async function deleteSong(id) {
+  S.songs.delete(id);
+  const dels = [`song:${id}`];
+  for (const k of Object.keys(S.phrases)) if (k.startsWith(`${id}:`)) { delete S.phrases[k]; dels.push(`phrase:${k}`); }
+  for (const k of Object.keys(S.wann)) if (k.startsWith(`${id}:`)) { delete S.wann[k]; dels.push(`wann:${k}`); }
+  await DB.putMany([], dels);
+  if (S.settings.currentSong === id) await setCurrentSong(songList()[0]?.id ?? null);
+}
+
+/* ---------- Fortschritt je Song ---------------------------------------- */
+
+/** Phrasen-Zustände eines Songs: { phraseId → Zustand }. */
+export function phraseStates(songId) {
+  const out = {};
+  for (const [k, v] of Object.entries(S.phrases)) if (k.startsWith(`${songId}:`)) out[k.slice(songId.length + 1)] = { ...v, id: k.slice(songId.length + 1) };
+  return out;
+}
+export function getPhrase(songId, phraseId) {
+  const p = S.phrases[`${songId}:${phraseId}`];
+  return p ? { ...p, id: phraseId } : newPhrase(phraseId);
+}
+export async function putPhrase(songId, p) {
+  const key = `${songId}:${p.id}`;
+  S.phrases[key] = { ...p, id: key };
+  await DB.put({ ...p, id: `phrase:${key}` });
+}
+
+export function getWann(songId, phraseId) {
+  const w = S.wann[`${songId}:${phraseId}`];
+  return w ? { ...w, id: phraseId } : newWann(phraseId);
+}
+export async function putWann(songId, w) {
+  const key = `${songId}:${w.id}`;
+  S.wann[key] = { ...w, id: key };
+  await DB.put({ ...w, id: `wann:${key}` });
 }
 
 /** Geübte Sekunden zum heutigen Tag addieren. */

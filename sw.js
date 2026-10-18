@@ -4,9 +4,10 @@
    SW_VERSION erhöhen (siehe CLAUDE.md) — sonst bekommt niemand das Update.
    Klaviersamples: eigener Cache, beim ersten Gebrauch gefüllt, nicht an
    SW_VERSION gebunden. Ändern sich Dateien in samples/, SAMPLES_CACHE erhöhen.
-   Der Service Worker fasst IndexedDB nie an. */
+   Der Service Worker fasst IndexedDB nie an. Anfragen an andere Herkünfte
+   (YouTube) bearbeitet er nicht: kein Cache, kein Abfangen. */
 
-const SW_VERSION = 'v4';
+const SW_VERSION = 'v10';
 const CACHE = `pianino-shell-${SW_VERSION}`;
 const SAMPLES_CACHE = 'pianino-samples-v1';
 
@@ -15,8 +16,11 @@ const SHELL = [
   './index.html',
   './style.css',
   './app.js',
+  './accomp.js',
   './audio.js',
+  './band.js',
   './chords.js',
+  './chordsym.js',
   './clock.js',
   './dates.js',
   './db.js',
@@ -28,20 +32,31 @@ const SHELL = [
   './log.js',
   './melody.js',
   './mic.js',
+  './mictest.js',
+  './migrations.js',
   './mix.js',
   './phrases.js',
   './piano-samples.js',
   './selftest.js',
   './session.js',
   './song-perfect-ruin.js',
+  './songdata.js',
+  './songs.js',
   './store.js',
+  './tap.js',
   './tempo.js',
   './test-melody.js',
+  './timeline.js',
   './ui.js',
+  './voicing.js',
+  './yt.js',
   './exercises/blitz.js',
+  './exercises/griffe.js',
   './exercises/groove.js',
   './exercises/guided.js',
   './exercises/playalong.js',
+  './exercises/transcribe.js',
+  './exercises/wann.js',
   './exercises/wege.js',
   './vendor/essentia/essentia-wasm.es.js',
   './vendor/essentia/essentia.js-core.es.min.js',
@@ -52,8 +67,13 @@ const SHELL = [
   './icon-512.png',
 ];
 
+// Am HTTP-Cache des Browsers vorbei laden (cache: 'reload'): sonst landen
+// beim Update noch alte Dateien im neuen Shell-Cache (GitHub Pages schickt
+// max-age=600) und alte und neue Module mischen sich.
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(CACHE)
+    .then((c) => c.addAll(SHELL.map((u) => new Request(u, { cache: 'reload' }))))
+    .then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (e) => {

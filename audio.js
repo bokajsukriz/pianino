@@ -132,10 +132,25 @@ export function note(midi, time, { dur = 1, gain = 1 } = {}) {
   try { pianoNote(getCtx(), graph.piano, piano, midi, time, dur, gain); } catch (e) { logError('audio:note', e); }
 }
 
-/** Akkord vorspielen: LH-Ton + RH-Dreiklang gleichzeitig, LH 10 % lauter. */
-export function chord(ch, time, { dur = 1.5, gain = 1, lh = true, rh = true } = {}) {
-  if (lh) note(ch.lh, time, { dur, gain: gain * 1.1 });
-  if (rh) for (const m of ch.rh) note(m, time, { dur, gain });
+/** Töne der linken Hand eines Griffs (lh als Liste oder, alt, als Zahl). */
+export const lhNotes = (v) => (v?.lh == null ? [] : [].concat(v.lh));
+
+/** Griff vorspielen: beide Hände gleichzeitig, LH 10 % lauter. */
+export function chord(v, time, { dur = 1.5, gain = 1, lh = true, rh = true } = {}) {
+  if (!v) return;
+  if (lh) for (const m of lhNotes(v)) note(m, time, { dur, gain: gain * 1.1 });
+  if (rh) for (const m of v.rh || []) note(m, time, { dur, gain });
+}
+
+/** Anschläge aus accomp.js stepHits planen. grip(chord) → Griff oder null;
+ *  beatDur: Sekunden je Schlag; gain: Gesamtlautstärke (leise Begleitung < 1). */
+export function playHits(hits, time, beatDur, grip, { gain = 1 } = {}) {
+  for (const h of hits) {
+    const v = grip(h.chord);
+    if (!v) continue;
+    const notes = h.hand === 'lh' ? lhNotes(v) : (v.rh || []);
+    for (const m of notes) note(m, time, { dur: Math.max(0.1, h.beats * beatDur), gain: h.gain * gain });
+  }
 }
 
 /** Klick: 1500 Hz auf der Eins, sonst 1000 Hz, 30 ms. high: 2400/2000 Hz —
@@ -157,6 +172,6 @@ export function renderSmoke(c, mel) {
   clickAt(c, g.click, 0.05, true, 1);
   clickAt(c, g.click, 0.55, false, 1);
   for (const m of [45, 69, 72, 76]) synthNote(c, g.piano, m, 0.1, 0.8, 1);
-  for (const n of mel.slice(0, 4)) melodyAt(c, g.melody, n.midi, 0.2 + (n.beat - 1) * 0.4, n.dur * 0.4, 1);
+  for (const n of mel.slice(0, 4)) melodyAt(c, g.melody, n.midi, 0.2 + n.at * 0.4, n.dur * 0.4, 1);
   return true;
 }

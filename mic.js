@@ -3,7 +3,8 @@
    Nichts wird aufgenommen oder gespeichert; gelesen wird nur das jeweils
    letzte Fenster. Drei Arten zu hören (Einstellung `ear`, EARS):
      eigen     hear.js — prüft die Töne des erwarteten Akkords im Spektrum
-               (≈ ⅓ s), mit Gedächtnis seit dem Anschlag, synchron.
+               (≈ ⅓ s), in jeder engen Lage, mit Gedächtnis seit dem
+               Anschlag, synchron.
      essentia  ear.js — essentia.js im Worker vergleicht die Chroma des
                Fensters (≈ 0,17 s) mit dem erwarteten Akkord, asynchron.
      beide     eigen sagt ja UND essentia hält den erwarteten Akkord für den
@@ -17,8 +18,7 @@
    selbst. */
 
 import * as audio from './audio.js';
-import { chordById } from './chords.js';
-import { semitoneLevels, followOnset, checkChord } from './hear.js';
+import { semitoneLevels, followOnset, checkChord, checkChordAny, peakNotes } from './hear.js';
 import { loadEar, checkFrame } from './ear.js';
 import { S } from './store.js';
 import { logError } from './log.js';
@@ -33,6 +33,23 @@ let stream = null, source = null, analyser = null, timeBuf = null, freqBuf = nul
 let quietUntil = 0, last = null, asked = 0, busy = false, generation = 0;
 let levels = [], lastOnset = -Infinity, onsetHigh = false, earState = 'off';
 let prevSpec = null, before = null, since = null; // eigen: Gedächtnis seit dem Anschlag (hear.js)
+let lastDb = -Infinity, diagnose = false, diagState = null;
+/** Akkorde des aktuellen Songs als Ziele (voicing.js hearTarget):
+ *  [{ name, rh, lh, pcs }]. essentia vergleicht mit ihnen als Konkurrenz,
+ *  der Mikrofon-Test prüft alle. */
+let pool = [];
+export function setPool(targets) { pool = (targets || []).filter(Boolean); }
+
+/** Mikrofon-Test: jede Auswertung prüft beide Erkenner gegen alle Akkorde
+ *  des Songs (setPool; essentia wird dafür geladen). */
+export function setDiagnose(on) { diagnose = !!on; if (!on) diagState = null; }
+/** Letzte Messung zum Anzeigen: { db, sinceOnset, notes: [{ midi, db, cents }],
+ *  eigen: { Am: bool, … } | null, essentia: { Am: { ok, score }, … } | null,
+ *  hpcp: [12] | null }. Pegel und Töne gibt es immer, die Urteile im
+ *  Mikrofon-Test (eigen ohne Vorakkord). */
+export const diag = () => diagState;
+/** Audiozeit des letzten erkannten Anschlags (Übung „Wann“). */
+export const onsetTime = () => lastOnset;
 
 export const supported = () => !!navigator.mediaDevices?.getUserMedia;
 export const isOpen = () => !!analyser;
@@ -100,6 +117,7 @@ function trackOnset(t) {
   let e = 0;
   for (let i = timeBuf.length - n; i < timeBuf.length; i++) e += timeBuf[i] * timeBuf[i];
   const db = 10 * Math.log10(e / n + 1e-12);
+  lastDb = db;
   levels.push({ t, db });
   while (levels.length > 1 && levels[1].t <= t - ONSET_BACK) levels.shift();
   const high = levels[0].t <= t - ONSET_BACK + 0.03 && db - levels[0].db >= ONSET_DB && db > -60;
@@ -110,48 +128,63 @@ function trackOnset(t) {
 }
 
 /** Was klingt gerade? Je Bildschirm-Frame aufrufen, `t` = audio.now(),
- *  want: Akkord-ids, die gerade in Frage kommen (essentia prüft nur diese).
+ *  want: Ziele (voicing.js hearTarget: { name, rh, lh, pcs }), die gerade in
+ *  Frage kommen (essentia prüft nur diese).
  *  → null (kein Mikrofon, gerade weggehört, noch nichts da) oder
- *  { is(id, prevId) → bool, chord, sinceOnset, fresh }
- *  is: liegt der Akkord `id`? chord: stattdessen gehörter Song-Akkord (nur
- *  essentia, sonst ''). sinceOnset: s seit dem letzten Anschlag, gemessen
- *  beim Lesen des Fensters. fresh: neu seit dem letzten Aufruf. */
+ *  { is(target, prevTarget, { exact }) → bool, chord, sinceOnset, fresh }
+ *  is: liegt der Akkord — in jeder engen Lage seiner rechten Hand, mit exact
+ *  nur in der Lage des Griffs (eigen; essentia hört ohnehin nur Tonnamen)?
+ *  chord: stattdessen gehörter Akkord des Songs (nur essentia, sonst '').
+ *  sinceOnset: s seit dem letzten Anschlag, gemessen beim Lesen des
+ *  Fensters. fresh: neu seit dem letzten Aufruf. */
 export function sample(t, want = []) {
   if (!analyser || t < quietUntil) return null;
   const mode = earMode();
-  if (mode !== 'eigen') ensureEar();
+  if (mode !== 'eigen' || diagnose) ensureEar();
   if (!busy && (!asked || t - asked >= EVERY)) {
     asked = t;
     analyser.getFloatTimeDomainData(timeBuf);
     const onset = trackOnset(t);
     const sinceOnset = t - lastOnset;
     const sr = audio.getCtx().sampleRate;
+    // Pegel und gehörte Töne: immer, zum Anzeigen.
+    analyser.getFloatFrequencyData(freqBuf);
+    const d = { db: lastDb, sinceOnset, notes: peakNotes(freqBuf, sr, FFT), eigen: null, essentia: diagState?.essentia ?? null, hpcp: diagState?.hpcp ?? null };
+    diagState = d;
     // Eigener Erkenner (außer bei „essentia“ allein): synchron, mit Gedächtnis.
     let eigenIs = null;
-    if (mode !== 'essentia') {
-      analyser.getFloatFrequencyData(freqBuf);
+    if (mode !== 'essentia' || diagnose) {
       const now = semitoneLevels(freqBuf, sr, FFT);
       // Neuer Anschlag: Gedächtnis zurücksetzen, Spektrum davor merken.
       if (onset) { since = null; before = prevSpec; }
       if (Number.isFinite(lastOnset)) since = followOnset(since, now, sinceOnset, before);
       prevSpec = now;
       const mem = since;
-      eigenIs = (id, prevId) => checkChord(now, mem, chordById(id), { prev: prevId ? chordById(prevId) : null }).ok;
+      // Erkannt wird der Akkord in jeder engen Lage; exact: nur die Lage des Griffs.
+      eigenIs = (tgt, prevTgt, { exact = false } = {}) => !!tgt
+        && (exact ? checkChord : checkChordAny)(now, mem, tgt, { prev: prevTgt || null }).ok;
+      if (diagnose) d.eigen = Object.fromEntries(pool.map((x) => [x.name, eigenIs(x)]));
+      if (mode === 'essentia') eigenIs = null;
     }
-    if (mode !== 'eigen' && earState === 'ready') {
+    if ((mode !== 'eigen' || diagnose) && earState === 'ready') {
       const gen = generation;
       busy = true;
-      const expect = [...new Set(want.map((id) => chordById(id).symbol))];
-      checkFrame(timeBuf.slice(FFT - ESSENTIA_FRAME), sr, expect).then(({ results }) => {
+      const targets = (diagnose ? pool : want).filter(Boolean);
+      const expect = [...new Set(targets.map((x) => x.name))];
+      // Konkurrenz: alle Akkorde des Songs (und die erwarteten, falls nicht dabei).
+      const chords = Object.fromEntries([...pool, ...targets].map((x) => [x.name, x.pcs]));
+      checkFrame(timeBuf.slice(FFT - ESSENTIA_FRAME), sr, expect, chords).then(({ results, hpcp }) => {
         busy = false;
         if (gen !== generation) return;
+        if (diagnose && diagState) { diagState.essentia = results; diagState.hpcp = hpcp; }
+        if (mode === 'eigen') { last = { chord: '', sinceOnset, fresh: true, is: eigenIs }; return; }
         const errs = Object.values(results).filter((r) => r.error);
         if (errs.length) logError('mic:chord', errs[0].error);
         const other = Object.values(results).map((r) => r.chord).find((c) => c && !c.includes('?') && !expect.includes(c)) || '';
-        const ess = (id) => results[chordById(id).symbol];
+        const ess = (tgt) => (tgt ? results[tgt.name] : null);
         const is = mode === 'beide'
-          ? (id, prevId) => eigenIs(id, prevId) && (ess(id)?.score ?? -1) >= 0
-          : (id) => !!ess(id)?.ok;
+          ? (tgt, prevTgt, o) => eigenIs(tgt, prevTgt, o) && (ess(tgt)?.score ?? -1) >= 0
+          : (tgt) => !!ess(tgt)?.ok;
         last = { chord: other, sinceOnset, fresh: true, is };
       });
     } else if (eigenIs) {
