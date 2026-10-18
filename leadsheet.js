@@ -177,7 +177,9 @@ export function sectionTimes(song, durationSec = 0) {
 }
 
 /** Stelle im Leadsheet zur Video-Sekunde t: der Abschnitt mit der letzten
- *  Startzeit ≤ t und — mit Tempo — der Schlag darin.
+ *  Startzeit ≤ t und der Schlag darin — mit Tempo genau, ohne Tempo
+ *  ungefähr (die Zeit bis zum Start des nächsten Abschnitts gleichmäßig auf
+ *  seine Takte verteilt).
  *  → { id, beat (absolut) | null } oder null */
 export function playPos(song, t, durationSec = 0) {
   const list = sectionList(song);
@@ -186,11 +188,52 @@ export function playPos(song, t, durationSec = 0) {
   times.forEach((x, i) => { if (x.start != null && x.start <= t + EPS && (k < 0 || x.start >= times[k].start)) k = i; });
   if (k < 0) return null;
   const s = list[k];
-  if (!song.bpm) return { id: s.id, beat: null };
-  const rel = ((t - times[k].start) * song.bpm) / 60;
+  const bd = barDur(song, list, times, k);
+  if (bd == null) return { id: s.id, beat: null };
+  const rel = ((t - times[k].start) / bd) * song.beatsPerBar;
   if (rel >= s.bars * song.beatsPerBar) return { id: s.id, beat: null };
   return { id: s.id, beat: s.fromBeat + rel };
 }
+
+/** Dauer eines Takts im Abschnitt k (Sekunden): aus dem Tempo, sonst aus
+ *  dem Abstand zum nächsten Start geteilt durch die Takte; sonst null. */
+function barDur(song, list, times, k) {
+  if (song.bpm) return (song.beatsPerBar * 60) / song.bpm;
+  const start = times[k].start;
+  const next = times.slice(k + 1).find((x) => x.start != null && x.start > start)?.start;
+  return start != null && next != null ? (next - start) / list[k].bars : null;
+}
+
+/** Wo die Takte fromBar…toBar (absolut, einschließlich) eines Abschnitts im
+ *  Video liegen. → { start, end } oder null */
+export function barsTime(song, id, fromBar, toBar, durationSec = 0) {
+  const list = sectionList(song);
+  const times = sectionTimes(song, durationSec);
+  const k = list.findIndex((x) => x.id === id);
+  if (k < 0 || times[k].start == null) return null;
+  const s = list[k];
+  const a = Math.max(s.bar, Math.min(fromBar, toBar)), b = Math.min(s.bar + s.bars - 1, Math.max(fromBar, toBar));
+  if (a > b) return null;
+  const bd = barDur(song, list, times, k);
+  if (bd == null) return null;
+  return { start: times[k].start + (a - s.bar) * bd, end: times[k].start + (b - s.bar + 1) * bd };
+}
+
+/** Takt-Auswahl für den Loop: Antippen eines Takts. sel = null (ganzer
+ *  Abschnitt) oder { from, to }. Ist ein einzelner Takt gewählt, macht ein
+ *  zweiter Takt daraus einen Bereich, derselbe noch einmal hebt die Auswahl
+ *  auf; sonst wird der getippte Takt allein gewählt. → neue Auswahl */
+export function nextBarSelection(sel, bar) {
+  if (sel && sel.from === sel.to) {
+    if (sel.from === bar) return null;
+    return { from: Math.min(sel.from, bar), to: Math.max(sel.from, bar) };
+  }
+  return { from: bar, to: bar };
+}
+
+/** Pause vor dem Loop und zwischen den Durchgängen: ein Takt (bei der
+ *  Abspielrate `rate`). ANNAHME: ohne Tempo 2 Sekunden. */
+export const loopPause = (song, rate = 1) => (song.bpm ? (song.beatsPerBar * 60) / song.bpm : 2) / (rate || 1);
 
 /* ---------- Tabs auf die Abschnitte aufteilen -------------------------- */
 
@@ -318,21 +361,6 @@ export function orderByStart(song) {
   return normalizeSong(out);
 }
 
-/** Wie weit ist die Stelle t durch ihren Abschnitt (0…1)? Bis zum Start
- *  des nächsten Abschnitts im Video, sonst bis zum Ende aus dem Tempo —
- *  so stimmt es ungefähr, auch wenn die Taktzahl noch nicht passt.
- *  → { id, frac } oder null */
-export function sectionProgress(song, t, durationSec = 0) {
-  const times = sectionTimes(song, durationSec);
-  let k = -1;
-  times.forEach((x, i) => { if (x.start != null && x.start <= t + EPS && (k < 0 || x.start >= times[k].start)) k = i; });
-  if (k < 0) return null;
-  const { id, start } = times[k];
-  const end = times.slice(k + 1).find((x) => x.start != null && x.start > start)?.start ?? times[k].end;
-  if (end == null || end <= start || t > end + EPS) return null;
-  return { id, frac: Math.max(0, Math.min(1, (t - start) / (end - start))) };
-}
-
 /** Taktzahlen aus der Zeit: Ist das Tempo bekannt, bekommt jeder Abschnitt,
  *  dessen Takte nicht von Hand gesetzt sind (barsSet), so viele Takte, wie
  *  bis zum Start des nächsten Abschnitts (mit eigener Startzeit) passen.
@@ -360,10 +388,12 @@ export function fitBars(song) {
 }
 
 /** Akkord „jetzt“ tippen (Assistent): Videozeit t → Schlag im Leadsheet
- *  (Startzeit und Tempo nötig), auf die nächste Zelle gerundet, dort setzen.
+ *  (Startzeit und Tempo nötig — ohne Tempo wäre es zu ungenau), auf die
+ *  nächste Zelle gerundet, dort setzen.
  *  ANNAHME: auf ganze Schläge gerundet; feiner im Raster nachschieben.
  *  → { song, at } oder null (Stelle nicht im Leadsheet) */
 export function tapChordAt(song, t, chord) {
+  if (!song.bpm) return null;
   const pos = playPos(song, t);
   if (!pos || pos.beat == null) return null;
   const sec = sectionList(song).find((x) => x.id === pos.id);

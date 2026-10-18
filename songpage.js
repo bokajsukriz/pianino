@@ -20,7 +20,7 @@ import { nextMarkName, fmtClock, addLoop, updateLoop, removeLoop, sortLoops } fr
 import {
   METERS, MAX_BARS, sectionList, addSection, resizeSection, deleteSection, updateSection, setBeatsPerBar,
   setChordAt, shiftChordAt, sectionGrid, sectionTimes, playPos, tabBlocks, blocksForSections, sectionsFromTabs,
-  orderByStart, sectionProgress, fitBars, tapChordAt,
+  orderByStart, fitBars, tapChordAt, barsTime, nextBarSelection, loopPause,
 } from './leadsheet.js';
 import { drillChunks } from './drill.js';
 import { openDrill } from './drillpage.js';
@@ -50,9 +50,9 @@ async function save(next) {
   if (!st) return;
   // Läuft ein Abschnitts-Loop, zieht er mit (Takte, Startzeit geändert).
   if (st.loop?.sec) {
-    const r = sectionRange(st.loop.sec);
+    const r = loopRange(st.loop.sec, st.loop.bars) || loopRange(st.loop.sec, null);
     if (r) Object.assign(st.loop, r);
-    else { st.loop = null; st.loopOn = false; }
+    else { st.loop = null; st.loopOn = false; st.gap = null; }
   }
   paintSections();
   paintTransport();
@@ -129,7 +129,7 @@ export function openSongPage(songId, { wizard = null } = {}) {
   return new Promise((resolve) => {
     st = {
       songId, resolve, player: null, loop: null, loopOn: false, rate: 1, editing: false, pdfUrl: null,
-      stop: null, drag: null, lastPos: null, lastSec: null, progId: null, folded: new Set(), sheet: null, taps: [],
+      stop: null, drag: null, lastPos: null, lastSec: null, gap: null, gapLeft: null, folded: new Set(), sheet: null, taps: [],
     };
     $('#sp-title').textContent = s.title;
     $('#sp-artist').textContent = s.artist || '';
@@ -211,13 +211,14 @@ async function loadVideo(id) {
 function togglePlay() {
   const p = st?.player;
   if (!p) { $('#sp-vnote').textContent = 'Erst ein Video laden.'; return; }
+  if (st.gap) { st.gap = null; paintTransport(); return; } // Pause vor dem Loop: anhalten
   if (p.playing()) p.pause();
   else play(p);
 }
 
 function play(p) {
   p.play();
-  setTimeout(() => { if (st?.player === p && !p.playing() && !$('#sp-vnote').textContent) $('#sp-vnote').textContent = 'Startet nicht? Einmal direkt aufs Video tippen.'; }, 2500);
+  setTimeout(() => { if (st?.player === p && !p.playing() && !st.gap && !$('#sp-vnote').textContent) $('#sp-vnote').textContent = 'Startet nicht? Einmal direkt aufs Video tippen.'; }, 2500);
 }
 
 function skip(by) {
@@ -243,6 +244,47 @@ function sectionRange(id) {
   return { start: tm.start, end: tm.end, name: sec.name };
 }
 
+/** Loop über einen Abschnitt bzw. nur die Takte bars ({ from, to }, absolut).
+ *  → { start, end, name, bars } oder null */
+function loopRange(id, bars) {
+  const r = sectionRange(id);
+  if (!r || !bars) return r && { ...r, bars: null };
+  const b = barsTime(song(), id, bars.from, bars.to, dur());
+  if (!b) return null;
+  return { ...b, name: `${r.name} · ${bars.from === bars.to ? `T. ${bars.from}` : `T. ${bars.from}–${bars.to}`}`, bars };
+}
+
+/** Abschnitts-Loop (neu) beginnen: an den Anfang, einen Takt Pause, dann los.
+ *  Zwischen den Durchgängen genauso (tick). */
+function startLoop(id, bars) {
+  const p = st.player;
+  if (!p) { $('#sp-vnote').textContent = 'Erst ein Video laden.'; return; }
+  const r = loopRange(id, bars);
+  if (!r) { $('#sp-vnote').textContent = bars ? 'Für einzelne Takte braucht es das Tempo oder den Start des nächsten Abschnitts.' : whyNoRange(id); return; }
+  $('#sp-vnote').textContent = '';
+  st.loop = { ...r, sec: id };
+  st.loopOn = true;
+  restOnce();
+  paintSections();
+  paintTransport();
+  paintLoops();
+}
+
+/** Einen Takt Pause am Loop-Anfang, dann spielen. */
+function restOnce() {
+  const p = st.player;
+  p.seek(st.loop.start);
+  p.pause();
+  st.gap = { until: performance.now() + loopPause(song(), st.rate) * 1000, beat: (loopPause(song(), st.rate) * 1000) / song().beatsPerBar };
+}
+
+/** Takt antippen (Nummer oben im Takt): nur diese Takte wiederholen. */
+function barTap(id, bar) {
+  const cur = st.loopOn && st.loop?.sec === id ? st.loop.bars : null;
+  const fresh = !(st.loopOn && st.loop?.sec === id);
+  startLoop(id, fresh ? { from: bar, to: bar } : nextBarSelection(cur, bar));
+}
+
 /** Warum ein Abschnitt (noch) nicht im Video zu finden ist. */
 function whyNoRange(id) {
   const sec = song().sections.find((x) => x.id === id);
@@ -254,31 +296,22 @@ function whyNoRange(id) {
 /** Loop an: A–B, falls gesetzt, sonst der Abschnitt an der aktuellen Stelle. */
 function toggleLoop() {
   if (!st.player) return;
-  if (st.loopOn) { st.loopOn = false; paintTransport(); paintLoops(); return; }
+  if (st.loopOn) { st.loopOn = false; st.gap = null; paintSections(); paintTransport(); paintLoops(); return; }
   if (!st.loop) {
     const pos = playPos(song(), st.player.now(), dur());
     const r = pos && sectionRange(pos.id);
     if (!r) { $('#sp-vnote').textContent = pos ? whyNoRange(pos.id) : 'Für den Loop A und B tippen – oder bei einem Abschnitt ↻.'; return; }
-    st.loop = { ...r, sec: pos.id };
+    st.loop = { ...r, sec: pos.id, bars: null };
   }
   st.loopOn = true;
+  paintSections();
   paintTransport();
 }
 
 /** Abschnitt als Loop (↻ an der Karte). Noch einmal: Loop aus. */
 function loopSection(id) {
-  const p = st.player;
-  if (!p) { $('#sp-vnote').textContent = 'Erst ein Video laden.'; return; }
-  if (st.loopOn && st.loop?.sec === id) { st.loopOn = false; paintTransport(); return; }
-  const r = sectionRange(id);
-  if (!r) { $('#sp-vnote').textContent = whyNoRange(id); return; }
-  $('#sp-vnote').textContent = '';
-  st.loop = { ...r, sec: id };
-  st.loopOn = true;
-  p.seek(r.start);
-  if (!p.playing()) play(p);
-  paintTransport();
-  paintLoops();
+  if (st.loopOn && st.loop?.sec === id) { st.loopOn = false; st.gap = null; paintSections(); paintTransport(); return; }
+  startLoop(id, null);
 }
 
 /** Ab dem Anfang eines Abschnitts spielen (▶ an der Karte). */
@@ -290,9 +323,10 @@ function playSection(id) {
   $('#sp-vnote').textContent = '';
   // Läuft ein Abschnitts-Loop, wandert er mit.
   if (st.loopOn && st.loop?.sec && st.loop.sec !== id) {
-    const r = sectionRange(id);
+    const r = loopRange(id, null);
     if (r) st.loop = { ...r, sec: id };
   }
+  st.gap = null;
   p.seek(tm.start);
   if (!p.playing()) play(p);
   paintTransport();
@@ -306,6 +340,7 @@ function setAB(which) {
   const cur = st.loop && !st.loop.sec ? st.loop : { start: 0, end: dur() || t + 10 };
   const next = which === 'a' ? { start: t, end: Math.max(t + 1, cur.end) } : { start: Math.min(cur.start, t - 1), end: t };
   st.loop = { start: Math.max(0, next.start), end: next.end, name: 'A–B', sec: null };
+  st.gap = null;
   st.loopOn = true;
   paintTransport();
   paintLoops();
@@ -342,6 +377,7 @@ function playLoop(l) {
   if (!p) { $('#sp-vnote').textContent = 'Erst ein Video laden.'; return; }
   if (st.loopOn && st.loop?.saved === l.id) { st.loopOn = false; paintTransport(); paintLoops(); return; }
   st.loop = { start: l.start, end: l.end, pre: l.pre || 0, name: l.name, sec: null, saved: l.id };
+  st.gap = null;
   st.loopOn = true;
   p.seek(loopStart(st.loop));
   if (!p.playing()) play(p);
@@ -537,7 +573,6 @@ function paintSections() {
   paintTicks(times);
   st.lastPos = null;
   st.lastSec = null;
-  st.progId = null;
 }
 
 function paintLines(host, lines) {
@@ -563,11 +598,16 @@ function card(s, sec, time, block, sel) {
     loop,
     button('sp-chip', '⋯', () => sectionSheet(sec.id), `${sec.name}: Takte, Start, Name`),
   );
-  const bars = el('div', `sp-bars m${bpb}`);
+  const loopBars = loopOn ? st.loop.bars : null;
+  const bars = el('div', `sp-bars m${bpb}${loopOn ? ' looping' : ''}`);
   for (const b of sectionGrid(s, sec)) {
     const bar = el('div', 'sp-bar');
     bar.dataset.bar = b.bar;
-    bar.append(el('span', 'sp-no', String(b.bar)));
+    const picked = loopBars && b.bar >= loopBars.from && b.bar <= loopBars.to;
+    if (picked) bar.classList.add('looped');
+    const no = button('sp-no', String(b.bar), () => barTap(sec.id, b.bar), `Takt ${b.bar} wiederholen`);
+    no.setAttribute('aria-pressed', picked ? 'true' : 'false');
+    bar.append(no);
     const beats = el('div', 'sp-beats');
     beats.style.gridTemplateColumns = `repeat(${bpb}, minmax(0, 1fr))`;
     b.cells.forEach((c, k) => {
@@ -584,10 +624,9 @@ function card(s, sec, time, block, sel) {
     bar.append(beats);
     bars.append(bar);
   }
-  // Dünne Linie oben: wie weit man (ungefähr) im Abschnitt ist.
-  const prog = el('div', 'sp-prog');
-  prog.append(el('i'));
-  li.append(prog, head, bars);
+  li.append(head);
+  if (loopOn) li.append(el('p', 'sp-loophint', loopBars ? 'Wiederholt die markierten Takte. Taktnummer antippen: anderer Takt; ein zweiter Takt macht einen Bereich, derselbe noch einmal den ganzen Abschnitt.' : 'Wiederholt den Abschnitt. Taktnummer oben im Takt antippen, um nur diesen Takt zu wiederholen (ein zweiter: Bereich).'));
+  li.append(bars);
   if (block) {
     const folded = st.folded.has(sec.id);
     const tab = el('div', 'sp-text sp-cardtab');
@@ -903,6 +942,8 @@ function paintTransport() {
   $('#sp-saveloop').hidden = !(st.loopOn && st.loop && !st.loop.saved);
   for (const b of $$('#sp-sections [data-loop]')) {
     const on = st.loopOn && st.loop?.sec === b.dataset.loop;
+    // In der Pause vor dem Loop zählt der Knopf die Schläge herunter.
+    b.textContent = on && st.gap ? String(st.gapLeft ?? '') : '↻';
     b.classList.toggle('on', on);
     b.setAttribute('aria-pressed', on ? 'true' : 'false');
   }
@@ -914,7 +955,11 @@ function tick() {
   const d = dur();
   const t = st.drag ?? (p ? p.now() : 0);
   // Loop: an B zurück zu A.
-  if (p && st.loopOn && st.loop && p.playing() && !p.seeking() && t >= st.loop.end - 0.03) p.seek(loopStart(st.loop));
+  if (p && st.loopOn && st.loop && p.playing() && !p.seeking() && t >= st.loop.end - 0.03) {
+    // Abschnitt bzw. Takte: einen Takt Pause zwischen den Durchgängen.
+    if (st.loop.sec) restOnce(); else p.seek(loopStart(st.loop));
+  }
+  if (st.gap) tickGap(p);
   $('#sp-cur').textContent = fmtClock(t);
   $('#sp-dur').textContent = d ? fmtClock(d) : '–:––';
   const frac = d ? Math.min(1, t / d) : 0;
@@ -928,7 +973,6 @@ function tick() {
   } else reg.hidden = true;
   const playing = !!p?.playing();
   if (playing !== $('#sp-play').classList.contains('on')) paintTransport();
-  paintProgress(p ? sectionProgress(song(), t, d) : null);
   // Wo im Leadsheet: Karte, Takt, Schlag.
   const pos = p ? playPos(song(), t, d) : null;
   const key = pos ? `${pos.id}:${pos.beat == null ? '' : Math.floor(pos.beat + EPS)}` : '';
@@ -938,17 +982,15 @@ function tick() {
   }
 }
 
-function paintProgress(prog) {
-  const id = prog?.id || '';
-  if (id !== st.progId) {
-    for (const x of $$('#sp-sections .sp-prog.on')) x.classList.remove('on');
-    st.progId = id;
-  }
-  if (!prog) return;
-  const bar = $(`#sp-sections .sp-card[data-id="${prog.id}"] .sp-prog`);
-  if (!bar) return;
-  bar.classList.add('on');
-  bar.firstChild.style.width = `${(prog.frac * 100).toFixed(2)}%`;
+/** Pause vor dem Loop: herunterzählen, dann spielen. */
+function tickGap(p) {
+  if (!p || !st.loopOn || !st.loop?.sec) { st.gap = null; paintTransport(); return; }
+  const ms = st.gap.until - performance.now();
+  if (ms <= 0) { st.gap = null; st.gapLeft = null; p.seek(st.loop.start); play(p); paintTransport(); return; }
+  // YouTube spielt nach einem Sprung manchmal von selbst weiter: in der Pause anhalten.
+  if (p.playing()) p.pause();
+  const left = Math.ceil(ms / st.gap.beat);
+  if (left !== st.gapLeft) { st.gapLeft = left; paintTransport(); }
 }
 
 function paintPlayhead(pos, playing) {
