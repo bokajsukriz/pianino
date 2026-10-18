@@ -1,21 +1,22 @@
 /* exercises/griffe.js — Griff-Editor (Arbeitsanweisung Transkription, 8):
-   Tasten und Fingersätze beider Hände eines Songs auf einer Klaviatur
-   eintragen, wie im Unterricht gespielt. Funktioniert ohne Netz und ohne
+   die Tasten eines Akkords auf einer Klaviatur eintragen, wie im Unterricht
+   gespielt — antippen schaltet eine Taste an oder aus. Hände und Finger
+   trägt man nicht ein (voicing.js voicingFromKeys teilt nach Tonhöhe). Funktioniert ohne Netz und ohne
    Transkription. Gespeichert wird bei jeder Änderung (song:<id>).
 
    Oben die Akkorde des Songs (langes Drücken: umbenennen, Standardlage,
    löschen), in der Mitte die Klaviatur C2–C6 (seitlich verschiebbar), unten
-   Hand, Finger, Anhören, Gebrochen, Rückgängig, Notiz und die
+   Anhören, Gebrochen, Rückgängig, Notiz und die
    Wechsel-Ansicht „Mit Vorgänger“. „Alle Griffe“ zeigt den Spickzettel.
    Regeln rein in voicing.js, Namen in chordsym.js. */
 
 import * as audio from '../audio.js';
 import { S, putSong } from '../store.js';
-import { voicingFor, validateVoicing, allKeys, NOTE_MAX } from '../voicing.js';
+import { voicingFor, validateVoicing, allKeys, voicingFromKeys, NOTE_MAX } from '../voicing.js';
 import { parseChord, nameFromKeys, sameChord, prettyChord } from '../chordsym.js';
 import { setVoicing, addChord, renameChord, deleteChord } from '../songdata.js';
 import { predecessors } from '../timeline.js';
-import { moveText, gripText, noteName } from '../chords.js';
+import { moveText, noteName } from '../chords.js';
 import { renderKeyboard, voicingMarks, diffMarks, rangeFor, renderGrip } from '../keyboard.js';
 import { createClock } from '../clock.js';
 import { $, $$, showScreen, modal, ask, onLongPress } from '../ui.js';
@@ -38,15 +39,6 @@ function wire() {
   $('#gr-add').addEventListener('click', addSymbol);
   $('#gr-sheet').addEventListener('click', openSheet);
   $('#sheet-back').addEventListener('click', () => { showScreen('griffe'); paint(); });
-  // Handwechsel beginnt die Fingerfolge neu (kein Finger gewählt).
-  for (const b of $$('#s-griffe [data-hand]')) b.addEventListener('click', () => { st.hand = b.dataset.hand; st.finger = null; paintTools(); });
-  for (const b of $$('#s-griffe [data-finger]')) {
-    b.addEventListener('click', () => {
-      const f = Number(b.dataset.finger);
-      st.finger = st.finger === f ? null : f;
-      paintTools();
-    });
-  }
   $('#gr-play').addEventListener('click', listen);
   $('#gr-arp').addEventListener('click', arpeggio);
   $('#gr-undo').addEventListener('click', undo);
@@ -82,7 +74,7 @@ export function openGriffe(songId, symbol = null) {
   return new Promise((resolve) => {
     st = {
       songId, sym: symbol && s.chords.includes(symbol) ? symbol : s.chords[0],
-      hand: 'rh', finger: null, prevMode: false, prevIdx: 0, undo: [], drafts: new Map(), resolve, center: true,
+      prevMode: false, prevIdx: 0, undo: [], drafts: new Map(), resolve, center: true,
     };
     $('#gr-song').textContent = s.title;
     $('#gr-note').maxLength = NOTE_MAX;
@@ -142,7 +134,7 @@ function paintKeyboard() {
   const v = shown(st.sym);
   const p = st.prevMode ? prevSymbol() : { sym: null, list: [] };
   const pv = p.sym ? voicingFor(song(), p.sym) : null;
-  const { marks, arrows } = pv && v ? diffMarks(pv, v) : { marks: voicingMarks(v), arrows: [] };
+  const { marks, arrows } = pv && v ? diffMarks(pv, v) : { marks: plainMarks(v), arrows: [] };
   // Höhe aus dem Platz (ohne Pfeilband und Rollbalken); Pfeilband immer frei
   // halten, damit die Tasten beim Umschalten nicht springen.
   const top = Math.round(WW * 1.25);
@@ -169,11 +161,18 @@ function paintKeyboard() {
   paintHint(v);
 }
 
+/** Alle Tasten gleich markiert: ohne Finger, ohne Farbe je Hand. */
+function plainMarks(v) {
+  const marks = voicingMarks(v);
+  for (const [m, x] of marks) marks.set(m, { ...x, hand: 'rh', finger: null });
+  return marks;
+}
+
 function paintHint(v) {
   const hint = $('#gr-hint');
   hint.replaceChildren();
   const lines = [];
-  if (v?.std) lines.push(`Standardlage – ${gripText(v)} Tippe Tasten an, um den Griff aus dem Unterricht einzutragen.`);
+  if (v?.std) lines.push(`Standardlage: ${allKeys(v).map(noteName).join(' ')}. Tippe Tasten an, um den Griff aus dem Unterricht einzutragen.`);
   else if (v) lines.push(...validateVoicing(v).warnings);
   if (!v && !st.drafts.has(st.sym)) lines.push(`${prettyChord(st.sym)} kennt die App nicht – trag den Griff selbst ein.`);
   if (lines.length) hint.append(document.createTextNode(lines.join(' ')));
@@ -199,8 +198,6 @@ function paintHint(v) {
 }
 
 function paintTools() {
-  for (const b of $$('#s-griffe [data-hand]')) b.setAttribute('aria-pressed', b.dataset.hand === st.hand ? 'true' : 'false');
-  for (const b of $$('#s-griffe [data-finger]')) b.setAttribute('aria-pressed', Number(b.dataset.finger) === st.finger ? 'true' : 'false');
   $('#gr-undo').disabled = !st.undo.length;
   $('#gr-prev').setAttribute('aria-pressed', st.prevMode ? 'true' : 'false');
 }
@@ -210,7 +207,6 @@ function paintTools() {
 function select(sym) {
   st.sym = sym;
   st.prevIdx = 0;
-  st.finger = null;
   st.center = true;
   paint();
 }
@@ -229,47 +225,17 @@ async function save(sym, v) {
   paint();
 }
 
-/** Hand als Liste [{ key, finger }]. */
-const handList = (v, h) => (v?.[h] || []).map((key, i) => ({ key, finger: v[`${h}Fingers`]?.[i] ?? null }));
-const fromLists = (rh, lh, note) => {
-  const sort = (xs) => [...xs].sort((a, b) => a.key - b.key);
-  const r = sort(rh), l = sort(lh);
-  const v = { rh: r.map((x) => x.key), rhFingers: r.map((x) => x.finger), lh: l.map((x) => x.key), lhFingers: l.map((x) => x.finger) };
-  if (note) v.note = note;
-  return v;
-};
-
 function say(text) {
   $('#gr-hint').textContent = text;
 }
 
-/** Taste antippen: an/aus für die gewählte Hand, Handwechsel, Finger setzen. */
+/** Taste antippen: an bzw. aus. Hände teilt voicingFromKeys nach Tonhöhe. */
 async function tapKey(m) {
-  const v = shown(st.sym);
-  const lists = { rh: handList(v, 'rh'), lh: handList(v, 'lh') };
-  const h = st.hand, other = h === 'rh' ? 'lh' : 'rh';
-  const inHand = lists[h].find((x) => x.key === m), inOther = lists[other].find((x) => x.key === m);
-  const full = () => { say('Höchstens 5 Tasten je Hand.'); };
-  if (st.finger !== null) {
-    let entry = inHand;
-    if (!entry) {
-      if (lists[h].length >= 5) return full();
-      if (inOther) lists[other] = lists[other].filter((x) => x.key !== m);
-      entry = { key: m, finger: null };
-      lists[h].push(entry);
-    }
-    const f = st.finger === 0 ? null : st.finger;
-    if (f !== null) for (const x of lists[h]) if (x.finger === f) x.finger = null; // Finger wandert mit
-    entry.finger = f;
-    if (st.finger > 0) st.finger = st.finger < 5 ? st.finger + 1 : null;
-  } else if (inHand) {
-    lists[h] = lists[h].filter((x) => x.key !== m);
-  } else {
-    if (lists[h].length >= 5) return full();
-    if (inOther) lists[other] = lists[other].filter((x) => x.key !== m);
-    lists[h].push({ key: m, finger: null });
-  }
-  await save(st.sym, fromLists(lists.rh, lists.lh, own(st.sym)?.note));
+  const keys = allKeys(shown(st.sym));
+  const next = keys.includes(m) ? keys.filter((k) => k !== m) : [...keys, m];
+  const v = voicingFromKeys(next, own(st.sym)?.note);
+  if (v.rh.length > 5 || v.lh.length > 5) { say('Höchstens 5 Tasten über und 5 unter G3.'); return; }
+  await save(st.sym, v);
 }
 
 async function saveNote(text) {
@@ -391,7 +357,7 @@ function openSheet() {
     p.className = 'small sheet-text';
     if (v) {
       renderGrip(kb, { next: v, range: rangeFor(allKeys(v), { min: 10 }), title: `${prettyChord(sym)}: ${allKeys(v).map(noteName).join(', ')}` });
-      p.textContent = [v.note, v.note ? gripText({ ...v, note: '' }) : gripText(v)].filter(Boolean).join(' · ');
+      p.textContent = [v.note, allKeys(v).map(noteName).join(' ')].filter(Boolean).join(' · ');
     } else p.textContent = 'Noch kein Griff.';
     li.append(head, kb, p);
     return li;

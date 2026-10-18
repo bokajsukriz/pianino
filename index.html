@@ -163,6 +163,19 @@
           <button type="button" class="btn btn-primary btn-sm" id="sp-saveloop" hidden>Speichern</button>
         </div>
         <ol class="sp-loops" id="sp-loops" aria-label="Gespeicherte Loops"></ol>
+        <div class="sp-wiz" id="sp-wiz" role="region" aria-label="Assistent" hidden>
+          <div class="sp-wiz-head">
+            <b id="sp-wiz-step"></b>
+            <button type="button" class="btn btn-ghost btn-sm" id="sp-wiz-x">Beenden</button>
+          </div>
+          <p class="sp-wiz-text" id="sp-wiz-text"></p>
+          <div class="sp-wiz-body" id="sp-wiz-body"></div>
+          <p class="small muted sp-wiz-note" id="sp-wiz-note" aria-live="polite"></p>
+          <div class="sp-wiz-nav">
+            <button type="button" class="btn btn-secondary btn-sm" id="sp-wiz-back">Zurück</button>
+            <button type="button" class="btn btn-primary btn-sm" id="sp-wiz-next">Weiter</button>
+          </div>
+        </div>
         <span class="visually-hidden" id="sp-section" aria-live="polite"></span>
       </div>
       </div>
@@ -294,18 +307,6 @@
     <p class="gr-move" id="gr-move" hidden></p>
     <p class="gr-hint" id="gr-hint" aria-live="polite"></p>
     <div class="gr-tools">
-      <div class="seg" role="group" aria-label="Hand">
-        <button type="button" class="seg-btn" data-hand="lh" aria-pressed="false">Links</button>
-        <button type="button" class="seg-btn" data-hand="rh" aria-pressed="true">Rechts</button>
-      </div>
-      <div class="seg" role="group" aria-label="Finger">
-        <button type="button" class="seg-btn" data-finger="1" aria-pressed="false">1</button>
-        <button type="button" class="seg-btn" data-finger="2" aria-pressed="false">2</button>
-        <button type="button" class="seg-btn" data-finger="3" aria-pressed="false">3</button>
-        <button type="button" class="seg-btn" data-finger="4" aria-pressed="false">4</button>
-        <button type="button" class="seg-btn" data-finger="5" aria-pressed="false">5</button>
-        <button type="button" class="seg-btn" data-finger="0" aria-pressed="false" aria-label="Finger löschen">–</button>
-      </div>
       <button type="button" class="btn btn-secondary btn-sm" id="gr-play">Anhören</button>
       <button type="button" class="btn btn-secondary btn-sm" id="gr-arp">Gebrochen</button>
       <button type="button" class="btn btn-secondary btn-sm" id="gr-undo">Rückgängig</button>

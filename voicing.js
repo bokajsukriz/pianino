@@ -111,6 +111,20 @@ export function voicingFor(song, symbol) {
   return d ? { ...d, std: true } : null;
 }
 
+/** ANNAHME: Ohne Hand-Angabe spielt die Tasten unter G3 (MIDI 55) die linke
+ *  Hand, den Rest die rechte. So bleibt der Bass für Anzeige und Erkenner
+ *  erkennbar, ohne dass man Hände und Finger eintragen muss. */
+export const LH_BELOW = 55;
+
+/** Griff aus einer Tastenliste (ohne Finger). → Griff */
+export function voicingFromKeys(keys, note = '') {
+  const ks = [...new Set(keys.filter(isInt))].sort((a, b) => a - b);
+  const lh = ks.filter((m) => m < LH_BELOW), rh = ks.filter((m) => m >= LH_BELOW);
+  const v = { rh, rhFingers: rh.map(() => null), lh, lhFingers: lh.map(() => null) };
+  if (note) v.note = note;
+  return v;
+}
+
 /** Alle Tasten eines Griffs, aufsteigend. */
 export const allKeys = (v) => (v ? [...(v.lh || []), ...(v.rh || [])].sort((a, b) => a - b) : []);
 
