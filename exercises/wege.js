@@ -1,31 +1,37 @@
 /* exercises/wege.js — Kurze Wege (S5; 7.2).
-   4 Klicks Einzähler → 8 Takte Loop (Stufe 6: die ganze Form) mit Klick.
-   Auf jeder Eins schaltet die Anzeige weiter, ab Schlag 3 ist der nächste
-   Akkord als „gleich“ markiert und die Tastatur zeigt den Weg dorthin.
-   Danach „Drangeblieben“ / „Rausgefallen“. Regeln rein in tempo.js. */
+   4 Klicks Einzähler → 8 Takte Loop (Stufe 6: die Akkordfolge des Songs am
+   Stück) mit Klick. Die Loops sind die häufigsten Übergänge des aktuellen
+   Songs, je Paar ein Pendel (tempo.js wegeStages). Auf jeder Eins schaltet
+   die Anzeige weiter, ab Schlag 3 ist der nächste Akkord als „gleich“
+   markiert und die Tastatur zeigt den Wechsel (Wechsel-Ansicht: was bleibt,
+   loslassen, dazukommt, wandert). Danach „Drangeblieben“ / „Rausgefallen“.
+   Regeln rein in tempo.js. */
 
 import * as audio from '../audio.js';
-import { chordById } from '../chords.js';
-import { SONG } from '../song-perfect-ruin.js';
+import { prettyChord } from '../chordsym.js';
+import { voicingFor, allKeys } from '../voicing.js';
 import { WEGE, wegeStages, blockChords, blockBpm, applyWege, nextLoop, stageSolid } from '../tempo.js';
-import { S, today, getLoop, putLoop, levelUp, askedLater, mayAsk } from '../store.js';
+import { S, today, getLoop, putLoop, levelUp, askedLater, mayAsk, currentSong } from '../store.js';
 import { field, showScreen, waitChoice, makeDots, setDots, frameLoop, modal, rand, pick } from '../ui.js';
 import { createClock } from '../clock.js';
-import { renderKeyboard, rangeFor, chordMarks, transitionMarks } from '../keyboard.js';
+import { renderGrip, rangeFor } from '../keyboard.js';
 
 const TIPS = [
   'Die Eins wartet nicht. Lieber nur den Bass pünktlich.',
-  'Das A bleibt liegen.',
+  'Was liegen bleiben kann, bleibt liegen.',
   'Schau auf den nächsten Akkord, nicht auf die Hände.',
 ];
 
 const LEVEL_NEWS = {
-  2: 'Neu: die Pendel Am–Dm und Am–D.',
-  3: 'Neu: die linke Hand spielt den Grundton dazu.',
-  4: 'Neu: der Strophen-Loop Am – D – F mit beiden Händen.',
-  5: 'Neu: der Refrain-Loop C – F – Dm – C – F.',
-  6: 'Neu: Strophe, Refrain und Schluss am Stück.',
+  2: 'Neu: die nächsten zwei Wechsel des Songs.',
+  3: 'Neu: die linke Hand spielt dazu.',
+  4: 'Neu: weitere Wechsel des Songs, mit beiden Händen.',
+  5: 'Neu: alle häufigen Wechsel im Wechsel.',
+  6: 'Neu: die Akkordfolge des Songs am Stück.',
 };
+
+let song = null;
+const grip = (c) => voicingFor(song, c);
 
 /** Akkordleiste: Loop einmal; bei der Form ein Fenster von 8 Takten. */
 function paintStrip(strip, def, chords, i, showNext) {
@@ -40,12 +46,10 @@ function paintStrip(strip, def, chords, i, showNext) {
     nxt = showNext ? (cur + 1) % items.length : -1;
   }
   strip.replaceChildren(...items.map((id, k) => {
-    const c = chordById(id);
     const li = document.createElement('li');
     li.className = k === cur ? 'now' : k === nxt ? 'next' : '';
-    const b = document.createElement('b'); b.textContent = c.symbol;
-    const s = document.createElement('small'); s.textContent = c.degree;
-    li.append(b, s);
+    const b = document.createElement('b'); b.textContent = prettyChord(id);
+    li.append(b);
     return li;
   }));
 }
@@ -65,11 +69,12 @@ async function playBlock(api, scr, { def, chords, bpm, range }) {
     const cur = chords[Math.max(0, i)];
     const nxt = i < 0 ? null : chords[i + 1] ?? null;
     const showNext = beat >= 2 && !!nxt;
-    nowEl.textContent = chordById(cur).symbol;
-    nextEl.textContent = showNext ? chordById(nxt).symbol : '';
+    nowEl.textContent = prettyChord(cur);
+    nextEl.textContent = showNext ? prettyChord(nxt) : '';
     paintStrip(strip, def, chords, i, showNext);
-    const marks = showNext ? transitionMarks(cur, nxt, { lh: def.lh }) : chordMarks(chordById(cur), { lh: def.lh });
-    renderKeyboard(kb, { lo: range[0], hi: range[1], marks, title: `Tastatur: ${chordById(cur).symbol}` });
+    const a = grip(cur), b = showNext ? grip(nxt) : null;
+    if (a) renderGrip(kb, { prev: b ? a : null, next: b || a, range, lh: def.lh, title: `Tastatur: ${prettyChord(showNext ? nxt : cur)}` });
+    else kb.replaceChildren();
   };
   count.textContent = 'Einzählen';
   show(-1, 0);
@@ -92,7 +97,7 @@ async function playBlock(api, scr, { def, chords, bpm, range }) {
     count.textContent = i < 0 ? 'Einzählen' : `Takt ${i + 1} von ${n}`;
     if (i < 0) {
       // Im Einzähler ab Schlag 3: der erste Akkord kommt „gleich“.
-      if (beat >= 2) nextEl.textContent = chordById(chords[0]).symbol;
+      if (beat >= 2) nextEl.textContent = prettyChord(chords[0]);
       return;
     }
     if (i < n) show(i, beat);
@@ -116,13 +121,18 @@ export async function runWege(api, item) {
   void item;
   const scr = showScreen('wege');
   const level = S.progress.levels.wege;
-  const defs = wegeStages(SONG)[level];
+  song = currentSong();
+  const defs = wegeStages(song)[level].filter((d) => d.chords.length);
+  if (!defs.length) {
+    await modal('Kurze Wege', 'Der Song hat noch keine zwei Akkorde, zwischen denen es zu wechseln gäbe.', [{ label: 'OK', value: 'ok', primary: true }]);
+    return;
+  }
   const d = today();
   const res = api.result('wege', { blocks: 0, ok: 0, bpmEnd: null, down: false });
   field(scr, 'level').textContent = `· Stufe ${level}`;
-  const notes = defs.flatMap((df) => df.chords.flatMap((id) => {
-    const c = chordById(id);
-    return df.lh ? [c.lh, ...c.rh] : [...c.rh];
+  const notes = defs.flatMap((df) => df.chords.flatMap((c) => {
+    const v = grip(c);
+    return df.lh ? allKeys(v) : [...(v?.rh || [])];
   }));
   const range = rangeFor(notes);
   const roundBlocks = {};

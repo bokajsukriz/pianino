@@ -4,21 +4,35 @@
    Node:  node --input-type=module -e "import { runSelfTests } from './selftest.js'; const r = await runSelfTests(); process.exit(r.failed ? 1 : 0)"
    Browser: Konsole runSelfTests() oder „Über“ → „Selbsttest“. */
 
-import { CHORDS, chordById, transition, noteName } from './chords.js';
+import { CHORDS, chordById, transition, noteName, moveText, bassText, gripOf } from './chords.js';
+import { parseChord, nameFromKeys, sameChord, prettyChord } from './chordsym.js';
+import { validateVoicing, voicingDiff, upgradeVoicing, defaultVoicing, voicingFor } from './voicing.js';
+import {
+  validateSong, normalizeSong, parseSongText, exportSong, setEvent, renameChord, deleteChord, addChord,
+  setSectionStart, nextSectionName,
+} from './songdata.js';
+import {
+  beatToSec, secToBeat, chordAt, eventsIn, quantize, phrasesOf, sectionRange, chordSequence, countLabel, beatsText, predecessors,
+} from './timeline.js';
+import { tapTempo, parseYouTubeId, scoreTaps, tapSummary, applyWann, newWann } from './tap.js';
+import { runMigrations } from './migrations.js';
 import {
   review, buildRound, startRound, nextEntry, afterReview, newCard, levelReady,
   countdownBeats, unlockedCardIds, postponeOverflow,
 } from './leitner.js';
-import { applyWege, blockBpm, newLoop, nextLoop, wegeStages, applyGroove, blockChords } from './tempo.js';
-import { buildMix, mixLabel, weekDots } from './mix.js';
-import { semitoneLevels, followOnset, checkChord } from './hear.js';
 import {
-  GUIDE, phraseDefs, newPhrase, waitSequence, tempoBars, applyWait, applyTempo, repairPairs, nextPhrase,
-  guideProgress, unlocked,
+  applyWege, blockBpm, newLoop, nextLoop, wegeStages, applyGroove, blockChords, songPairs, grooveWindows, GROOVE_STAGES,
+} from './tempo.js';
+import { stepHits } from './accomp.js';
+import { buildMix, mixLabel, weekDots } from './mix.js';
+import { semitoneLevels, followOnset, checkChord, checkChordAny, voicings, peakNotes } from './hear.js';
+import {
+  GUIDE, phraseDefs, newPhrase, waitSequence, tempoEvents, applyWait, applyTempo, repairPairs, nextPhrase,
+  guideProgress, unlocked, transitionKeys, stageOf, applyChange, targetBpm, focusPhrase,
 } from './phrases.js';
 import { SONG, songForm } from './song-perfect-ruin.js';
 import { TEST_MELODY } from './test-melody.js';
-import { melodySlice, melodyStartFor } from './melody.js';
+import { melodyIn, hasMelody } from './melody.js';
 import { addDays } from './dates.js';
 
 /** Deterministischer Zufall für Tests (mulberry32). */
@@ -35,6 +49,23 @@ export function seeded(seed) {
 
 const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
+/** Testsong ohne Liedtext: Strophe 1 und 2 gleich (je 4 Takte), Refrain
+ *  mit nur zwei verschiedenen Übergängen. D/F# kommt vorgezogen auf „4 und“. */
+export function testSong() {
+  return normalizeSong({
+    schema: 1, id: 'test-song', title: 'Testsong', beatsPerBar: 4, bpm: 77, chords: ['Am', 'D/F#', 'F6/9', 'Dm', 'C'],
+    sources: [], sections: [
+      { id: 'v1', name: 'Strophe 1', bar: 1, bars: 4 }, { id: 'v2', name: 'Strophe 2', bar: 5, bars: 4 },
+      { id: 'r', name: 'Refrain', bar: 9, bars: 4 },
+    ],
+    events: [
+      { at: 0, chord: 'Am' }, { at: 3.5, chord: 'D/F#' }, { at: 8, chord: 'F6/9' }, { at: 12, chord: 'Am' },
+      { at: 19.5, chord: 'D/F#' }, { at: 24, chord: 'F6/9' }, { at: 28, chord: 'Am' },
+      { at: 32, chord: 'C' }, { at: 36, chord: 'F6/9' }, { at: 40, chord: 'C' }, { at: 44, chord: 'F6/9' },
+    ],
+  });
+}
+
 function pureTests() {
   const T = [];
   const check = (name, ok, detail = '') => T.push({ name, ok: !!ok, detail });
@@ -46,11 +77,12 @@ function pureTests() {
   check('1 Akkorde: RH genau 3 Töne, aufsteigend',
     CHORDS.every((c) => c.rh.length === 3 && c.rh[0] < c.rh[1] && c.rh[1] < c.rh[2] && c.fingers.length === 3));
   check('1 Tonnamen: Kreuz als ♯', noteName(66) === 'F♯4' && noteName(60) === 'C4' && noteName(45) === 'A2');
-  const t1 = transition('Am:song', 'F:song');
+  const gr = (id) => gripOf(chordById(id));
+  const t1 = transition(gr('Am:song'), gr('F:song'));
   check('1 transition Am→F', eq(t1.stay, [69, 72]) && eq(t1.moves.map((m) => [m.from, m.to]), [[76, 77]]), JSON.stringify(t1));
-  const t2 = transition('F:song', 'Dm:song');
+  const t2 = transition(gr('F:song'), gr('Dm:song'));
   check('1 transition F→Dm', eq(t2.stay, [69, 77]) && eq(t2.moves.map((m) => [m.from, m.to]), [[72, 74]]), JSON.stringify(t2));
-  const t3 = transition('Am:song', 'D:song');
+  const t3 = transition(gr('Am:song'), gr('D:song'));
   check('1 transition Am→D', eq(t3.stay, [69]) && eq(t3.moves.map((m) => [m.from, m.to]), [[72, 74], [76, 78]]), JSON.stringify(t3));
 
   /* 2 — leitner.js */
@@ -147,35 +179,49 @@ function pureTests() {
   let top = { ...newLoop('x', 60), blocks: 5 };
   for (let i = 0; i < 3; i++) top = applyWege(top, true, d1);
   check('3 Bei 60 BPM und 3× drangeblieben → sitzt', top.solid && top.bpm === 60);
-  const defs = wegeStages(SONG)[1];
-  const st = { 'am-f': { ...newLoop('am-f'), blocks: 1 } };
+  const TS = testSong();
+  check('3 Kurze Wege: Paare aus den häufigsten Übergängen des Songs', eq(songPairs(TS).slice(0, 3), [['C', 'F6/9'], ['Am', 'D/F#'], ['D/F#', 'F6/9']]),
+    JSON.stringify(songPairs(TS)));
+  const ws = wegeStages(TS);
+  const defs = ws[1];
+  const [w1, w2] = defs.map((x) => x.id);
+  const st = { [w1]: { ...newLoop(w1), blocks: 1 } };
   check('3 Neuer Loop läuft 2 Blöcke geblockt',
-    nextLoop(defs, st, { lastId: 'am-f', today: d1, rand: seeded(1) }) === 'am-f'
-    && nextLoop(defs, { 'am-f': { ...newLoop('am-f'), blocks: 2 } }, { lastId: 'am-f', today: d1, rand: seeded(1) }) === 'f-dm');
-  check('3 Strophen-Loop 8 Takte', eq(blockChords(wegeStages(SONG)[4][0]), ['Am:song', 'D:song', 'F:song', 'Am:song', 'D:song', 'F:song', 'Am:song', 'D:song']));
+    nextLoop(defs, st, { lastId: w1, today: d1, rand: seeded(1) }) === w1
+    && nextLoop(defs, { [w1]: { ...newLoop(w1), blocks: 2 } }, { lastId: w1, today: d1, rand: seeded(1) }) === w2);
+  check('3 Pendel 8 Takte, Stufe 3 mit linker Hand, Stufe 6 die Folge am Stück',
+    eq(blockChords(defs[0]), ['C', 'F6/9', 'C', 'F6/9', 'C', 'F6/9', 'C', 'F6/9']) && ws[3].every((x) => x.lh) && ws[3].length === 4
+    && ws[6][0].once && eq(ws[6][0].chords.slice(0, 4), ['Am', 'D/F#', 'F6/9', 'Am']));
+  check('3 Kurze Wege ohne Ereignisse: Nachbarn in chords', eq(songPairs({ ...TS, events: [] }).slice(0, 2), [['Am', 'D/F#'], ['D/F#', 'F6/9']]));
+  const gw = grooveWindows(TS, phraseDefs(TS));
+  check('3 Groove: Ausschnitte zu 4 Takten aus den Phrasen', gw.length === 2 && gw[0].bars === 4 && gw[0].phrase === 'r'
+    && grooveWindows({ ...TS, events: [] }, [])[0].tl.events.length === 4);
+  // Begleitung je Achtel: ganze Noten an jedem Wechsel, Muster mit vorgezogenem Wechsel.
+  const hitsAt = (b, pattern) => stepHits(TS, b, { pattern, from: 0 }).map((h) => `${h.hand}:${h.chord}:${h.beats}`).join(' ');
+  check('3 Begleitung: ganze Noten — Anschlag am Wechsel auf „4 und“, dazwischen nichts',
+    hitsAt(0) === 'lh:Am:3.5 rh:Am:3.5' && hitsAt(3.5) === 'lh:D/F#:0.5 rh:D/F#:0.5' && hitsAt(1) === '' && hitsAt(4) === 'lh:D/F#:4 rh:D/F#:4', hitsAt(3.5));
+  check('3 Begleitung: Muster Stufe 3 — das Achtel auf „4 und“ spielt schon D/F#',
+    hitsAt(3, GROOVE_STAGES[3]).startsWith('rh:Am') && hitsAt(3.5, GROOVE_STAGES[3]).includes('rh:D/F#') && hitsAt(3.5, GROOVE_STAGES[1]).includes('lh:D/F#'));
   let g = { bpm: 55, roundOk: 0 };
   for (let i = 0; i < 3; i++) g = applyGroove(2, g, true);
   check('3 Groove: 3× groovt → +4 bis Obergrenze', g.bpm === 59);
   check('3 Groove: wackelt → −4, nie unter Untergrenze', applyGroove(2, { bpm: 57 }, false).bpm === 55);
 
   /* 4 — mix.js */
-  const mix = buildMix({ verseBpm: 58 }, d1);
+  const mix = buildMix({ hasEvents: true, video: true }, d1);
+  check('4 Mix: ohne Ereignisse kein Mix', buildMix({ hasEvents: false }, d1).length === 0);
   check('4 Mix: Summe 300 s', mix.reduce((s, m) => s + m.seconds, 0) === 300);
-  check('4 Mix: 4 min Geführt, kein Akkord-Aufwärmen', mix[0].exercise === 'guided' && mix[0].seconds === 240 && !mix.some((m) => m.exercise === 'blitz'));
-  check('4 Mix: Play-Along mit Strophen-Tempo', mix[1].exercise === 'playalong' && mix[1].bpm === 58);
-  check('4 Mix: Unterzeile', mixLabel(mix) === '4 min Geführt · 1 min Play-Along', mixLabel(mix));
+  check('4 Mix: 30 s Wann, 2½ min Geführt, 2 min Play-Along (Loop über die Phrase)',
+    eq(mix.map((m) => [m.exercise, m.seconds]), [['wann', 30], ['guided', 150], ['playalong', 120]]) && mix[2].range === 'phrase');
+  check('4 Mix: Unterzeile', mixLabel(mix) === '½ min Wann · 2½ min Geführt · 2 min Play-Along', mixLabel(mix));
   const dots = weekDots({ '2026-10-12': { seconds: 61 }, '2026-10-13': { seconds: 30 } }, '2026-10-16');
   check('4 Woche beginnt am Montag, ab 60 s gezählt', dots[0].date === '2026-10-12' && dots[0].practiced && !dots[1].practiced && dots[4].today);
 
-  /* 6 — Songdaten */
-  check('6 Strophe 16 Takte', SONG.verse.length === 16);
-  check('6 Refrain 8 Takte', SONG.chorus.length === 8);
-  check('6 Alle Akkord-ids existieren', [...songForm(SONG), ...SONG.loops.verse, ...SONG.loops.chorus].every((id) => chordById(id)));
-  check('6 Unverifiziert markiert, Melodie leer', SONG.verified === false && Array.isArray(SONG.melody) && SONG.melody.length === 0);
-  check('6 Testmelodie 4 Takte im Format', TEST_MELODY.length === 16 && melodySlice(TEST_MELODY, 3, 2).length === 8
-    && TEST_MELODY.every((n) => n.bar >= 1 && n.beat >= 1 && n.dur > 0 && Number.isInteger(n.midi)));
-  check('6 Melodie passt zum Strophen-Loop, nicht zum Pendel',
-    melodyStartFor(SONG, SONG.loops.verse) === 1 && melodyStartFor(SONG, ['Am:song', 'F:song']) === null);
+  /* 6 — Songdaten: alte Datei (nur noch Quelle der Migration), Testsong, Melodie */
+  check('6 Alte Datei: Akkord-ids existieren, unverifiziert', songForm(SONG).every((id) => chordById(id)) && SONG.verified === false);
+  check('6 Testsong gültig, ohne Liedtext', validateSong(TS).ok && !('lyrics' in TS));
+  check('6 Testmelodie 4 Takte im Format', TEST_MELODY.length === 16 && melodyIn({ melody: TEST_MELODY }, 8, 12).length === 4
+    && TEST_MELODY.every((n) => n.at >= 0 && n.dur > 0 && Number.isInteger(n.midi)) && !hasMelody(TS));
   /* 7 — hear.js (eigener Erkenner): künstliche Spektren (Teiltöne 1–6, je −4,4 dB), 48 kHz */
   const SR = 48000, NF = 16384;
   const spectrum = (parts) => {
@@ -223,25 +269,67 @@ function pureTests() {
   check('7 Hören: verklungener Fremdton zählt weiter (Gedächtnis seit dem Anschlag)',
     checkChord(later, null, cF).ok && !checkChord(later, mem, cF).ok);
 
+  check('7 Lagen: Am eng in jeder Oktave, Song-Lage dabei',
+    voicings(song[0]).some((v) => v.join() === '57,60,64') && voicings(song[0]).some((v) => v.join() === '69,72,76'));
+  check('7 Lagen: Am eine Oktave tiefer → nur der lagenunabhängige Erkenner sagt ja',
+    checkChordAny(spectrum(play([57, 60, 64])), null, song[0]).ok && !checkChord(spectrum(play([57, 60, 64])), null, song[0]).ok);
+  check('7 Lagen: Am in Grundstellung um C4 und 1. Umkehrung erkannt',
+    checkChordAny(spectrum(play([57, 60, 64])), null, song[0]).ok && checkChordAny(spectrum(play([60, 64, 69])), null, song[0]).ok);
+  check('7 Lagen: andere Song-Akkorde in fremder Lage nicht als Am',
+    ['C', 'F', 'Dm', 'D'].every((x) => { const c = chordById(`${x}:song`); return voicings(c).every((v) => !checkChordAny(spectrum(play(v)), null, song[0]).ok); }));
+  {
+    // Gehörte Töne: Am in Song-Lage, das A4 um 30 Cent zu hoch.
+    const pw = new Float64Array(NF / 2).fill(1e-11);
+    for (const [f, g] of [[440 * Math.pow(2, 30 / 1200), 0], [523.25, -3], [659.26, -5]]) {
+      for (let k = 1; k <= 4; k++) { const bin = Math.round(f * k / (SR / NF)); if (bin < pw.length) pw[bin] += Math.pow(10, (g - 30 - 6 * (k - 1)) / 10); }
+    }
+    const pn = peakNotes(Float32Array.from(pw, (p) => 10 * Math.log10(p)), SR, NF);
+    const a4 = pn.find((n) => n.midi === 69);
+    check('7 Gehörte Töne: A4 C5 E5 dabei, A4 mit +30 ct (±8)',
+      [69, 72, 76].every((m) => pn.some((n) => n.midi === m)) && a4 && Math.abs(a4.cents - 30) <= 8,
+      pn.map((n) => `${n.midi}${n.cents >= 0 ? '+' : ''}${n.cents}`).join(' '));
+  }
+
   /* 8 — phrases.js */
-  const pd = phraseDefs(SONG);
-  const z1 = pd.find((x) => x.id === 'z1'), ref = pd.find((x) => x.id === 'ref');
-  check('8 Phrasen: Zeile 1 im Warten Am D F Am, weiter ohne Am', eq(waitSequence(z1), ['Am:song', 'D:song', 'F:song', 'Am:song'])
-    && eq(waitSequence(z1, { continued: true }), ['D:song', 'F:song', 'Am:song']));
-  check('8 Phrasen: Refrain endet auf C (übt F → C)', waitSequence(ref).at(-1) === 'C:song' && waitSequence(ref).length === 9);
-  check('8 Phrasen: Tempo 4-Takt-Zeile zweimal, Strophe einmal', tempoBars(z1).length === 8 && tempoBars(pd.find((x) => x.id === 'strophe')).length === 16);
-  const ch = (...secs) => secs.map((sec) => ({ from: 'a', to: 'b', sec }));
-  const first = applyWait(newPhrase('z1'), { changes: ch(0.6, 0.9, 1.0), today: d1 });
-  check('8 Wer es kann: erster Durchgang sauber → sofort Tempo, 56 BPM', first.toTempo && first.state.mode === 'tempo' && first.state.bpm === 56, JSON.stringify(first.state));
-  check('8 Startempo aus langsamstem Wechsel (1,2 s → 50)', applyWait(newPhrase('x'), { changes: ch(0.5, 1.2), today: d1 }).state.bpm === 50);
-  let wp = applyWait(newPhrase('z1'), { changes: ch(2.5), today: d1 }).state;
-  wp = applyWait(wp, { changes: ch(1), today: d1 }).state;
-  wp = applyWait(wp, { changes: ch(1), helped: true, today: d1 }).state;
-  check('8 Warten: vorgespielt/getippt zählt nicht als sauber', wp.mode === 'wait' && wp.streak === 0);
-  for (let i = 0; i < 2; i++) wp = applyWait(wp, { changes: ch(1), today: d1 }).state;
-  const third = applyWait(wp, { changes: ch(1), today: d1 });
-  check('8 Warten: 3× sauber hintereinander → Tempo', !wp.mode.startsWith('t') && third.toTempo && third.state.bpm === 56);
-  let tp = { ...newPhrase('z1'), mode: 'tempo', bpm: 52 };
+  const pd = phraseDefs(TS);
+  const z1 = pd.find((x) => x.id === 'v1'), ref = pd.find((x) => x.id === 'r');
+  check('8 Phrasen aus den Abschnitten: Strophe 1/2 zusammengefasst, wenigste Übergänge zuerst (Refrain)',
+    eq(pd.map((x) => x.name), ['Refrain', 'Strophe 1/2']) && eq(z1.sections, ['v1', 'v2']));
+  check('8 Phrasen: Strophe im Warten Am D/F# F6/9 Am, weiter ohne Am', eq(waitSequence(z1), ['Am', 'D/F#', 'F6/9', 'Am'])
+    && eq(waitSequence(z1, { continued: true }), ['D/F#', 'F6/9', 'Am']));
+  check('8 Phrasen: Refrain endet auf C (übt F6/9 → C)', waitSequence(ref).at(-1) === 'C' && waitSequence(ref).length === 5);
+  const te = tempoEvents(z1, 4);
+  check('8 Phrasen: Tempo im echten Rhythmus, 4-Takt-Phrase zweimal', te.beats === 32 && te.events.length === 8
+    && eq(te.events.slice(0, 2), [{ at: 0, chord: 'Am' }, { at: 3.5, chord: 'D/F#' }]) && te.events[4].at === 16);
+  const keys = transitionKeys(z1);
+  const pass = (secs, extra = {}) => keys.map((k, i) => { const [from, to] = k.split('>'); return { from, to, sec: secs[i % secs.length], ...extra }; });
+  const first = applyWait(newPhrase('v1'), { changes: pass([0.6, 0.9, 1.0]), keys, today: d1 });
+  check('8 Wer es kann: erster Durchgang ohne Hilfe, alle Wechsel ≤ 2 s → alle Übergänge Stufe 3, sofort Tempo 56',
+    first.fast && first.toTempo && first.state.bpm === 56 && keys.every((k) => first.state.trans[k].stage === 3), JSON.stringify(first.state.trans));
+  check('8 Startempo aus langsamstem Wechsel (1,2 s → 50)',
+    applyWait(newPhrase('x'), { changes: pass([0.5, 1.2]), keys, today: d1 }).state.bpm === 50);
+  let wp = applyWait(newPhrase('v1'), { changes: pass([5]), keys, today: d1 }).state;
+  check('8 Stufen: langsamer erster Durchgang → Stufe 1, kein Tempo', wp.mode === 'wait' && stageOf(wp, 'Am', 'D/F#', d1) === 1);
+  wp = applyWait(wp, { changes: pass([1]), keys, today: d1 }).state;
+  wp = applyWait(wp, { changes: pass([1], { self: true }), keys, today: d1 }).state;
+  for (let i = 0; i < 2; i++) wp = applyWait(wp, { changes: pass([1]), keys, today: d1 }).state;
+  check('8 Stufen: Hilfe selbst holen unterbricht die Serie (kein Fehler, aber kein Aufstieg)', stageOf(wp, 'Am', 'D/F#', d1) === 1);
+  wp = applyWait(wp, { changes: pass([1]), keys, today: d1 }).state;
+  check('8 Stufen: 3× sauber in 3 s → Stufe 2', stageOf(wp, 'Am', 'D/F#', d1) === 2 && wp.mode === 'wait');
+  for (let i = 0; i < 2; i++) wp = applyWait(wp, { changes: pass([2.5]), keys, today: d1 }).state;
+  check('8 Stufen: in Stufe 2 zählen nur Wechsel ≤ 2 s, Schlüssel sind Symbolpaare', stageOf(wp, 'Am', 'D/F#', d1) === 2 && wp.trans['Am>D/F#'].up === 0);
+  let tw;
+  for (let i = 0; i < 3; i++) { tw = applyWait(wp, { changes: pass([1.5]), keys, today: d1 }); wp = tw.state; }
+  check('8 Stufen: alle Übergänge Stufe 3 → Tempo', tw.toTempo && wp.mode === 'tempo');
+  const tr3 = { stage: 3, up: 0, down: 0, okDay: d1 };
+  check('8 Stufen: neuer Übetag eine Stufe tiefer, nach einem sauberen Wechsel wieder voll',
+    stageOf({ trans: { 'a>b': tr3 } }, 'a', 'b', d2) === 2
+    && stageOf({ trans: { 'a>b': applyChange(tr3, { sec: 1, from: 'a', to: 'b' }, d2) } }, 'a', 'b', d2) === 3);
+  const down1 = applyChange({ ...tr3, okDay: d2 }, { sec: 9 }, d2);
+  const down2 = applyChange(down1, { sec: 3, auto: true }, d2);
+  check('8 Stufen: 2× Hilfe nötig oder > 8 s → eine Stufe tiefer, nur dieser Übergang', down1.stage === 3 && down2.stage === 2);
+  check('8 Bass-Hinweis: Am → D hoch, D → F runter', bassText(gr('Am:song'), gr('D:song')) === 'Bass: hoch zum D' && bassText(gr('D:song'), gr('F:song')) === 'Bass: runter zum F');
+  let tp = { ...newPhrase('v1'), mode: 'tempo', bpm: 52 };
   tp = applyTempo(tp, { errors: 0, today: d1 }).state;
   check('8 Tempo: Schnellspur — sauber ohne je einen Fehler → gleich +4', tp.bpm === 56);
   tp = applyTempo(tp, { errors: 1, today: d1 }).state;
@@ -250,7 +338,10 @@ function pureTests() {
   const tp2 = applyTempo(tp, { errors: 0, today: d1 });
   check('8 Tempo: nach einem Fehler erst nach 2 sauberen +4', tp.bpm === 56 && tp2.state.bpm === 60 && tp2.up);
   const so = applyTempo(tp2.state, { errors: 0, today: d1 });
-  check('8 Tempo: sauber bei 60 BPM → sitzt', so.nowSolid && so.state.solid);
+  check('8 Tempo: sauber bei 60 BPM → sitzt (Song ohne bpm)', so.nowSolid && so.state.solid && targetBpm({ bpm: null }) === 60);
+  const t76 = applyTempo({ ...newPhrase('v1'), mode: 'tempo', bpm: 76 }, { errors: 0, today: d1, target: targetBpm(TS) });
+  const t77 = applyTempo(t76.state, { errors: 0, today: d1, target: targetBpm(TS) });
+  check('8 Tempo: Ziel ist das Song-Tempo (77) — bei 76 noch nicht, bei 77 sitzt es', !t76.nowSolid && t76.state.bpm === 77 && t77.nowSolid);
   let bd = { ...newPhrase('x'), mode: 'tempo', bpm: 50 };
   bd = applyTempo(bd, { errors: 2, today: d1 }).state;
   const bd2 = applyTempo(bd, { errors: 3, today: d1 });
@@ -259,16 +350,173 @@ function pureTests() {
   check('8 Tempo: unter 44 BPM → zurück ins Warten', bd3.toWait && bd3.state.mode === 'wait' && bd3.state.bpm === 45);
   check('8 Reparatur: häufigster hakender Übergang zuerst, F → F zählt nicht',
     eq(repairPairs(['Am', 'D', 'F', 'F', 'Am', 'D', 'F', 'F'], [1, 3, 5, 6]), [['Am', 'D'], ['D', 'F']]));
-  const solidZ1 = { z1: { ...newPhrase('z1'), solid: true, lastPlayed: addDays(d1, -3) } };
-  check('8 Reihenfolge: Zeile 1 zuerst, sitzt sie → Zeile 4 frei',
-    nextPhrase(pd, {}, { today: d1 }).id === 'z1' && eq(unlocked(pd, solidZ1), ['z1', 'z4']));
+  const solidZ1 = { r: { ...newPhrase('r'), solid: true, lastPlayed: addDays(d1, -3) } };
+  check('8 Reihenfolge: Refrain zuerst, sitzt er → Strophe frei',
+    nextPhrase(pd, {}, { today: d1 }).id === 'r' && eq(unlocked(pd, solidZ1), ['r', 'v1']) && focusPhrase(pd, solidZ1).id === 'v1');
   check('8 Sitzende Phrase nach ≥ 2 Tagen: einmal zu Beginn wiederholen',
-    eq(nextPhrase(pd, solidZ1, { today: d1 }), { id: 'z1', review: true })
-    && nextPhrase(pd, solidZ1, { today: d1, roundPasses: { z1: 1 } }).id === 'z4');
+    eq(nextPhrase(pd, solidZ1, { today: d1 }), { id: 'r', review: true })
+    && nextPhrase(pd, solidZ1, { today: d1, roundPasses: { r: 1 } }).id === 'v1');
   check('8 Höchstens 8 Durchgänge je Phrase, dann eine andere',
-    nextPhrase(pd, solidZ1, { today: d1, roundPasses: { z1: 1, z4: GUIDE.maxPasses } }).id === 'z1');
+    nextPhrase(pd, solidZ1, { today: d1, roundPasses: { r: 1, v1: GUIDE.maxPasses } }).id === 'r');
+  check('8 Ohne Ereignisse keine Phrase', phraseDefs({ ...TS, events: [] }).length === 0 && guideProgress([], {}) === 0);
   check('8 Fortschritt: nichts 0, alles sitzt 1',
     guideProgress(pd, {}) === 0 && guideProgress(pd, Object.fromEntries(pd.map((x) => [x.id, { solid: true }]))) === 1);
+
+  {
+  /* 9 — songdata.js (Song-JSON) */
+  const base = () => ({
+    schema: 1, id: 'test-song', title: 'Testsong', beatsPerBar: 4, bpm: 80, chords: ['Am', 'D/F#', 'F6/9'],
+    sources: [{ type: 'youtube', videoId: 'abcdefghijk', offsetSec: 1.5 }],
+    sections: [{ id: 'v1', name: 'Strophe 1', bar: 1, bars: 2 }, { id: 'v2', name: 'Strophe 2', bar: 3, bars: 2 }],
+    events: [{ at: 0, chord: 'Am' }, { at: 3.5, chord: 'D/F#' }, { at: 6, chord: 'F6/9' }],
+    lyrics: [{ at: 0, line: 'Zeile A' }],
+  });
+  const vs = (j) => validateSong(j);
+  check('9 Song: gültiges Beispiel ok', vs(base()).ok, vs(base()).errors.join(' | '));
+  const without = (k) => { const j = base(); delete j[k]; return j; };
+  const req = ['schema', 'id', 'title', 'beatsPerBar', 'chords', 'sections', 'events'];
+  const missed = req.filter((k) => { const r = vs(without(k)); return r.ok || r.errors.length !== 1 || !r.errors[0].includes(`„${k}“`); });
+  check('9 Song: jedes fehlende Pflichtfeld einzeln erkannt', missed.length === 0, missed.join(' '));
+  const bad = (patch) => vs({ ...base(), ...patch }).errors.join(' | ');
+  check('9 Song: unsortierte Ereignisse gemeldet', /nicht aufsteigend/.test(bad({ events: [{ at: 2, chord: 'Am' }, { at: 1, chord: 'D/F#' }] })));
+  check('9 Song: at nicht auf Raster gemeldet, bei ¼-Raster erlaubt', /Raster/.test(bad({ events: [{ at: 0.25, chord: 'Am' }] }))
+    && vs({ ...base(), grid: 0.25, events: [{ at: 0.25, chord: 'Am' }] }).ok);
+  check('9 Song: unbekannter Akkord gemeldet', /„G“ steht nicht/.test(bad({ events: [{ at: 0, chord: 'G' }] })));
+  check('9 Song: überlappende Abschnitte gemeldet', /überlappt/.test(bad({ sections: [{ name: 'A', bar: 1, bars: 4 }, { name: 'B', bar: 3, bars: 2 }] })));
+  check('9 Song: doppeltes at, bpm außerhalb, falsche id gemeldet',
+    /doppelt/.test(bad({ events: [{ at: 1, chord: 'Am' }, { at: 1, chord: 'D/F#' }] })) && /bpm/.test(bad({ bpm: 300 })) && /id/.test(bad({ id: 'Test Song' })));
+  const extra = vs({ ...base(), futureField: { x: 1 }, beatTimes: [0, 0.8] });
+  check('9 Song: unbekannte Felder und beatTimes bleiben erhalten', extra.ok && eq(extra.song.futureField, { x: 1 }) && eq(extra.song.beatTimes, [0, 0.8]));
+  const merged = normalizeSong({ ...base(), events: [{ at: 0, chord: 'Am' }, { at: 2, chord: 'Am' }, { at: 4, chord: 'F6/9' }] });
+  check('9 Song: gleiche Nachbar-Ereignisse zusammengefasst', eq(merged.events, [{ at: 0, chord: 'Am' }, { at: 4, chord: 'F6/9' }]));
+  const round = parseSongText(exportSong(vs(base()).song));
+  check('9 Export ohne Text, Import danach gleich', round.ok && !('lyrics' in round.song)
+    && eq(round.song, (() => { const s = vs(base()).song; delete s.lyrics; return s; })()));
+  check('9 Export mit Text auf Wunsch', parseSongText(exportSong(vs(base()).song, { lyrics: true })).song.lyrics[0].line === 'Zeile A');
+  check('9 Import: kein JSON → deutsche Meldung', /Kein gültiges JSON/.test(parseSongText('{ nein').errors[0]));
+  const ed = setEvent(vs(base()).song, 3.5, 'Am');
+  check('9 Bearbeiten: Ereignis an belegter Stelle ersetzt, gleiche Nachbarn zusammengefasst',
+    eq(ed.events, [{ at: 0, chord: 'Am' }, { at: 6, chord: 'F6/9' }]));
+  const ren = renameChord(vs(base()).song, 'D/F#', 'D');
+  check('9 Bearbeiten: Umbenennen zieht Ereignisse mit; Löschen nur ohne Ereignisse',
+    ren.chords[1] === 'D' && ren.events[1].chord === 'D' && deleteChord(ren, 'D') === null && deleteChord(addChord(ren, 'G'), 'G').chords.length === 3);
+  const secd = setSectionStart({ ...vs(base()).song, sections: [] }, 1, 'Intro 1', 8);
+  const secd2 = setSectionStart(secd, 5, 'Strophe 1', 8);
+  check('9 Abschnitte: beginnt hier → Längen bis zum nächsten', eq(secd2.sections.map((s) => [s.name, s.bar, s.bars]), [['Intro 1', 1, 4], ['Strophe 1', 5, 4]])
+    && nextSectionName(secd2, 'Strophe') === 'Strophe 2');
+
+  /* 10 — chordsym.js */
+  const pc = (s) => parseChord(s);
+  const types = { X: [0, 4, 7], Xm: [0, 3, 7], X6: [0, 4, 7, 9], Xm6: [0, 3, 7, 9], 'X6/9': [0, 2, 4, 7, 9], Xadd9: [0, 2, 4, 7],
+    X7: [0, 4, 7, 10], Xm7: [0, 3, 7, 10], Xmaj7: [0, 4, 7, 11], Xsus2: [0, 2, 7], Xsus4: [0, 5, 7], Xdim: [0, 3, 6], Xaug: [0, 4, 8] };
+  const wrong = Object.entries(types).filter(([t, iv]) => { const c = pc(t.replace('X', 'C')); return !c || c.bass !== null || !eq(c.pcs, [...iv].sort((a, b) => a - b)); });
+  check('10 Akkordsymbole: alle Typen auf C', wrong.length === 0, wrong.map(([t]) => t).join(' '));
+  check('10 Akkordsymbole: Kreuz und b (F#m, Bb/D)', eq(pc('F#m').pcs, [1, 6, 9]) && pc('F#m').root === 6
+    && pc('Bb/D').root === 10 && pc('Bb/D').bass === 2 && eq(pc('Bb/D').pcs, [2, 5, 10]));
+  check('10 Akkordsymbole: F6/9 ohne Basston, F6/9/A mit A im Bass', pc('F6/9').bass === null && pc('F6/9').quality === '6/9'
+    && pc('F6/9/A').bass === 9 && pc('F6/9/A').quality === '6/9' && eq(pc('D/F#').pcs, [2, 6, 9]) && pc('D/F#').bass === 6);
+  check('10 Akkordsymbole: Unsinn → null', ['', 'X', 'Am/', 'Hallo', 'C/Q', 'Cxyz', null].every((s) => pc(s) === null));
+  const k = (...ns) => ns;
+  check('10 Name aus Tasten: F2 C3 | A3 C4 D4 G4 → F6/9', nameFromKeys(k(41, 48, 57, 60, 62, 67)).includes('F6/9'), nameFromKeys(k(41, 48, 57, 60, 62, 67)).slice(0, 4).join(' '));
+  check('10 Name aus Tasten: Fis2 D3 | A3 D4 → D/F#', nameFromKeys(k(42, 50, 57, 62)).includes('D/F#'), nameFromKeys(k(42, 50, 57, 62)).slice(0, 4).join(' '));
+  check('10 Name aus Tasten: A2 E3 | A3 C4 E4 → Am zuerst', nameFromKeys(k(45, 52, 57, 60, 64))[0] === 'Am', nameFromKeys(k(45, 52, 57, 60, 64)).slice(0, 4).join(' '));
+  check('10 Gleicher Akkord trotz Schreibweise', sameChord('D/F#', 'D/Gb') && !sameChord('D', 'D/F#') && prettyChord('Bb/F#') === 'B♭/F♯');
+
+  /* 11 — voicing.js */
+  const AM = { lh: [45, 52], lhFingers: [5, 1], rh: [57, 60, 64], rhFingers: [1, 2, 4] };
+  const DF = { lh: [42, 50], lhFingers: [5, 1], rh: [57, 62], rhFingers: [1, 3] };
+  const F69 = { lh: [41, 48], lhFingers: [5, 1], rh: [57, 60, 62, 67], rhFingers: [1, 2, 3, 5] };
+  check('11 Griffe aus dem Unterricht gültig, ohne Warnung', [AM, DF, F69].every((v) => { const r = validateVoicing(v); return r.ok && !r.warnings.length; }));
+  const vv = (patch) => validateVoicing({ ...AM, ...patch });
+  check('11 Griff: doppelter Finger, Taste in beiden Händen, falsche Fingerzahl sind Fehler',
+    !vv({ rhFingers: [1, 2, 2] }).ok && !vv({ lh: [45, 57], lhFingers: [5, 1] }).ok && !vv({ rhFingers: [1, 2] }).ok);
+  const w321 = vv({ rhFingers: [3, 2, 1] });
+  check('11 Griff: rechts 3-2-1 aufsteigend → Warnung, kein Fehler; null-Finger erlaubt',
+    w321.ok && w321.warnings.length === 1 && vv({ rhFingers: [1, null, 5] }).ok && !vv({ rh: [], lh: [] }).ok);
+  check('11 Griff: Spanne über Oktave plus Terz → Warnung', vv({ rh: [57, 60, 74], rhFingers: [1, 2, 5] }).warnings.some((x) => /Spanne/.test(x)));
+  const d1x = voicingDiff(AM, DF);
+  check('11 Wechsel Am → D/F#: rechts 1 bleibt auf A3, 2 und 4 los, 3 auf D4 dazu',
+    eq(d1x.rh.keep, [{ key: 57, finger: 1 }]) && eq(d1x.rh.release.map((x) => x.finger), [2, 4]) && eq(d1x.rh.add, [{ key: 62, finger: 3 }]) && !d1x.rh.move.length, JSON.stringify(d1x.rh));
+  const d2x = voicingDiff(DF, F69);
+  check('11 Wechsel D/F# → F6/9: rechts 1 und 3 bleiben, 2 auf C4 und 5 auf G4 dazu; links 5 Fis2→F2 (−1), 1 D3→C3 (−2)',
+    eq(d2x.rh.keep.map((x) => x.finger), [1, 3]) && eq(d2x.rh.add, [{ key: 60, finger: 2 }, { key: 67, finger: 5 }])
+    && eq(d2x.lh.move, [{ finger: 5, from: 42, to: 41, semis: -1 }, { finger: 1, from: 50, to: 48, semis: -2 }]) && !d2x.lh.keep.length, JSON.stringify(d2x.lh));
+  const d3x = voicingDiff({ rh: [57, 60, 64] }, { rh: [57, 62] });
+  check('11 Wechsel ohne Fingersätze: über Töne', eq(d3x.rh.keep.map((x) => x.key), [57]) && eq(d3x.rh.release.map((x) => x.key), [60, 64]) && eq(d3x.rh.add.map((x) => x.key), [62]));
+  const oldV = { rh: [69, 72, 76], fingers: [1, 3, 5], lh: 45 };
+  const up1 = upgradeVoicing(oldV), up2 = upgradeVoicing(up1);
+  check('11 Griff-Migration: lh als Zahl → Liste, fingers → rhFingers; zweiter Lauf ändert nichts',
+    eq(up1, { rh: [69, 72, 76], lh: [45], lhFingers: [null], rhFingers: [1, 3, 5] }) && eq(up2, up1) && validateVoicing(up1).ok, JSON.stringify(up1));
+  const dv = (s) => defaultVoicing(s);
+  check('11 Standardlage: Am um C4 mit Bass A2, D/F# mit F♯ im Bass, F6/9 ohne Quinte 1-2-3-5',
+    eq(dv('Am'), { rh: [57, 60, 64], rhFingers: [1, 3, 5], lh: [45], lhFingers: [5] })
+    && dv('D/F#').lh[0] % 12 === 6 && dv('D/F#').lh[0] < dv('D/F#').rh[0]
+    && eq(dv('F6/9').rh.map((m) => m % 12), [5, 7, 9, 2]) && !dv('F6/9').rh.some((m) => m % 12 === 0)
+    && eq(dv('F6/9').rhFingers, [1, 2, 3, 5]) && dv('Quatsch') === null, JSON.stringify(dv('F6/9')));
+  const song9 = { voicings: { Am: AM } };
+  check('11 Griff im Song: eigener, sonst Standardlage (std)', voicingFor(song9, 'Am').std === false && voicingFor(song9, 'Dm').std === true);
+  check('11 Bewegungssatz: Am → D/F#, D/F# → F6/9 (beide Hände), ohne Finger nur Töne',
+    moveText(AM, DF, { lh: false }) === 'Daumen bleibt auf A. C und E loslassen, 3 auf D.'
+    && moveText(DF, F69) === 'Rechts: Daumen und 3 bleiben auf A und D, 2 auf C und 5 auf G dazu. Links: eine Stufe tiefer.'
+    && moveText({ rh: [57, 60, 64] }, { rh: [57, 62] }) === 'A bleibt. C und E loslassen, D dazu.',
+    `${moveText(AM, DF, { lh: false })} | ${moveText(DF, F69)} | ${moveText({ rh: [57, 60, 64] }, { rh: [57, 62] })}`);
+  check('11 Bass-Hinweis mit Griffen', bassText(AM, DF) === 'Bass: runter zum F♯' && bassText(DF, F69) === 'Bass: runter zum F' && bassText(null, AM) === 'Bass: A');
+
+  /* 12 — timeline.js */
+  const ts = vs(base()).song;
+  check('12 Zeitleiste: Schlag ↔ Sekunde umkehrbar (Offset 1,5 s, 80 BPM)',
+    beatToSec(ts, 0) === 1.5 && beatToSec(ts, 4) === 4.5 && [0, 1.25, 7.5, 33].every((b) => Math.abs(secToBeat(ts, beatToSec(ts, b)) - b) < 1e-9));
+  check('12 chordAt: vor dem ersten null, genau auf und zwischen Ereignissen',
+    chordAt({ events: [{ at: 1, chord: 'Am' }, { at: 3.5, chord: 'D' }] }, 0.5) === null && chordAt(ts, 3.5) === 'D/F#' && chordAt(ts, 3.49) === 'Am' && chordAt(ts, 100) === 'F6/9');
+  check('12 eventsIn: das am Anfang klingende Ereignis kommt bei fromBeat mit',
+    eq(eventsIn(ts, 2, 7), [{ at: 2, chord: 'Am' }, { at: 3.5, chord: 'D/F#' }, { at: 6, chord: 'F6/9' }]) && eq(eventsIn(ts, 0, 3.5), [{ at: 0, chord: 'Am' }]));
+  check('12 quantize ½ und ¼', quantize(3.3) === 3.5 && quantize(3.2) === 3 && quantize(3.2, 0.25) === 3.25 && quantize(-0.1) === 0 && Object.is(quantize(-0.1), 0));
+  const tw2 = normalizeSong({ ...base(), events: [{ at: 0, chord: 'Am' }, { at: 3.5, chord: 'D/F#' }, { at: 8, chord: 'Am' }, { at: 11.5, chord: 'D/F#' }],
+    sections: [{ id: 'v1', name: 'Strophe 1', bar: 1, bars: 2 }, { id: 'v2', name: 'Strophe 2', bar: 3, bars: 2 }, { id: 'r', name: 'Refrain', bar: 5, bars: 1 }] });
+  const ph = phrasesOf({ ...tw2, events: [...tw2.events, { at: 16, chord: 'F6/9' }] });
+  check('12 phrasesOf: gleiche Abschnitte zu einer Phrase („Strophe 1/2“)', ph.length === 2 && ph[0].name === 'Strophe 1/2' && eq(ph[0].sections, ['v1', 'v2'])
+    && eq(ph[0].events, [{ at: 0, chord: 'Am' }, { at: 3.5, chord: 'D/F#' }]) && ph[1].name === 'Refrain', JSON.stringify(ph.map((x) => x.name)));
+  check('12 sectionRange, chordSequence, Zählzeit', eq(sectionRange(ts, { bar: 3, bars: 2 }), { fromBeat: 8, toBeat: 16 })
+    && eq(chordSequence(tw2, 0, 16), ['Am', 'D/F#', 'Am', 'D/F#']) && countLabel(ts, 3.5) === '4 und' && countLabel(ts, 4) === '1' && beatsText(1.5) === '1½');
+  check('12 Vorgänger: aus der Ereignisfolge, ohne Ereignisse der davor in chords',
+    eq(predecessors(tw2, 'Am'), ['D/F#']) && eq(predecessors({ chords: ['Am', 'D', 'F'], events: [] }, 'Am'), ['F']));
+
+  /* 13 — tap.js */
+  const taps = [0, 0.75, 1.5, 2.25, 3.0, 3.75, 5.2, 5.95, 6.7];
+  const tt = tapTempo(taps);
+  check('13 Tipp-Tempo: 80 BPM mit einem Ausreißer, unter 8 Tipps noch keins', tt.bpm === 80 && tapTempo(taps.slice(0, 7)).bpm === null && tapTempo(taps.slice(0, 7)).need === 1, JSON.stringify(tt));
+  const ids = ['dQw4w9WgXcQ'];
+  check('13 YouTube-ID aus Link', [
+    'https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=10s', 'youtu.be/dQw4w9WgXcQ?si=x', 'https://youtube.com/shorts/dQw4w9WgXcQ',
+    'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ', 'dQw4w9WgXcQ', 'm.youtube.com/watch?v=dQw4w9WgXcQ',
+  ].every((u) => parseYouTubeId(u) === ids[0]) && parseYouTubeId('https://example.com/watch?v=dQw4w9WgXcQ') === null && parseYouTubeId('kurz') === null);
+  const sc = scoreTaps([{ at: 0, chord: 'Am' }, { at: 3.5, chord: 'D' }, { at: 6, chord: 'F' }, { at: 8, chord: 'Am' }], [0.1, 3.0, 6.4, 20]);
+  check('13 Wann: getroffen / zu früh / zu spät / verpasst', eq(sc.results.map((r) => r.result), ['hit', 'early', 'late', 'missed']) && sc.hits === 1 && sc.extra === 1);
+  check('13 Wann: Auswertungszeile', tapSummary(scoreTaps([{ at: 0, chord: 'Am' }, { at: 2, chord: 'D' }, { at: 4, chord: 'Am' }, { at: 6, chord: 'D' }], [0, 2.5, 4, 6.5])) === '2 von 4 Wechseln getroffen. Wechsel zu D kam zweimal zu spät.');
+  let wn = newWann('x');
+  const allHit = { hits: 4, total: 4 }, poor = { hits: 1, total: 4 };
+  for (let i = 0; i < 3; i++) wn = applyWann(wn, allHit, d1).state;
+  const wnDown = applyWann(applyWann(wn, poor, d1).state, poor, d1);
+  check('13 Wann-Stufen: 3× sauber hoch, 2× schlecht runter', wn.stage === 2 && wnDown.state.stage === 1 && wnDown.down);
+
+  /* 14 — Migration 2 */
+  const v1 = [
+    { id: 'settings', plan: 'Abends', mic: true }, { id: 'dataVersion', v: 1 },
+    { id: 'phrase:z1', solid: true, bpm: 60 }, { id: 'phrase:ref', bpm: 52 },
+    { id: 'card:Am:song', box: 3 }, { id: 'loop:am-f', bpm: 58 },
+  ];
+  const m1 = runMigrations(v1, 1, 2), m2 = runMigrations(m1.records, 1, 2);
+  const rec = (rs, id) => rs.find((r) => r.id === id);
+  const prSong = rec(m1.records, 'song:perfect-ruin')?.song;
+  check('14 Migration 2: Song Perfect Ruin ohne Ereignisse, Abschnitte und Griffe, aktuell',
+    prSong && prSong.title === 'Perfect Ruin' && eq(prSong.chords, ['Am', 'D', 'F', 'Dm', 'C']) && prSong.events.length === 0
+    && prSong.sections.length === 0 && Object.keys(prSong.voicings).length === 0 && prSong.bpm === null && validateSong(prSong).ok
+    && rec(m1.records, 'settings').currentSong === 'perfect-ruin' && rec(m1.records, 'settings').plan === 'Abends');
+  check('14 Migration 2: alte Phrasen unter archiv:, Karten und Loops unverändert',
+    eq(rec(m1.records, 'archiv:phrase:z1'), { id: 'archiv:phrase:z1', solid: true, bpm: 60 }) && !rec(m1.records, 'phrase:z1')
+    && eq(rec(m1.records, 'card:Am:song'), v1[4]) && eq(rec(m1.records, 'loop:am-f'), v1[5]));
+  check('14 Migration 2: zweiter Lauf ändert nichts', m2.steps[0].put.length === 0 && m2.steps[0].del.length === 0 && eq(m2.records, m1.records));
+  }
   return T;
 }
 
@@ -328,6 +576,50 @@ async function clockDriftTest() {
   return out;
 }
 
+/** Test 5c (nur Browser): ein Tempo-Durchgang in „Geführt“ mit einem
+ *  vorgezogenen Wechsel auf „4 und“ plant den Akkord auf dem richtigen Achtel.
+ *  Geplant wie in exercises/guided.js tempoPass (Einzähler 1 Takt, ganze
+ *  Noten über accomp.js stepHits), bei 60 BPM gerendert und im Signal
+ *  nachgemessen: Anschläge bei 0, 3,5, 4 (ganze Note: neuer Takt) und 8
+ *  Schlägen nach der Eins. */
+async function tempoPlanTest() {
+  const { createClock } = await import('./clock.js');
+  const sr = 44100, bpb = 4, bpm = 60, beat = 60 / bpm;
+  const def = phraseDefs(testSong()).find((x) => x.id === 'v1');
+  const { events, beats } = tempoEvents(def, bpb);
+  const tl = { events, beatsPerBar: bpb };
+  const ctx = new OfflineAudioContext(1, sr * 14, sr);
+  const planned = [];
+  const clock = createClock(ctx, {
+    bpm, beatsPerBar: bpb, totalSteps: (bpb + 10) * 2,
+    onStep(s) {
+      const b = s.index / 2 - bpb;
+      if (b < 0 || b >= beats) return;
+      for (const h of stepHits(tl, b, { from: 0 })) {
+        if (h.hand !== 'rh') continue;
+        planned.push({ b, chord: h.chord });
+        const o = ctx.createOscillator(), gn = ctx.createGain();
+        gn.gain.setValueAtTime(0.5, s.time);
+        gn.gain.setValueAtTime(0, s.time + 0.03);
+        o.connect(gn).connect(ctx.destination);
+        o.start(s.time); o.stop(s.time + 0.03);
+      }
+    },
+  });
+  clock.start(0.5, { timer: false });
+  clock.fill(14);
+  const d = (await ctx.startRendering()).getChannelData(0);
+  const onsets = [];
+  let quiet = 0;
+  for (let i = 0; i < d.length; i++) if (i >= quiet && Math.abs(d[i]) > 0.001) { onsets.push(i / sr); quiet = i + sr * 0.2; }
+  const one = 0.5 + bpb * beat; // Eins nach dem Einzähler
+  const want = [0, 3.5, 4, 8].map((b) => one + b * beat);
+  const worst = Math.max(...want.map((t, k) => Math.abs((onsets[k] ?? -9) - t)));
+  return [{ name: '5 Takt: Wechsel auf „4 und“ im Tempo-Modus auf dem richtigen Achtel', ok: onsets.length === 4 && worst <= 0.001
+    && eq(planned.map((x) => `${x.b}:${x.chord}`), ['0:Am', '3.5:D/F#', '4:D/F#', '8:F6/9']),
+    detail: `${planned.map((x) => `${x.b}:${x.chord}`).join(' ')}; max. Abweichung ${(worst * 1000).toFixed(3)} ms` }];
+}
+
 /** Audio-Smoke-Test: Kontext, Synth-Fallback, Klick und Melodiestimme planen
  *  ohne Fehler (gerendert in einem OfflineAudioContext). */
 async function audioSmoke() {
@@ -358,7 +650,8 @@ async function earTest() {
   const got = [];
   for (const sym of ['Am', 'D', 'F', 'Dm', 'C']) {
     const c = chordById(`${sym}:song`);
-    const { results } = await checkFrame(frame([c.lh, ...c.rh]), sr, ['Am', 'D', 'F', 'Dm', 'C']);
+    const pcs = Object.fromEntries(['Am', 'D', 'F', 'Dm', 'C'].map((x) => [x, parseChord(x).pcs]));
+    const { results } = await checkFrame(frame([c.lh, ...c.rh]), sr, ['Am', 'D', 'F', 'Dm', 'C'], pcs);
     const yes = Object.entries(results).filter(([, r]) => r.ok).map(([k]) => k);
     got.push({ sym, yes, ok: yes.length === 1 && yes[0] === sym });
   }
@@ -371,7 +664,7 @@ export async function runSelfTests({ log = true } = {}) {
   const results = pureTests();
   try { results.push(...await clockDriftTest()); } catch (e) { results.push({ name: 'clockDriftTest', ok: false, detail: String(e?.message || e) }); }
   if (typeof OfflineAudioContext !== 'undefined') {
-    for (const fn of [clockTest, audioSmoke, earTest]) {
+    for (const fn of [clockTest, tempoPlanTest, audioSmoke, earTest]) {
       try { results.push(...await fn()); } catch (e) { results.push({ name: fn.name, ok: false, detail: String(e?.message || e) }); }
     }
   } else {

@@ -3,14 +3,17 @@
    session.js, die Regeln rein in leitner.js, tempo.js und mix.js. */
 
 import * as audio from './audio.js';
-import { S, loadAll, today, saveSettings } from './store.js';
+import { S, loadAll, today, saveSettings, currentSong, phraseStates } from './store.js';
 import { buildMix, mixLabel, weekDots, practicedThisWeek, WEEK_GOAL, DAY_MIN_SECONDS } from './mix.js';
 import { phraseDefs, guideProgress, unlocked, newPhrase } from './phrases.js';
-import { hasMelody } from './melody.js';
-import { SONG } from './song-perfect-ruin.js';
+import { youtubeSource } from './timeline.js';
 import { runSession, pause, resume, end, sessionRunning } from './session.js';
-import { $, $$, showScreen, setToggle } from './ui.js';
+import { initSongs, showSongs, songFacts } from './songs.js';
+import { openGriffe } from './exercises/griffe.js';
+import { openTranscribe } from './exercises/transcribe.js';
+import { $, $$, showScreen, setToggle, onScreen, screenName } from './ui.js';
 import { supported as micSupported, EARS, earMode } from './mic.js';
+import { openMicTest, closeMicTest } from './mictest.js';
 import { logError } from './log.js';
 
 const WEEKDAYS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
@@ -48,14 +51,16 @@ async function savePlan(plan) {
 
 /* ---------- S2 Start --------------------------------------------------- */
 function mixState() {
-  return { verseBpm: S.phrases.strophe?.bpm ?? S.loops.verse?.bpm ?? 55 };
+  const song = currentSong();
+  const src = youtubeSource(song);
+  return { hasEvents: !!song?.events.length, video: !!(src?.videoId && src.offsetSec != null && song.bpm) };
 }
 
-/** Stand je freigeschalteter Phrase, z. B. „Zeile 1 sitzt · Zeile 4 52 BPM“. */
-function phraseStatus(defs) {
-  return unlocked(defs, S.phrases).map((id) => {
+/** Stand je freigeschalteter Phrase, z. B. „Strophe 1/2 sitzt · Refrain 52 BPM“. */
+function phraseStatus(defs, states) {
+  return unlocked(defs, states).map((id) => {
     const d = defs.find((x) => x.id === id);
-    const p = S.phrases[id] || newPhrase(id);
+    const p = states[id] || newPhrase(id);
     if (p.solid) return `${d.name} sitzt`;
     if (p.mode === 'tempo') return `${d.name} ${p.bpm} BPM`;
     return p.passes ? `${d.name} ohne Tempo` : `${d.name} neu`;
@@ -72,6 +77,13 @@ function showStart() {
   planEl.textContent = S.settings.plan ? `Dein Plan: ${planSentence(S.settings.plan)}` : '';
   // Geschützte Leerzeichen: umbrochen wird nur an den Trennpunkten.
   $('#mix-label').textContent = mixLabel(buildMix(mixState(), d)).split(' · ').map((x) => x.replace(/ /g, '\u00a0')).join(' · ');
+  const song = currentSong();
+  const ready = !!song?.events.length;
+  // Ohne Ereignisse kein Geführt: der Startscreen führt zu „Transkribieren“.
+  $('#start-go').hidden = !ready;
+  $('#start-todo').hidden = ready;
+  $('#todo-title').textContent = song ? `„${song.title}“` : 'Der Song';
+  for (const b of $$('[data-needs="events"]')) b.hidden = !ready;
 
   $('#week-dots').replaceChildren(...weekDots(S.days, d).map((dot, i) => {
     const li = document.createElement('li');
@@ -82,12 +94,16 @@ function showStart() {
     return li;
   }));
 
-  const defs = phraseDefs(SONG);
-  const pct = Math.round(guideProgress(defs, S.phrases) * 100);
+  const defs = song ? phraseDefs(song) : [];
+  const states = song ? phraseStates(song.id) : {};
+  const pct = Math.round(guideProgress(defs, states) * 100);
+  $('#song-title').textContent = song?.title || 'Kein Song';
+  $('#song-by').textContent = song ? [song.artist, songFacts(song)].filter(Boolean).join(' · ') : '';
   $('#song-bar .bar-fill').style.width = `${pct}%`;
   $('#song-bar').setAttribute('aria-valuenow', String(pct));
-  $('#song-percent').textContent = `${pct} %`;
-  $('#song-status').textContent = phraseStatus(defs);
+  $('#song-percent').textContent = ready ? `${pct} %` : '';
+  $('#song-bar').hidden = !ready;
+  $('#song-status').textContent = ready ? phraseStatus(defs, states) : '';
   showScreen('start');
   audio.preloadPiano();
 }
@@ -123,7 +139,9 @@ function doneLines(out) {
     lines.push(b.sass.size ? `+${b.sass.size} ${b.sass.size === 1 ? 'Karte' : 'Karten'} sicher gegriffen`
       : `${b.cards} ${b.cards === 1 ? 'Karte' : 'Karten'} geübt`);
   }
-  if (p?.bars) lines.push(`${p.bars} Takte mitgespielt`);
+  if (p?.seconds >= 5) lines.push(`${timeLine(p.seconds).replace(' am Klavier', '')} mitgespielt`);
+  const wn = results.wann;
+  if (wn?.passes) lines.push(`${wn.hits} von ${wn.total} Wechseln pünktlich getroffen`);
   const top = lines.slice(0, 2);
   if (top.length < 2) top.push(timeLine(out.seconds));
   const d = today();
@@ -139,9 +157,11 @@ function showDone(out) {
   $('#done-lines').replaceChildren(...doneLines(out).map((t) => {
     const li = document.createElement('li'); li.textContent = t; return li;
   }));
-  $('#reward-note').textContent = hasMelody(SONG)
-    ? 'Die Strophe mit Melodie zum Mitsummen.'
-    : 'Die Strophe zum Mitspielen. (Melodie noch nicht erfasst.)';
+  const song = currentSong();
+  const ready = !!song?.events.length;
+  $('#reward').hidden = !ready;
+  const src = youtubeSource(song);
+  $('#reward-note').textContent = src?.videoId && src.offsetSec != null ? 'Mit dem Video, das Akkordband läuft mit.' : 'Mit eigener Klavierbegleitung.';
   showScreen('done');
 }
 
@@ -166,6 +186,19 @@ function paintEar() {
   for (const b of $$('[data-ear]')) b.textContent = `Hören: ${earMode()}`;
 }
 
+/* ---------- Werkzeuge: Griffe, Transkribieren --------------------------- */
+/** Griff-Editor bzw. Editor öffnen; nach „Zurück“ then(). */
+async function toGriffe(id, then) {
+  if (!id || sessionRunning()) return;
+  await openGriffe(id);
+  then();
+}
+async function toTranscribe(id, then) {
+  if (!id || sessionRunning()) return;
+  await openTranscribe(id);
+  then();
+}
+
 /* ---------- Verdrahtung ------------------------------------------------ */
 function wire() {
   // S1
@@ -185,7 +218,18 @@ function wire() {
 
   // S2
   $('#start-plan').addEventListener('click', showPlan);
-  $('#go-mix').addEventListener('click', () => start(buildMix(mixState(), today())));
+  $('#go-mix').addEventListener('click', () => { const m = buildMix(mixState(), today()); if (m.length) start(m); });
+  $('#go-songs').addEventListener('click', showSongs);
+  $('#go-griffe').addEventListener('click', () => toGriffe(currentSong()?.id, showStart));
+  $('#go-griffe-todo').addEventListener('click', () => toGriffe(currentSong()?.id, showStart));
+  $('#go-tr').addEventListener('click', () => toTranscribe(currentSong()?.id, showStart));
+  $('#go-transcribe').addEventListener('click', () => toTranscribe(currentSong()?.id, showStart));
+  for (const b of $$('[data-home]')) b.addEventListener('click', showStart);
+  initSongs({
+    practice: () => showStart(),
+    griffe: (id) => toGriffe(id, showSongs),
+    transcribe: (id) => toTranscribe(id, showSongs),
+  });
   $('#go-one').addEventListener('click', () => start([{ exercise: 'guided', seconds: 60 }]));
   for (const b of $$('[data-direct]')) b.addEventListener('click', () => start([{ exercise: b.dataset.direct, seconds: 180 }]));
   $('#go-about').addEventListener('click', () => {
@@ -197,7 +241,7 @@ function wire() {
   });
 
   // S8
-  $('#go-reward').addEventListener('click', () => start([{ exercise: 'playalong', bars: 8, melody: true }], { keepDone: true }));
+  $('#go-reward').addEventListener('click', () => start([{ exercise: 'playalong', bars: 8, range: 'song' }], { keepDone: true }));
   $('#go-more').addEventListener('click', () => start([{ exercise: moreExercise(), seconds: 60 }]));
   $('#go-home').addEventListener('click', showStart);
 
@@ -205,6 +249,8 @@ function wire() {
   $('[data-back]').addEventListener('click', showStart);
   $('#about-plan').addEventListener('click', showPlan);
   $('#about-update').addEventListener('click', checkUpdate);
+  $('#about-mictest').addEventListener('click', () => { if (!sessionRunning()) openMicTest(); });
+  $('#mt-back').addEventListener('click', () => { closeMicTest(); showScreen('about'); });
   $('#about-selftest').addEventListener('click', async () => {
     const out = $('#selftest-out');
     out.hidden = false;
@@ -246,6 +292,29 @@ function wire() {
   });
 }
 
+/* ---------- Zurück (Android-Taste, Wischgeste) --------------------------
+   Die Screens wechseln ohne Seitenwechsel. Damit „Zurück“ nicht die App
+   verlässt, liegt außerhalb des Startscreens ein Eintrag im Verlauf; ihn
+   zurückzunehmen heißt: Übung pausieren, Mikrofon-Test → Über, sonst
+   Startscreen. Auf dem Startscreen verlässt „Zurück“ die App wie gewohnt. */
+let ignorePop = 0;
+const guard = () => { if (!history.state?.pianino) history.pushState({ pianino: 1 }, ''); };
+const unguard = () => { if (history.state?.pianino) { ignorePop++; history.back(); } };
+
+function onBack() {
+  if (ignorePop) { ignorePop--; return; }
+  const name = screenName();
+  if (name === 'start') return;
+  if (sessionRunning()) { guard(); if ($('#pause').hidden) pause(); return; }
+  if (!$('#modal').hidden || (name === 'plan' && !S.settings.onboarded)) { guard(); return; }
+  if (name === 'mictest') { closeMicTest(); showScreen('about'); return; }
+  if (name === 'griffe') { guard(); $('#gr-back').click(); return; }
+  if (name === 'sheet') { guard(); $('#sheet-back').click(); return; }
+  if (name === 'tr') { guard(); $('#tr-back').click(); return; }
+  if (name === 'import') { showSongs(); return; }
+  showStart();
+}
+
 /* ---------- Version und Update ---------------------------------------- */
 let swReg = null;
 
@@ -275,6 +344,8 @@ async function checkUpdate() {
 }
 
 async function boot() {
+  onScreen((name) => (name === 'start' ? unguard() : guard()));
+  window.addEventListener('popstate', onBack);
   window.runSelfTests = (...a) => import('./selftest.js').then((m) => m.runSelfTests(...a));
   wire();
   try { await loadAll(); } catch (e) { logError('boot:load', e); }
