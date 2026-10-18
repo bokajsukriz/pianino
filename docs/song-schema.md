@@ -64,6 +64,7 @@ am besten in der App selbst heraus („Transkribieren“).
 | `events` | ja (darf `[]` sein) | `{ at, chord }`: ab Schlag `at` klingt `chord` |
 | `grid` | nein | `0.5` (Standard) oder `0.25`, wenn Wechsel auf Sechzehnteln liegen |
 | `marks` | nein | Abschnitte der Liedseite: `{ id, name, sec }` (Sekunde im Video, ab der der Abschnitt beginnt) |
+| `loops` | nein | gespeicherte Loops der Liedseite: `{ id, name, start, end, pre }` (Sekunden im Video; `pre` = Vorlauf) |
 | `tabText` | nein | eingefügte Tabs als Text — nur vom Nutzer, bleibt auf dem Gerät (Export nur auf Wunsch) |
 | `tabMode` | nein | `"text"` oder `"pdf"`: was die Liedseite zeigt (das PDF selbst liegt nur auf dem Gerät, nie im JSON) |
 | `lyrics` | nein | `{ at, line }` — nur vom Nutzer selbst eingegeben, bleibt auf dem Gerät |

@@ -55,3 +55,38 @@ export function fmtClock(sec, { tenths = false } = {}) {
   const base = `${m}:${String(whole).padStart(2, '0')}`;
   return tenths ? `${base},${Math.floor((r - whole) * 10)}` : base;
 }
+
+/* ---------- Gespeicherte Loops ------------------------------------------
+   Ein Loop: { id, name, start, end, pre } — Sekunden im Video; pre: Vorlauf
+   in Sekunden (so viel früher einsteigen, damit man hineinkommt). Gespeichert
+   im Song als song.loops (nach start sortiert). */
+
+const r2 = (x) => Math.round(x * 100) / 100;
+export const sortLoops = (loops) => [...(loops || [])].sort((a, b) => a.start - b.start || a.end - b.end);
+
+/** Loop hinzufügen (start < end, mindestens 0,5 s lang). → { loops, id } */
+export function addLoop(loops, { name, start, end, pre = 0 }) {
+  const taken = new Set((loops || []).map((l) => l.id));
+  let n = 1;
+  while (taken.has(`l${n}`)) n++;
+  const s = Math.max(0, Math.min(start, end)), e = Math.max(start, end, s + 0.5);
+  const id = `l${n}`;
+  return { loops: sortLoops([...(loops || []), { id, name, start: r2(s), end: r2(e), pre }]), id };
+}
+
+/** Loop ändern; Start und Ende bleiben in der richtigen Reihenfolge. */
+export function updateLoop(loops, id, patch) {
+  return sortLoops((loops || []).map((l) => {
+    if (l.id !== id) return l;
+    const next = { ...l, ...patch };
+    next.start = r2(Math.max(0, next.start));
+    next.end = r2(next.end);
+    if (next.end < next.start + 0.5) {
+      if ('start' in patch && !('end' in patch)) next.start = r2(Math.max(0, next.end - 0.5));
+      else next.end = r2(next.start + 0.5);
+    }
+    return next;
+  }));
+}
+
+export const removeLoop = (loops, id) => sortLoops((loops || []).filter((l) => l.id !== id));

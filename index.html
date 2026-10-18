@@ -159,10 +159,12 @@
           <button type="button" class="toggle toggle-sm" id="sp-loop" aria-pressed="false">Loop</button>
           <button type="button" class="btn btn-secondary btn-sm" id="sp-a" aria-label="Loop-Anfang hier">A</button>
           <button type="button" class="btn btn-secondary btn-sm" id="sp-b" aria-label="Loop-Ende hier">B</button>
+          <button type="button" class="btn btn-primary btn-sm" id="sp-saveloop" hidden>Speichern</button>
           <button type="button" class="btn btn-secondary btn-sm sp-add" id="sp-addmark">+ Abschnitt</button>
         </div>
+        <ol class="sp-loops" id="sp-loops" aria-label="Gespeicherte Loops"></ol>
         <ol class="sp-marks" id="sp-marks" aria-label="Abschnitte"></ol>
-        <p class="small muted" id="sp-marks-hint">„+ Abschnitt“ an der Stelle tippen, wo er beginnt. Antippen springt hin, lang drücken: Loop, Umbenennen, Löschen.</p>
+        <p class="small muted" id="sp-marks-hint">Loop: A und B tippen (oder Loop über den Abschnitt), dann „Speichern“. „+ Abschnitt“ setzt eine Sprungmarke. Antippen startet bzw. springt hin, lang drücken zum Ändern.</p>
         <span class="visually-hidden" id="sp-section" aria-live="polite"></span>
       </div>
       </div>

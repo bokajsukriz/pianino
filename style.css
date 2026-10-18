@@ -544,6 +544,7 @@ button.band-ev { cursor: pointer; min-height: 30px; font: inherit; font-weight: 
 .sp-looprow { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .sp-looprow > * { white-space: nowrap; }
 .sp-looprow #sp-a, .sp-looprow #sp-b { min-width: 40px; padding: 4px 10px; }
+.sp-looprow #sp-loop { max-width: 46%; overflow: hidden; text-overflow: ellipsis; }
 .sp-looprow .sp-add { margin-left: auto; }
 .sp-marks { list-style: none; margin: 0; padding: 0 0 2px; display: flex; gap: 6px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .sp-marks:empty { display: none; }
@@ -556,6 +557,12 @@ button.band-ev { cursor: pointer; min-height: 30px; font: inherit; font-weight: 
 .sp-mark b { font-size: 15px; }
 .sp-mark small { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .sp-mark.now { border-color: var(--accent-text); background: var(--from); }
+.sp-loops { list-style: none; margin: 0; padding: 0 0 2px; display: flex; gap: 6px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.sp-loops:empty { display: none; }
+.sp-loops li { flex: none; }
+.sp-saved { border-style: dashed; border-color: var(--accent-text); }
+.sp-saved.now { border-style: solid; background: var(--accent); color: var(--accent-ink); }
+.sp-saved.now small { color: var(--accent-ink); }
 .sp-tabs { display: flex; flex-direction: column; gap: 8px; }
 .sp-tabbar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .sp-text { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; line-height: 1.35; overflow-x: auto; padding-bottom: 40px; }

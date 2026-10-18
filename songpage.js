@@ -14,7 +14,10 @@ import { setYoutube } from './songdata.js';
 import { youtubeSource } from './timeline.js';
 import { parseYouTubeId } from './tap.js';
 import { parseTabText, chordsInText, stripMarkup } from './tabtext.js';
-import { addMark, removeMark, renameMark, moveMark, markRange, markAt, nextMarkName, sortMarks, fmtClock } from './marks.js';
+import {
+  addMark, removeMark, renameMark, moveMark, markRange, markAt, nextMarkName, sortMarks, fmtClock,
+  addLoop, updateLoop, removeLoop, sortLoops,
+} from './marks.js';
 import { $, $$, showScreen, screenName, modal, ask, frameLoop, onLongPress } from './ui.js';
 
 const RATES = [0.5, 0.75, 1];
@@ -53,6 +56,7 @@ function wire() {
   $('#sp-a').addEventListener('click', () => setAB('a'));
   $('#sp-b').addEventListener('click', () => setAB('b'));
   $('#sp-addmark').addEventListener('click', addHere);
+  $('#sp-saveloop').addEventListener('click', saveLoop);
   $('#sp-load').addEventListener('click', loadFromInput);
   $('#sp-url').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); loadFromInput(); } });
   wireTrack();
@@ -83,6 +87,7 @@ export function openSongPage(songId) {
     $('#sp-yt').hidden = !src?.videoId;
     showScreen('song');
     paintMarks();
+    paintLoops();
     paintTransport();
     paintTabs();
     if (src?.videoId) loadVideo(src.videoId);
@@ -173,7 +178,7 @@ function setRate(r) {
 /** Loop an: A–B, falls gesetzt, sonst der Abschnitt an der aktuellen Stelle. */
 function toggleLoop() {
   if (!st.player) return;
-  if (st.loopOn) { st.loopOn = false; paintTransport(); return; }
+  if (st.loopOn) { st.loopOn = false; paintTransport(); paintLoops(); return; }
   if (!st.loop) {
     const m = markAt(song().marks, st.player.now());
     if (!m) { $('#sp-vnote').textContent = 'Für den Loop erst einen Abschnitt setzen – oder A und B.'; return; }
@@ -189,6 +194,7 @@ function loopMark(id) {
   if (!m) return;
   st.loop = { ...markRange(song().marks, id, dur()), name: m.name, id };
   paintTransport();
+  paintLoops();
 }
 
 /** A bzw. B an die aktuelle Stelle. */
@@ -201,6 +207,100 @@ function setAB(which) {
   st.loop = { start: Math.max(0, next.start), end: next.end, name: 'A–B', id: null };
   st.loopOn = true;
   paintTransport();
+  paintLoops();
+}
+
+/* ---------- Gespeicherte Loops ----------------------------------------- */
+
+/** Wo ein Loop beginnt: Start minus Vorlauf. */
+const loopStart = (l) => Math.max(0, l.start - (l.pre || 0));
+const PRE_STEPS = [0, 1, 2, 3];
+
+/** Laufenden Loop (A–B oder Abschnitt) unter einem Namen speichern. */
+async function saveLoop() {
+  if (!st.loop) return;
+  const loops = song().loops || [];
+  const suggestion = st.loop.id ? st.loop.name : nextMarkName(loops, 'Loop');
+  const name = await ask('Loop speichern', `${fmtClock(st.loop.start, { tenths: true })} bis ${fmtClock(st.loop.end, { tenths: true })}`, { value: suggestion, ok: 'Speichern' });
+  if (!name) return;
+  const r = addLoop(loops, { name, start: st.loop.start, end: Math.min(st.loop.end, dur() || st.loop.end), pre: 0 });
+  await putSong({ ...song(), loops: r.loops });
+  const saved = r.loops.find((l) => l.id === r.id);
+  st.loop = { ...saved, id: null, saved: saved.id };
+  paintLoops();
+  paintTransport();
+}
+
+/** Gespeicherten Loop starten (Antippen). Noch einmal antippen: Loop aus. */
+function playLoop(l) {
+  const p = st.player;
+  if (!p) { $('#sp-vnote').textContent = 'Erst ein Video laden.'; return; }
+  if (st.loopOn && st.loop?.saved === l.id) { st.loopOn = false; paintTransport(); paintLoops(); return; }
+  st.loop = { start: l.start, end: l.end, pre: l.pre || 0, name: l.name, id: null, saved: l.id };
+  st.loopOn = true;
+  p.seek(loopStart(st.loop));
+  if (!p.playing()) p.play();
+  paintTransport();
+  paintLoops();
+}
+
+async function loopMenu(l) {
+  const t = st.player ? st.player.now() : null;
+  const pre = l.pre || 0;
+  const nextPre = PRE_STEPS[(PRE_STEPS.indexOf(pre) + 1) % PRE_STEPS.length] ?? 0;
+  const a = await modal(l.name, `${fmtClock(l.start, { tenths: true })} bis ${fmtClock(l.end, { tenths: true })}${pre ? ` · ${pre} s Vorlauf` : ''}`, [
+    ...(t != null ? [{ label: `Start hier (${fmtClock(t)})`, value: 'start' }, { label: `Ende hier (${fmtClock(t)})`, value: 'end' }] : []),
+    { label: 'Start −0,2 s', value: 's-' }, { label: 'Start +0,2 s', value: 's+' },
+    { label: 'Ende −0,2 s', value: 'e-' }, { label: 'Ende +0,2 s', value: 'e+' },
+    { label: nextPre ? `Vorlauf ${nextPre} s` : 'Ohne Vorlauf', value: 'pre' },
+    { label: 'Umbenennen', value: 'ren' },
+    { label: 'Löschen', value: 'del' },
+    { label: 'Schließen', value: '', primary: true },
+  ]);
+  const loops = song().loops || [];
+  let next = null;
+  if (a === 'start') next = updateLoop(loops, l.id, { start: t });
+  else if (a === 'end') next = updateLoop(loops, l.id, { end: t });
+  else if (a === 's-' || a === 's+') next = updateLoop(loops, l.id, { start: l.start + (a === 's-' ? -0.2 : 0.2) });
+  else if (a === 'e-' || a === 'e+') next = updateLoop(loops, l.id, { end: l.end + (a === 'e-' ? -0.2 : 0.2) });
+  else if (a === 'pre') next = updateLoop(loops, l.id, { pre: nextPre });
+  else if (a === 'ren') {
+    const n = await ask('Loop umbenennen', '', { value: l.name, ok: 'Umbenennen' });
+    if (n) next = updateLoop(loops, l.id, { name: n });
+  } else if (a === 'del') {
+    const yes = await modal(`„${l.name}“ löschen?`, '', [{ label: 'Abbrechen', value: 'no' }, { label: 'Löschen', value: 'yes', primary: true }]);
+    if (yes === 'yes') {
+      next = removeLoop(loops, l.id);
+      if (st.loop?.saved === l.id) { st.loop = null; st.loopOn = false; }
+    }
+  }
+  if (!next) return;
+  await putSong({ ...song(), loops: next });
+  // Läuft dieser Loop gerade, gilt die Änderung sofort.
+  const now = next.find((x) => x.id === l.id);
+  if (now && st.loop?.saved === l.id) Object.assign(st.loop, { start: now.start, end: now.end, pre: now.pre || 0, name: now.name });
+  paintLoops();
+  paintTransport();
+}
+
+function paintLoops() {
+  if (!st) return;
+  const loops = sortLoops(song().loops);
+  $('#sp-loops').replaceChildren(...loops.map((l) => {
+    const li = document.createElement('li');
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = `sp-mark sp-saved${st.loopOn && st.loop?.saved === l.id ? ' now' : ''}`;
+    b.setAttribute('aria-pressed', st.loopOn && st.loop?.saved === l.id ? 'true' : 'false');
+    const n = document.createElement('b'); n.textContent = `↻ ${l.name}`;
+    const t = document.createElement('small'); t.textContent = `${fmtClock(l.start)}–${fmtClock(l.end)}${l.pre ? ` · ${l.pre} s vorher` : ''}`;
+    b.append(n, t);
+    b.addEventListener('click', () => playLoop(l));
+    onLongPress(b, () => loopMenu(l));
+    li.append(b);
+    return li;
+  }));
+  $('#sp-marks-hint').hidden = loops.length > 0 || (song().marks || []).length > 0;
 }
 
 /* ---------- Abschnitte -------------------------------------------------- */
@@ -268,7 +368,7 @@ function paintMarks() {
     li.append(b);
     return li;
   }));
-  $('#sp-marks-hint').hidden = marks.length > 0;
+  $('#sp-marks-hint').hidden = marks.length > 0 || (song().loops || []).length > 0;
   // Striche auf der Zeitleiste
   const d = dur();
   $('#sp-ticks').replaceChildren(...(d > 0 ? marks : []).map((m) => {
@@ -331,7 +431,14 @@ function paintTransport() {
   }));
   const loop = $('#sp-loop');
   loop.setAttribute('aria-pressed', st.loopOn ? 'true' : 'false');
-  loop.textContent = st.loopOn && st.loop ? `Loop: ${st.loop.name}` : 'Loop';
+  // Ein gespeicherter Loop steht hervorgehoben in der Liste; der Knopf bleibt kurz.
+  loop.textContent = st.loopOn && st.loop && !st.loop.saved ? `Loop: ${st.loop.name}` : 'Loop';
+  // „Speichern“ nur für einen laufenden, noch nicht gespeicherten Loop.
+  $('#sp-saveloop').hidden = !(st.loopOn && st.loop && !st.loop.saved);
+  for (const b of $$('#sp-loops .sp-saved')) {
+    const on = st.loopOn && b.classList.contains('now');
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  }
 }
 
 function tick() {
@@ -340,7 +447,7 @@ function tick() {
   const d = dur();
   const t = st.drag ?? (p ? p.now() : 0);
   // Loop: an B zurück zu A.
-  if (p && st.loopOn && st.loop && p.playing() && t >= st.loop.end - 0.03) p.seek(st.loop.start);
+  if (p && st.loopOn && st.loop && p.playing() && !p.seeking() && t >= st.loop.end - 0.03) p.seek(loopStart(st.loop));
   $('#sp-cur').textContent = fmtClock(t);
   $('#sp-dur').textContent = d ? fmtClock(d) : '–:––';
   const frac = d ? Math.min(1, t / d) : 0;
