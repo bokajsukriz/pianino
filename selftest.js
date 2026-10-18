@@ -17,7 +17,7 @@ import {
 import { tapTempo, parseYouTubeId, scoreTaps, tapSummary, applyWann, newWann } from './tap.js';
 import { runMigrations } from './migrations.js';
 import { addMark, removeMark, markRange, markAt, nextMarkName, fmtClock } from './marks.js';
-import { classifyLine, parseTabText, chordsInText } from './tabtext.js';
+import { classifyLine, parseTabText, chordsInText, stripMarkup } from './tabtext.js';
 import {
   review, buildRound, startRound, nextEntry, afterReview, newCard, levelReady,
   countdownBeats, unlockedCardIds, postponeOverflow,
@@ -534,6 +534,15 @@ function pureTests() {
   const tabT = '[Verse]\n[ch]Am[/ch]   [ch]D/F#[/ch]\nZeile A\nF6/9  Am  C\nZeile B';
   check('15 Tab-Text: UG-Auszeichnung entfernt, Akkorde in Reihenfolge',
     parseTabText(tabT)[1].text === 'Am   D/F#' && eq(chordsInText(tabT), ['Am', 'D/F#', 'F6/9', 'C']));
+  // Beim Kopieren verlorene Zeilenumbrüche (Platzhalter statt Liedtext).
+  const glued = '```\n[Intro]Am D/F# F [Verse]Am  D/F#  F    Zeile eins mit Text Am      Dm   F    Zeile zwei endet hier?     Am     Dm       FZeile drei ohne Einzug'
+    + ' [Chorus]                C    FZeile vier ist auch da            AmZeile fuenf ganz am Ende A long line [Outro]Am D/F# FDm Dm F\n```';
+  const back = stripMarkup(glued).split('\n');
+  check('15 Tab-Text: zusammengeklebte Zeilen getrennt, Spalten bleiben',
+    eq(back.slice(0, 8), ['', '[Intro]', 'Am D/F# F', '', '[Verse]', 'Am  D/F#  F', '    Zeile eins mit Text', 'Am      Dm   F'])
+    && back.includes('     Am     Dm       F') && back.includes('Zeile drei ohne Einzug') && back.includes('                C    F')
+    && back.includes('Zeile fuenf ganz am Ende A long line') && back.includes('Dm Dm F')
+    && eq(chordsInText(glued), ['Am', 'D/F#', 'F', 'Dm', 'C']), JSON.stringify(back));
   check('15 Export ohne Tabs und Text, auf Wunsch mit', !('tabText' in JSON.parse(exportSong({ ...TS, tabText: 'Zeile A' })))
     && JSON.parse(exportSong({ ...TS, tabText: 'Zeile A' }, { lyrics: true })).tabText === 'Zeile A' && validateSong({ ...TS, chords: [], events: [] }).ok);
 

@@ -13,8 +13,7 @@ import { S, putSong, saveSettings, getPdf, putPdf, deletePdf } from './store.js'
 import { setYoutube } from './songdata.js';
 import { youtubeSource } from './timeline.js';
 import { parseYouTubeId } from './tap.js';
-import { prettyChord } from './chordsym.js';
-import { parseTabText, chordsInText } from './tabtext.js';
+import { parseTabText, chordsInText, stripMarkup } from './tabtext.js';
 import { addMark, removeMark, renameMark, moveMark, markRange, markAt, nextMarkName, sortMarks, fmtClock } from './marks.js';
 import { $, $$, showScreen, screenName, modal, ask, frameLoop, onLongPress } from './ui.js';
 
@@ -413,7 +412,8 @@ function paintText() {
   view.replaceChildren(...parseTabText(text).map((l) => {
     const div = document.createElement('div');
     div.className = `tl tl-${l.kind}`;
-    div.textContent = l.kind === 'chords' ? l.text.replace(/\S+/g, (x) => prettyChord(x)) : (l.text || ' ');
+    // Akkorde wie eingefügt (# statt ♯): ♯ ist in der Festbreitenschrift schmaler und verschöbe die Spalten.
+    div.textContent = l.text || '\u00a0';
     return div;
   }));
 }
@@ -430,7 +430,9 @@ async function toggleEdit() {
 /** Text übernehmen; neue Akkorde daraus kommen in die Akkordliste des Songs. */
 async function finishEdit() {
   st.editing = false;
-  const text = $('#sp-text-edit').value.replace(/\s+$/, '');
+  // Gespeichert wird der aufgeräumte Text (Markdown-Reste weg, zusammengeklebte
+  // Zeilen getrennt), damit „Bearbeiten“ ihn so zeigt wie die Ansicht.
+  const text = stripMarkup($('#sp-text-edit').value).replace(/\s+$/, '');
   const s = song();
   const chords = [...s.chords];
   for (const c of chordsInText(text)) if (!chords.includes(c)) chords.push(c);
