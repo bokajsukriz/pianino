@@ -7,7 +7,7 @@
    Der Service Worker fasst IndexedDB nie an. Anfragen an andere Herkünfte
    (YouTube) bearbeitet er nicht: kein Cache, kein Abfangen. */
 
-const SW_VERSION = 'v9';
+const SW_VERSION = 'v10';
 const CACHE = `pianino-shell-${SW_VERSION}`;
 const SAMPLES_CACHE = 'pianino-samples-v1';
 
@@ -67,8 +67,13 @@ const SHELL = [
   './icon-512.png',
 ];
 
+// Am HTTP-Cache des Browsers vorbei laden (cache: 'reload'): sonst landen
+// beim Update noch alte Dateien im neuen Shell-Cache (GitHub Pages schickt
+// max-age=600) und alte und neue Module mischen sich.
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(CACHE)
+    .then((c) => c.addAll(SHELL.map((u) => new Request(u, { cache: 'reload' }))))
+    .then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (e) => {
