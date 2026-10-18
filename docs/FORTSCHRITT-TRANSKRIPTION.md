@@ -55,7 +55,7 @@ was sich in der Entwicklungsumgebung nicht prüfen ließ (unten).
 ## Prüfung der Erkenner
 - [x] `ear-worker.js`: altes und neues Muster für Am, D, F, Dm, C auf 100 000 Zufalls-Chromas verglichen — Score und Urteil identisch (nur die Namen der Fehlgriff-Varianten sind anders sortiert, sie dienen nur der Anzeige)
 - [x] `hear.js`: alt gegen neu auf 8000 künstlichen Spektren (mit Fehlgriffen, Fremdtönen, Vorakkord) — identisch
-- [x] Simulation `docs/archiv/mikro-sim/` (800 Ausklänge, Salamander, `MODE=any WIN=1.0`), alter gegen neuen `hear.js`: siehe PR-Beschreibung
+- [x] Simulation `docs/archiv/mikro-sim/` (800 Ausklänge, Salamander, `MODE=any WIN=1.0`), alter gegen neuen `hear.js`: Ausgabe zeichengleich — nur rechte Hand 100 % erkannt / 0,4 % Ton daneben / 0 % anderer Akkord, mit Bass 97,5 % / 12,1 % / 2,5 %
 
 ## Abnahme in der Entwicklungsumgebung (Playwright, Chromium)
 - [x] Perfect Ruin nach dem Update da, ohne Ereignisse; Start führt zu „Transkribieren“
