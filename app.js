@@ -9,7 +9,7 @@ import { phraseDefs, guideProgress, unlocked, newPhrase } from './phrases.js';
 import { youtubeSource } from './timeline.js';
 import { runSession, pause, resume, end, sessionRunning } from './session.js';
 import { initSongs, showSongs as paintSongs, songFacts, exportOne, removeSong } from './songs.js';
-import { initSongPage, openSongPage, refreshSongPage } from './songpage.js';
+import { initSongPage, openSongPage, refreshSongPage, openMeterSheet, fromTabs, tabsHaveHeaders } from './songpage.js';
 import { openGriffe } from './exercises/griffe.js';
 import { openTranscribe } from './exercises/transcribe.js';
 import { $, $$, showScreen, setToggle, onScreen, screenName, modal, ask } from './ui.js';
@@ -92,6 +92,8 @@ async function songMenu(id) {
   const song = S.songs.get(id);
   if (!song) return;
   const a = await modal(song.title, '', [
+    { label: 'Takt und Tempo', value: 'meter' },
+    ...(tabsHaveHeaders(song) ? [{ label: 'Abschnitte aus den Tabs', value: 'fromtabs' }] : []),
     { label: 'Titel und Interpret', value: 'name' },
     { label: 'Video ändern', value: 'video' },
     { label: 'Griffe', value: 'griffe' },
@@ -101,7 +103,11 @@ async function songMenu(id) {
     { label: 'Schließen', value: '', primary: true },
   ]);
   const leave = (fn) => { afterSong = fn; $('#sp-back').click(); };
-  if (a === 'name') {
+  if (a === 'meter') {
+    openMeterSheet();
+  } else if (a === 'fromtabs') {
+    await fromTabs();
+  } else if (a === 'name') {
     const t = await ask('Titel', '', { value: song.title, ok: 'Weiter' });
     if (t == null) return;
     const ar = await ask('Interpret', '', { value: song.artist || '', ok: 'Speichern' });

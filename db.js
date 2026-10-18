@@ -26,7 +26,7 @@ import { MIGRATIONS } from './migrations.js';
 
 const DB_NAME = 'pianino';
 const DB_VERSION = 1; // Schema der IndexedDB (Stores), nicht der Daten
-export const DATA_VERSION = 2;
+export const DATA_VERSION = 3;
 
 let dbPromise = null;
 
