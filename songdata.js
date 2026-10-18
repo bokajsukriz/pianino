@@ -80,7 +80,7 @@ export function validateSong(json) {
 
   let chords = [];
   if (j.chords === undefined) err('Pflichtfeld „chords“ fehlt.');
-  else if (!Array.isArray(j.chords) || !j.chords.length) err('„chords“: mindestens ein Akkord.');
+  else if (!Array.isArray(j.chords)) err('„chords“ muss eine Liste sein (darf leer sein).');
   else {
     chords = j.chords.map((c) => (typeof c === 'string' ? c.trim() : c));
     if (!chords.every((c) => typeof c === 'string' && c)) err('„chords“: Akkordsymbole als Text.');
@@ -177,8 +177,16 @@ export function parseSongText(text) {
 /** Song als JSON-Text. Ohne Text ist voreingestellt (lyrics fallen weg). */
 export function exportSong(song, { lyrics = false } = {}) {
   const s = clone(song);
-  if (!lyrics) delete s.lyrics;
+  // Text und Tabs stammen vom Nutzer und bleiben ohne ausdrücklichen Wunsch auf dem Gerät.
+  if (!lyrics) { delete s.lyrics; delete s.tabText; }
   return `${JSON.stringify(s, null, 2)}\n`;
+}
+
+/** Neuer, leerer Song (Liedseite). id frei aus dem Titel. */
+export function newSong(title, takenIds = []) {
+  let id = idFromTitle(title);
+  if (takenIds.includes(id)) id = copyId(id, takenIds);
+  return normalizeSong({ schema: SCHEMA, id, title: String(title).trim(), beatsPerBar: 4, chords: [], sections: [], events: [], marks: [] });
 }
 
 /** Kurze Vorschau für den Import. */

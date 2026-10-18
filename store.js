@@ -98,12 +98,19 @@ export async function putSong(song) {
 /** Song löschen, mit seinem Fortschritt in „Geführt“ und „Wann“. */
 export async function deleteSong(id) {
   S.songs.delete(id);
-  const dels = [`song:${id}`];
+  const dels = [`song:${id}`, `pdf:${id}`];
   for (const k of Object.keys(S.phrases)) if (k.startsWith(`${id}:`)) { delete S.phrases[k]; dels.push(`phrase:${k}`); }
   for (const k of Object.keys(S.wann)) if (k.startsWith(`${id}:`)) { delete S.wann[k]; dels.push(`wann:${k}`); }
   await DB.putMany([], dels);
   if (S.settings.currentSong === id) await setCurrentSong(songList()[0]?.id ?? null);
 }
+
+/* ---------- PDF der Tabs (Liedseite) ------------------------------------
+   Eigener Datensatz pdf:<songId> { id, name, blob }, damit der Song klein
+   bleibt; wird erst beim Öffnen der Liedseite gelesen, nie exportiert. */
+export const getPdf = (songId) => DB.get(`pdf:${songId}`);
+export const putPdf = (songId, name, blob) => DB.put({ id: `pdf:${songId}`, name, blob });
+export const deletePdf = (songId) => DB.del(`pdf:${songId}`);
 
 /* ---------- Fortschritt je Song ---------------------------------------- */
 

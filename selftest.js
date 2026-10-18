@@ -16,6 +16,8 @@ import {
 } from './timeline.js';
 import { tapTempo, parseYouTubeId, scoreTaps, tapSummary, applyWann, newWann } from './tap.js';
 import { runMigrations } from './migrations.js';
+import { addMark, removeMark, markRange, markAt, nextMarkName, fmtClock } from './marks.js';
+import { classifyLine, parseTabText, chordsInText, stripMarkup } from './tabtext.js';
 import {
   review, buildRound, startRound, nextEntry, afterReview, newCard, levelReady,
   countdownBeats, unlockedCardIds, postponeOverflow,
@@ -515,6 +517,35 @@ function pureTests() {
   check('14 Migration 2: alte Phrasen unter archiv:, Karten und Loops unverändert',
     eq(rec(m1.records, 'archiv:phrase:z1'), { id: 'archiv:phrase:z1', solid: true, bpm: 60 }) && !rec(m1.records, 'phrase:z1')
     && eq(rec(m1.records, 'card:Am:song'), v1[4]) && eq(rec(m1.records, 'loop:am-f'), v1[5]));
+  /* 15 — Liedseite: Abschnitte (marks.js), Tab-Text (tabtext.js), Platzhalter statt Liedtext */
+  let mk = addMark([], 30.123, 'Strophe 1');
+  mk = addMark(mk, 10, 'Intro 1');
+  mk = addMark(mk, 30.2, 'Strophe X');
+  check('15 Abschnitte: sortiert, nahe Marke ersetzt, Name mit Nummer', mk.length === 2 && mk[0].name === 'Intro 1' && mk[1].name === 'Strophe X' && mk[1].sec === 30.2
+    && nextMarkName([{ name: 'Strophe 1' }, { name: 'Strophe 2' }], 'Strophe') === 'Strophe 3' && nextMarkName(mk, 'Refrain') === 'Refrain 1');
+  check('15 Abschnitte: Bereich bis zur nächsten Marke bzw. zum Ende, Marke zur Zeit',
+    eq(markRange(mk, mk[0].id, 200), { start: 10, end: 30.2 }) && eq(markRange(mk, mk[1].id, 200), { start: 30.2, end: 200 })
+    && markAt(mk, 5) === null && markAt(mk, 31).name === 'Strophe X' && removeMark(mk, mk[0].id).length === 1);
+  check('15 Uhrzeit', fmtClock(65.37) === '1:05' && fmtClock(65.37, { tenths: true }) === '1:05,3');
+  check('15 Tab-Text: Akkordzeilen, Überschriften, Gitarren-Tab, Text',
+    classifyLine('Am      D/F#   F6/9') === 'chords' && classifyLine('[Chorus]') === 'header' && classifyLine('Strophe 2:') === 'header'
+    && classifyLine('e|---0---3---|') === 'tab' && classifyLine('Zeile A') === 'text' && classifyLine('| Am | F | x2') === 'chords'
+    && classifyLine('A long line') === 'text' && classifyLine('   ') === 'blank');
+  const tabT = '[Verse]\n[ch]Am[/ch]   [ch]D/F#[/ch]\nZeile A\nF6/9  Am  C\nZeile B';
+  check('15 Tab-Text: UG-Auszeichnung entfernt, Akkorde in Reihenfolge',
+    parseTabText(tabT)[1].text === 'Am   D/F#' && eq(chordsInText(tabT), ['Am', 'D/F#', 'F6/9', 'C']));
+  // Beim Kopieren verlorene Zeilenumbrüche (Platzhalter statt Liedtext).
+  const glued = '```\n[Intro]Am D/F# F [Verse]Am  D/F#  F    Zeile eins mit Text Am      Dm   F    Zeile zwei endet hier?     Am     Dm       FZeile drei ohne Einzug'
+    + ' [Chorus]                C    FZeile vier ist auch da            AmZeile fuenf ganz am Ende A long line [Outro]Am D/F# FDm Dm F\n```';
+  const back = stripMarkup(glued).split('\n');
+  check('15 Tab-Text: zusammengeklebte Zeilen getrennt, Spalten bleiben',
+    eq(back.slice(0, 8), ['', '[Intro]', 'Am D/F# F', '', '[Verse]', 'Am  D/F#  F', '    Zeile eins mit Text', 'Am      Dm   F'])
+    && back.includes('     Am     Dm       F') && back.includes('Zeile drei ohne Einzug') && back.includes('                C    F')
+    && back.includes('Zeile fuenf ganz am Ende A long line') && back.includes('Dm Dm F')
+    && eq(chordsInText(glued), ['Am', 'D/F#', 'F', 'Dm', 'C']), JSON.stringify(back));
+  check('15 Export ohne Tabs und Text, auf Wunsch mit', !('tabText' in JSON.parse(exportSong({ ...TS, tabText: 'Zeile A' })))
+    && JSON.parse(exportSong({ ...TS, tabText: 'Zeile A' }, { lyrics: true })).tabText === 'Zeile A' && validateSong({ ...TS, chords: [], events: [] }).ok);
+
   check('14 Migration 2: zweiter Lauf ändert nichts', m2.steps[0].put.length === 0 && m2.steps[0].del.length === 0 && eq(m2.records, m1.records));
   }
   return T;

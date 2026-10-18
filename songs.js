@@ -1,20 +1,23 @@
-/* songs.js — Screens „Songs“ und „Import“: Liste, aktueller Song,
-   Importieren (Datei oder eingefügt), Exportieren (ohne Text voreingestellt),
-   Löschen mit Rückfrage. Prüfen und Normalisieren rein in songdata.js. */
+/* songs.js — Startpunkt „Songs“ und „Import“: Liste der Songs (Antippen
+   öffnet die Liedseite), neuer Song, Importieren (Datei oder eingefügt),
+   Exportieren (ohne Text voreingestellt), Löschen mit Rückfrage. Prüfen und
+   Normalisieren rein in songdata.js. */
 
 import { S, songList, currentSong, setCurrentSong, putSong, deleteSong } from './store.js';
-import { parseSongText, exportSong, songSummary, copyId } from './songdata.js';
+import { parseSongText, exportSong, songSummary, copyId, newSong } from './songdata.js';
 import { prettyChord } from './chordsym.js';
-import { $, showScreen, modal } from './ui.js';
+import { $, showScreen, modal, ask } from './ui.js';
 import { logError } from './log.js';
 
-let hooks = { practice: () => {}, griffe: () => {}, transcribe: () => {}, home: () => {} };
+let hooks = { open: () => {}, practice: () => {} };
 let pending = null; // geprüfter Song im Import
 
-/** Verdrahten. h: { practice(id), griffe(id), transcribe(id), home() } */
+/** Verdrahten. h: { open(id) Liedseite, practice() Übungen } */
 export function initSongs(h) {
   hooks = { ...hooks, ...h };
   $('#songs-import').addEventListener('click', openImport);
+  $('#songs-new').addEventListener('click', createSong);
+  $('#songs-practice').addEventListener('click', () => hooks.practice());
   $('#imp-back').addEventListener('click', showSongs);
   $('#imp-file').addEventListener('change', async (e) => {
     const f = e.target.files?.[0];
@@ -27,7 +30,7 @@ export function initSongs(h) {
   $('#imp-ok').addEventListener('click', take);
 }
 
-/** Zeile „12 Wechsel · 3 Abschnitte · Video“ zu einem Song. */
+/** Zeile „12 Wechsel · 3 Abschnitte · Video“ zu einem Song (Übungen). */
 export function songFacts(song) {
   const parts = [];
   parts.push(song.events.length ? `${song.events.length} Wechsel` : 'noch keine Wechsel');
@@ -41,39 +44,35 @@ export function showSongs() {
   const cur = currentSong();
   const mk = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
   $('#song-list').replaceChildren(...songList().map((song) => {
-    const li = mk('li', `card song-item${song.id === cur?.id ? ' current' : ''}`);
-    const head = mk('div', 'card-head');
-    const h = mk('h2', 'h2', song.title);
-    head.append(h);
-    if (song.id === cur?.id) head.append(mk('span', 'badge', 'aktuell'));
-    const by = mk('p', 'small muted', [song.artist, song.key].filter(Boolean).join(' · '));
-    const facts = mk('p', 'small muted', songFacts(song));
-    const chords = mk('p', 'song-chords', song.chords.map(prettyChord).join('  '));
-    const row = mk('div', 'song-actions');
-    const btn = (label, fn, cls = 'btn btn-secondary btn-sm') => { const b = mk('button', cls, label); b.type = 'button'; b.addEventListener('click', fn); return b; };
-    row.append(
-      btn('Üben', () => practice(song.id), 'btn btn-primary btn-sm'),
-      btn('Griffe', () => hooks.griffe(song.id)),
-      btn('Transkribieren', () => hooks.transcribe(song.id)),
-      btn('Exportieren', () => exportOne(song)),
-      btn('Löschen', () => remove(song)),
-    );
-    li.append(head, by, facts, chords, row);
+    const li = mk('li');
+    const b = mk('button', `card song-item${song.id === cur?.id ? ' current' : ''}`);
+    b.type = 'button';
+    b.append(mk('span', 'song-item-title', song.title));
+    const by = [song.artist, song.tabText ? 'Tabs' : '', song.sources.some((x) => x.type === 'youtube' && x.videoId) ? 'Video' : '',
+      song.marks?.length ? `${song.marks.length} ${song.marks.length === 1 ? 'Abschnitt' : 'Abschnitte'}` : ''].filter(Boolean).join(' · ');
+    if (by) b.append(mk('span', 'small muted', by));
+    b.addEventListener('click', async () => { await setCurrentSong(song.id); hooks.open(song.id); });
+    li.append(b);
     return li;
   }));
   showScreen('songs');
 }
 
-async function practice(id) {
-  await setCurrentSong(id);
-  hooks.practice(id);
+/** Neuer Song: Titel, dann gleich die Liedseite. */
+async function createSong() {
+  const title = await ask('Neuer Song', 'Titel (Interpret kommt in der Liedseite unter „Mehr“).', { placeholder: 'z. B. Perfect Ruin', ok: 'Anlegen' });
+  if (!title) return;
+  const song = newSong(title, [...S.songs.keys()]);
+  await putSong(song);
+  await setCurrentSong(song.id);
+  hooks.open(song.id);
 }
 
-/** Datei anbieten; Text nur auf Wunsch. */
-async function exportOne(song) {
+/** Datei anbieten; Text und Tabs nur auf Wunsch. */
+export async function exportOne(song) {
   let lyrics = false;
-  if (song.lyrics?.some((l) => l.line)) {
-    const a = await modal('Exportieren', 'Der Text bleibt sonst nur auf diesem Gerät.',
+  if (song.lyrics?.some((l) => l.line) || song.tabText) {
+    const a = await modal('Exportieren', 'Text und Tabs bleiben sonst nur auf diesem Gerät. Ein PDF wird nie exportiert.',
       [{ label: 'Abbrechen', value: 'no' }, { label: 'Mit Text', value: 'with' }, { label: 'Ohne Text', value: 'without', primary: true }]);
     if (a === 'no') return;
     lyrics = a === 'with';
@@ -94,16 +93,17 @@ async function exportOne(song) {
   }
 }
 
-async function remove(song) {
+/** → true, wenn gelöscht. */
+export async function removeSong(song) {
   if (S.songs.size <= 1) {
-    await modal('Löschen', 'Der letzte Song lässt sich nicht löschen. Importiere erst einen anderen.', [{ label: 'OK', value: 'ok', primary: true }]);
-    return;
+    await modal('Löschen', 'Der letzte Song lässt sich nicht löschen. Leg erst einen anderen an.', [{ label: 'OK', value: 'ok', primary: true }]);
+    return false;
   }
-  const a = await modal(`„${song.title}“ löschen?`, 'Wechsel, Griffe, Abschnitte und der Übe-Fortschritt dieses Songs gehen verloren. Vorher exportieren?',
+  const a = await modal(`„${song.title}“ löschen?`, 'Tabs, PDF, Abschnitte, Griffe, Wechsel und der Übe-Fortschritt dieses Songs gehen verloren. Vorher exportieren?',
     [{ label: 'Abbrechen', value: 'no' }, { label: 'Löschen', value: 'yes', primary: true }]);
-  if (a !== 'yes') return;
+  if (a !== 'yes') return false;
   await deleteSong(song.id);
-  showSongs();
+  return true;
 }
 
 /* ---------- Import ----------------------------------------------------- */
