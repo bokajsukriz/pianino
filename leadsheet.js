@@ -117,7 +117,9 @@ export function setBeatsPerBar(song, n) {
 }
 
 /** Akkord ab Schlag `beat` setzen (null: kein Wechsel hier). */
-export function setChordAt(song, beat, chord, again = false) {
+/** Folgt auf denselben Akkord noch einmal derselbe, geht keiner verloren:
+ *  der zweite wird als Neuanschlag (`again`) behalten. */
+export function setChordAt(song, beat, chord, again = true) {
   return chord ? setEvent(song, beat, chord, again) : removeEvent(song, beat);
 }
 
@@ -304,7 +306,9 @@ export function sectionsFromTabs(song, text) {
   }
   const chords = [...(song.chords || [])];
   for (const e of events) if (!chords.includes(e.chord)) chords.push(e.chord);
-  return normalizeSong({ ...s, chords, events: events.sort((a, b) => a.at - b.at) });
+  // Zweimal derselbe Akkord hintereinander: der zweite bleibt als Neuanschlag.
+  const sortedEv = events.sort((a, b) => a.at - b.at).map((e, i, all) => (i && all[i - 1].chord === e.chord ? { ...e, again: true } : e));
+  return normalizeSong({ ...s, chords, events: sortedEv });
 }
 
 /** Alte Abschnitts-Marken (Sekunden) in Abschnitte mit Startzeit umwandeln.
