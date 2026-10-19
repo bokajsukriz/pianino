@@ -20,7 +20,7 @@ Akkorde, Teile oder Tempo. Ohne Link: Titel und Interpret eintippen.
 Danach startet ein Assistent auf der Liedseite
 (`songwizard.js`): 1 YouTube-Link, 2 beim Abspielen am Anfang jedes Teils
 seinen Namen tippen und einmal das Tempo mittippen (die Takte ergeben sich
-daraus), 3 Akkorde anlegen (Tabs einfügen oder „+ Akkord“) und beim
+daraus), 3 Akkorde anlegen („+ Akkord“) und beim
 Abspielen den Akkord tippen, sobald er wechselt (`tapChordAt`, auf ganze
 Schläge gerundet; Tasten 1–9), 4 je Akkord die Tasten im Griff-Editor.
 Später wieder über „Mehr“ → „Assistent“.
@@ -46,14 +46,13 @@ Vorlauf (ohne Tempo 2 s), der ↻-Knopf zählt bis zum Einsatz herunter. Abschni
 Startzeit im Video, auch wenn man sie in anderer Reihenfolge anlegt. Mit
 Tempo ergeben sich die Takte eines Abschnitts aus dem Abstand zum nächsten
 Start (gerundet), bis man sie selbst ändert („aus der Zeit“ stellt das
-zurück). „Abschnitte aus den Tabs“ macht aus den Überschriften der Tabs
-Abschnitte (eine Akkordzeile = 2 Takte, nur ein Vorschlag). Tabs sind
-eingefügter Text (z. B. bei Ultimate Guitar kopiert; Akkordzeilen
-hervorgehoben, Schrift größer/kleiner, die Akkorde landen in der
-Akkordliste des Songs). Ein iframe von Ultimate Guitar geht nicht (die
-Seite verbietet das Einbetten). Der Text bleibt auf dem Gerät. Tasten:
-Leertaste, ←/→, Esc. (A–B-Loops, gespeicherte Loops und die PDF-Ansicht gibt
-es in der Oberfläche nicht mehr; vorhandene Daten bleiben unberührt.)
+zurück). Bereits vorhandene Tabs (eingefügter Text, bleibt auf dem Gerät) stehen
+weiter unter ihren Abschnitten, und „Mehr“ → „Abschnitte aus den Tabs“ macht
+aus ihren Überschriften Abschnitte (eine Akkordzeile = 2 Takte, nur ein
+Vorschlag). Neue Tabs lassen sich in der Oberfläche nicht mehr einfügen, auch
+keine Schriftgröße mehr einstellen; A–B-Loops, gespeicherte Loops und die
+PDF-Ansicht gibt es ebenfalls nicht mehr (vorhandene Daten bleiben
+unberührt). Tasten: Leertaste, ←/→, Esc.
 
 **Folgen üben** (`drillpage.js`, rein: `drill.js`): von der Liedseite (Knopf
 „Folgen üben“ für den ganzen Song, ⋯ an der Karte für einen Abschnitt). Die

@@ -543,7 +543,6 @@ button.band-ev { cursor: pointer; min-height: 30px; font: inherit; font-weight: 
 .sp-play:focus-visible, .sp-round:focus-visible { outline: 3px solid var(--accent-text); outline-offset: 3px; }
 .sp-tabs { display: flex; flex-direction: column; gap: 8px; --tab-size: 15px; }
 .sp-tabbar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-.sp-tabbar .sp-add { margin-left: auto; }
 #sp-sheetview { display: flex; flex-direction: column; gap: 10px; padding-bottom: 40px; }
 #sp-sheetview[hidden] { display: none; }
 .sp-text { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: var(--tab-size); line-height: 1.35; overflow-x: auto; }
@@ -552,7 +551,6 @@ button.band-ev { cursor: pointer; min-height: 30px; font: inherit; font-weight: 
 .sp-text .tl-header { font-family: var(--font); font-weight: 800; color: var(--text); margin-top: .7em; }
 .sp-text .tl-source { font-family: var(--font); font-size: 12px; font-weight: 700; color: var(--muted); }
 .sp-text .tl-tab { color: var(--muted); }
-.sp-text-edit { width: 100%; min-height: 50dvh; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; border: 2px solid var(--line); border-radius: 12px; padding: 10px; background: var(--surface); color: var(--text); }
 .sp-empty { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
 .sp-empty p { margin: 0; }
 .sp-rest-h { margin: 6px 0 0; font-size: 15px; }
