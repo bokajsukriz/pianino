@@ -9,7 +9,7 @@ import { phraseDefs, guideProgress, unlocked, newPhrase } from './phrases.js';
 import { youtubeSource } from './timeline.js';
 import { runSession, pause, resume, end, sessionRunning } from './session.js';
 import { initSongs, showSongs as paintSongs, songFacts, exportOne, removeSong } from './songs.js';
-import { initSongPage, openSongPage, refreshSongPage, openMeterSheet, fromTabs, tabsHaveHeaders, openWizard } from './songpage.js';
+import { initSongPage, openSongPage } from './songpage.js';
 import { openGriffe } from './exercises/griffe.js';
 import { openTranscribe } from './exercises/transcribe.js';
 import { $, $$, showScreen, setToggle, onScreen, screenName, modal, ask } from './ui.js';
@@ -77,7 +77,7 @@ function showSongs() {
 }
 
 /* ---------- Liedseite --------------------------------------------------- */
-let afterSong = null; // was nach „Zurück“ von der Liedseite kommt (Menü „Mehr“)
+let afterSong = null; // was nach „Zurück“ von der Liedseite kommt (Einstellungen)
 
 async function toSongPage(id, opts = {}) {
   afterSong = null;
@@ -87,39 +87,10 @@ async function toSongPage(id, opts = {}) {
   next();
 }
 
-/** Menü „Mehr“ der Liedseite. */
-async function songMenu(id) {
-  const song = S.songs.get(id);
-  if (!song) return;
-  const a = await modal(song.title, '', [
-    { label: 'Takt und Tempo', value: 'meter' },
-    { label: 'Assistent', value: 'wizard' },
-    ...(tabsHaveHeaders(song) ? [{ label: 'Abschnitte aus den Tabs', value: 'fromtabs' }] : []),
-    { label: 'Titel und Interpret', value: 'name' },
-    { label: 'Video ändern', value: 'video' },
-    { label: 'Griffe', value: 'griffe' },
-    { label: 'Damit üben', value: 'practice' },
-    { label: 'Exportieren', value: 'export' },
-    { label: 'Löschen', value: 'delete' },
-    { label: 'Schließen', value: '', primary: true },
-  ]);
+/** Aktionen aus den Einstellungen der Liedseite (Zahnrad), die die Seite verlassen. */
+async function songAction(id, a) {
   const leave = (fn) => { afterSong = fn; $('#sp-back').click(); };
-  if (a === 'meter') {
-    openMeterSheet();
-  } else if (a === 'wizard') {
-    openWizard();
-  } else if (a === 'fromtabs') {
-    await fromTabs();
-  } else if (a === 'name') {
-    const t = await ask('Titel', '', { value: song.title, ok: 'Weiter' });
-    if (t == null) return;
-    const ar = await ask('Interpret', '', { value: song.artist || '', ok: 'Speichern' });
-    await putSong({ ...S.songs.get(id), title: t || song.title, artist: ar ?? song.artist });
-    refreshSongPage();
-  } else if (a === 'video') {
-    $('#sp-novideo').hidden = false;
-    $('#sp-url').focus();
-  } else if (a === 'griffe') {
+  if (a === 'griffe') {
     leave(() => toGriffe(id, () => toSongPage(id)));
   } else if (a === 'practice') {
     await setCurrentSong(id);
@@ -289,7 +260,7 @@ function wire() {
   for (const b of $$('[data-home]')) b.addEventListener('click', showStart);
   initSongs({ open: toSongPage, practice: showStart });
   initSongPage({
-    menu: songMenu,
+    action: songAction,
     // Assistent, Schritt „Griffe“: Editor für den Akkord, danach zurück in den Assistenten.
     griffe: (id, sym) => { afterSong = () => toGriffe(id, () => toSongPage(id, { wizard: 'grips' }), sym); $('#sp-back').click(); },
   });
