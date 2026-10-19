@@ -514,6 +514,24 @@ button.band-ev { cursor: pointer; min-height: 30px; font: inherit; font-weight: 
 .sp-titles { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
 .sp-title { margin: 0; font-size: 22px; font-weight: 800; line-height: 1.15; }
 .sp-artist { color: var(--muted); font-weight: 650; font-size: 15px; }
+/* Einstellungen des Songs: Zahnrad oben rechts, geöffnet als X; Titel und
+   Interpret werden direkt in der Titelleiste bearbeitbar. */
+.sp-name-in { min-width: 0; font: inherit; color: var(--text); background: var(--surface); border: 2px solid var(--line); border-radius: 10px; padding: 4px 8px; }
+.sp-title-in { flex: 2 1 140px; font-size: 20px; font-weight: 800; }
+.sp-artist-in { flex: 1 1 100px; font-size: 15px; font-weight: 650; }
+.sp-name-in[hidden] { display: none; }
+#sp-gear[hidden], #sp-x[hidden] { display: none; }
+#sp-more[aria-expanded="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.sp-settings { border: 2px solid var(--line); border-radius: 14px; background: var(--surface); padding: 8px 10px; margin: 4px 0 8px; display: flex; flex-direction: column; gap: 8px; max-height: 60dvh; overflow-y: auto; }
+.sp-settings[hidden] { display: none; }
+.sp-set-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sp-set-row .sp-lab { margin: 0; min-width: 3.4em; }
+.sp-set-row .sp-round { width: 38px; height: 38px; }
+.sp-set-row .sp-stepper b { min-width: 30px; font-size: 18px; }
+.sp-set-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.sp-set-actions .btn { padding: 4px 12px; }
+.sp-danger { color: #b3261e; border-color: #b3261e; }
+
 .sp-body { display: flex; flex-direction: column; gap: 12px; }
 .sp-sec { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .sp-player { display: flex; flex-direction: column; gap: 6px; flex: none; width: 200px; }
@@ -546,7 +564,6 @@ button.band-ev { cursor: pointer; min-height: 30px; font: inherit; font-weight: 
 .sp-play:disabled, .sp-round:disabled { opacity: .45; cursor: default; }
 .sp-play:focus-visible, .sp-round:focus-visible { outline: 3px solid var(--accent-text); outline-offset: 3px; }
 .sp-tabs { display: flex; flex-direction: column; gap: 8px; --tab-size: 15px; }
-.sp-tabbar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 #sp-sheetview { display: flex; flex-direction: column; gap: 10px; padding-bottom: 40px; }
 #sp-sheetview[hidden] { display: none; }
 .sp-text { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: var(--tab-size); line-height: 1.35; overflow-x: auto; }
@@ -588,6 +605,9 @@ button.band-ev { cursor: pointer; min-height: 30px; font: inherit; font-weight: 
   color: var(--text); font: inherit; font-weight: 800; font-size: 17px; cursor: pointer; touch-action: manipulation;
   -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
 }
+.sp-ch-drill { min-width: 46px; padding: 0 10px; background: var(--accent); border-color: var(--accent); color: var(--accent-ink); display: grid; place-items: center; margin-right: 4px; }
+.sp-ch-drill svg { display: block; }
+.sp-addsec { align-self: flex-start; }
 .sp-ch:active, .sp-ch.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 .sp-ch.std { border-style: dashed; }
 .sp-gripkb { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }

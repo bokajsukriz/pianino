@@ -47,7 +47,7 @@ const unitLabel = (n) => (n === 6 ? 'Achtel' : 'Viertel');
 
 let st = null;
 let wired = false;
-let hooks = { menu: async () => {}, griffe: () => {} };
+let hooks = { action: async () => {}, griffe: () => {} };
 
 const song = () => S.songs.get(st.songId);
 const dur = () => st.player?.duration() || youtubeSource(song())?.durationSec || 0;
@@ -65,6 +65,7 @@ async function save(next) {
   paintTransport();
   refreshSheet();
   paintWizard();
+  paintSettings();
 }
 
 /** Nach Startzeit ordnen, dann Takte aus Tempo und Zeit (wo nicht von Hand). */
@@ -87,7 +88,8 @@ function button(cls, text, onClick, label = null) {
 
 /* ---------- Verdrahtung ------------------------------------------------- */
 
-/** h.menu(songId): Menü „Mehr“ (Exportieren, Löschen, Üben …), von app.js;
+/** h.action(songId, name): Griffe, Üben, Exportieren, Löschen (verlassen die
+ *  Liedseite oder brauchen die App), von app.js;
  *  h.griffe(songId, symbol): Griff-Editor für einen Akkord (Assistent). */
 export function initSongPage(h) {
   hooks = { ...hooks, ...h };
@@ -97,7 +99,10 @@ function wire() {
   if (wired) return;
   wired = true;
   $('#sp-back').addEventListener('click', close);
-  $('#sp-more').addEventListener('click', () => hooks.menu(st.songId));
+  $('#sp-more').addEventListener('click', () => toggleSettings());
+  // Titel und Interpret in der Titelleiste (nur bei geöffneten Einstellungen sichtbar).
+  for (const id of ['title', 'artist']) $(`#sp-${id}-in`).addEventListener('change', saveName);
+  $('#sp-settings').addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.closest('input')) e.target.blur(); });
   $('#sp-play').addEventListener('click', togglePlay);
   $('#sp-rew').addEventListener('click', () => skip(-SKIP));
   $('#sp-fwd').addEventListener('click', () => skip(SKIP));
@@ -108,7 +113,6 @@ function wire() {
   wireTrack();
   $('#sp-addsec').addEventListener('click', addHere);
   $('#sp-fromtabs').addEventListener('click', fromTabs);
-  $('#sp-drill').addEventListener('click', () => drill());
   $('#sp-sheet-close').addEventListener('click', closeSheet);
   initWizard(wizardApi);
   // Tabs
@@ -136,7 +140,7 @@ export function openSongPage(songId, { wizard = null } = {}) {
   return new Promise((resolve) => {
     st = {
       songId, resolve, player: null, loop: null, loopOn: false, rate: 1,
-      stop: null, drag: null, lastPos: null, lastSec: null, leadLeft: null, folded: new Set(), sheet: null, taps: [],
+      stop: null, drag: null, lastPos: null, lastSec: null, leadLeft: null, folded: new Set(), sheet: null, taps: [], beatTaps: [], settings: false,
     };
     $('#sp-title').textContent = s.title;
     $('#sp-artist').textContent = s.artist || '';
@@ -159,6 +163,7 @@ export function openSongPage(songId, { wizard = null } = {}) {
 
 function close() {
   if (!st) return;
+  if (st.settings) toggleSettings(false);
   stopWizard();
   closeSheet();
   st.stop?.();
@@ -173,6 +178,100 @@ export function refreshSongPage() {
   if (!st) return;
   $('#sp-title').textContent = song().title;
   $('#sp-artist').textContent = song().artist || '';
+  if (!st.settings) return;
+  if (document.activeElement !== $('#sp-title-in')) $('#sp-title-in').value = song().title;
+  if (document.activeElement !== $('#sp-artist-in')) $('#sp-artist-in').value = song().artist || '';
+}
+
+/* ---------- Einstellungen (Zahnrad) ------------------------------------- */
+
+async function saveName() {
+  if (!st) return;
+  const t = $('#sp-title-in').value.trim(), a = $('#sp-artist-in').value.trim();
+  const s = song();
+  if (!t) { $('#sp-title-in').value = s.title; return; } // ein Titel muss bleiben
+  if (t === s.title && a === (s.artist || '')) return;
+  await putSong({ ...s, title: t, artist: a });
+  refreshSongPage();
+}
+
+/** Zahnrad ↔ X: Einstellungen auf/zu. */
+function toggleSettings(open = !st.settings) {
+  if (!!open === !!st.settings) return;
+  if (!open) document.activeElement?.blur?.(); // offene Eingabe übernehmen
+  st.settings = !!open;
+  if (open) closeSheet();
+  const b = $('#sp-more');
+  b.setAttribute('aria-expanded', open ? 'true' : 'false');
+  b.setAttribute('aria-label', open ? 'Einstellungen schließen' : 'Einstellungen');
+  $('#sp-gear').toggleAttribute('hidden', !!open); // SVG kennt .hidden nicht
+  $('#sp-x').toggleAttribute('hidden', !open);
+  $('#sp-settings').hidden = !open;
+  for (const id of ['title', 'artist']) { $(`#sp-${id}`).hidden = !!open; $(`#sp-${id}-in`).hidden = !open; }
+  if (open) { refreshSongPage(); paintSettings(); }
+  reserveSpace();
+}
+
+/** Taktart ändern (Akkorde, die im kürzeren Takt keinen Platz haben, fallen weg). */
+async function changeMeter(n) {
+  const s = song(), bpb = s.beatsPerBar;
+  if (n === bpb) return;
+  if (n < bpb && s.events.some((e) => (e.at % bpb) >= n - EPS)) {
+    const a = await modal(`Auf ${meterLabel(n)} umstellen?`, `Akkorde auf Schlag ${n + 1}${bpb > n + 1 ? ` bis ${bpb}` : ''} fallen weg.`, [
+      { label: 'Abbrechen', value: '' }, { label: 'Umstellen', value: 'yes', primary: true },
+    ]);
+    if (a !== 'yes' || !st) return;
+  }
+  await save(tidy(setBeatsPerBar(song(), n)));
+}
+const changeBpm = (bpm) => save(tidy({ ...song(), bpm }));
+const stepBpm = (by) => changeBpm(Math.max(30, Math.min(240, (song().bpm || 80) + by)));
+function tapBeat() {
+  const now = performance.now() / 1000;
+  if (st.beatTaps.length && now - st.beatTaps[st.beatTaps.length - 1] > 2) st.beatTaps = [];
+  st.beatTaps.push(now);
+  const r = tapTempo(st.beatTaps);
+  if (r.bpm) changeBpm(r.bpm);
+  else $('#sp-tapnote').textContent = `Weiter tippen (noch ${r.need}×) …`;
+}
+
+/** Einstellungen zeichnen: Takt, Tempo, Aktionen. */
+function paintSettings() {
+  if (!st?.settings) return;
+  const s = song(), bpb = s.beatsPerBar;
+  const meters = el('div', 'seg');
+  meters.setAttribute('role', 'group');
+  meters.setAttribute('aria-label', 'Taktart');
+  for (const n of METERS) {
+    const b = button('seg-btn', meterLabel(n), () => changeMeter(n));
+    b.setAttribute('aria-pressed', n === bpb ? 'true' : 'false');
+    meters.append(b);
+  }
+  const tapNote = el('span', 'small muted', st.beatTaps.length > 1 ? `${st.beatTaps.length} Tipps` : '');
+  tapNote.id = 'sp-tapnote';
+  const act = (text, fn, cls = 'btn btn-secondary btn-sm') => button(cls, text, fn);
+  const leaveTo = (name) => () => { toggleSettings(false); hooks.action(st.songId, name); };
+  const actions = el('div', 'sp-set-actions');
+  actions.append(
+    act('Assistent', () => { toggleSettings(false); startWizard('video'); }),
+    ...(tabsHaveHeaders(s) ? [act('Abschnitte aus den Tabs', () => { toggleSettings(false); fromTabs(); })] : []),
+    act('Video ändern', () => { toggleSettings(false); $('#sp-novideo').hidden = false; $('#sp-url').focus(); }),
+    act('Griffe', leaveTo('griffe')),
+    act('Damit üben', leaveTo('practice')),
+    act('Exportieren', leaveTo('export')),
+    act('Löschen', leaveTo('delete'), 'btn btn-secondary btn-sm sp-danger'),
+  );
+  const takt = el('div', 'sp-set-row');
+  takt.append(el('span', 'sp-lab', 'Takt'), meters);
+  const tempo = el('div', 'sp-set-row');
+  tempo.append(
+    el('span', 'sp-lab', 'Tempo'),
+    stepper(s.bpm ? String(s.bpm) : '–', stepBpm, 'Tempo'),
+    button('btn btn-secondary btn-sm', 'Tippen', tapBeat, `Tempo tippen (je ${unitLabel(bpb)})`),
+    ...(s.bpm ? [button('btn btn-ghost btn-sm', 'ohne', () => changeBpm(null))] : []),
+    tapNote,
+  );
+  $('#sp-settings').replaceChildren(takt, tempo, actions);
 }
 
 /* ---------- Video ------------------------------------------------------- */
@@ -356,7 +455,7 @@ function whyNoRange(id) {
   const sec = song().sections.find((x) => x.id === id);
   const tm = sectionTimes(song(), dur()).find((x) => x.id === id);
   if (tm?.start == null) return `Für „${sec?.name}“ fehlt die Startzeit: im Video an den Anfang spulen, dann ⋯ → „Start hier“.`;
-  return `Für „${sec?.name}“ fehlt das Ende: Tempo setzen (Mehr → Takt und Tempo) oder beim nächsten Abschnitt „Start hier“.`;
+  return `Für „${sec?.name}“ fehlt das Ende: Tempo setzen (Zahnrad oben) oder beim nächsten Abschnitt „Start hier“.`;
 }
 
 /** Abschnitt als Loop (↻ an der Karte). Noch einmal: Loop aus. */
@@ -452,10 +551,6 @@ const wizardApi = {
   griffe: (sym) => hooks.griffe(st.songId, sym),
 };
 
-/** Assistent von „Mehr“ aus (wieder) starten. */
-export function openWizard() {
-  if (st) startWizard('video');
-}
 
 /** Namensauswahl: Vorschläge als Knöpfe, „Anderer …“ als Eingabe. */
 async function pickName() {
@@ -470,7 +565,7 @@ async function pickName() {
 }
 
 /** Abschnitte (mit Vorschlag für die Akkorde) aus den Überschriften der Tabs. */
-export async function fromTabs() {
+async function fromTabs() {
   if (!st) return;
   const s = song();
   if (!tabBlocks(s.tabText || '').some((b) => b.header)) {
@@ -490,14 +585,14 @@ export async function fromTabs() {
 }
 
 /** Gibt es Überschriften in den Tabs (für „Abschnitte aus den Tabs“)? */
-export const tabsHaveHeaders = (s) => tabBlocks(s?.tabText || '').some((b) => b.header);
+const tabsHaveHeaders = (s) => tabBlocks(s?.tabText || '').some((b) => b.header);
 
 /** „Folgen üben“: die Abschnitte (bzw. nur `sectionIds`) in 2-Takt-Folgen
  *  zum Klick. Das Video hält an; zurück geht es an dieselbe Stelle. */
 async function drill(sectionIds = null) {
   const chunks = drillChunks(song(), { sectionIds });
   if (!chunks.length) {
-    await modal('Noch keine Akkorde', 'Erst im Raster Akkorde setzen (Zelle antippen) – oder unter „Mehr“ die Abschnitte aus den Tabs anlegen.', [{ label: 'OK', value: '', primary: true }]);
+    await modal('Noch keine Akkorde', 'Erst im Raster Akkorde setzen (Zelle antippen) – oder im Zahnrad (oben) die Abschnitte aus den Tabs anlegen.', [{ label: 'OK', value: '', primary: true }]);
     return;
   }
   closeSheet();
@@ -709,7 +804,6 @@ function refreshSheet() {
   if (k.kind === 'chord') chordSheet(k.arg);
   else if (k.kind === 'grip') gripSheet(k.arg);
   else if (k.kind === 'section') sectionSheet(k.arg);
-  else if (k.kind === 'meter') openMeterSheet();
 }
 
 const label = (text) => el('div', 'sp-lab', text);
@@ -748,7 +842,21 @@ async function hearChord(sym) {
 /** Akkordzeile unten: Antippen hört den Akkord, Halten öffnet die Tasten. */
 function paintChordBar() {
   const s = song();
-  $('#sp-chordbar').replaceChildren(...songChords(s).map((sym) => {
+  // Ganz vorn: Folgen üben (Symbol: Pfeil im Kreis mit Folge).
+  const ns = 'http://www.w3.org/2000/svg';
+  const icon = document.createElementNS(ns, 'svg');
+  icon.setAttribute('viewBox', '0 0 24 24'); icon.setAttribute('width', '24'); icon.setAttribute('height', '24');
+  icon.setAttribute('aria-hidden', 'true'); icon.setAttribute('fill', 'none'); icon.setAttribute('stroke', 'currentColor');
+  icon.setAttribute('stroke-width', '2.2'); icon.setAttribute('stroke-linecap', 'round'); icon.setAttribute('stroke-linejoin', 'round');
+  for (const d of ['M3 6h8M3 12h5M3 18h8', 'M14 7l7 5-7 5z']) {
+    const path = document.createElementNS(ns, 'path');
+    path.setAttribute('d', d);
+    icon.append(path);
+  }
+  const drillBtn = button('sp-ch sp-ch-drill', null, () => drill(), 'Folgen üben');
+  drillBtn.title = 'Folgen üben';
+  drillBtn.append(icon);
+  $('#sp-chordbar').replaceChildren(drillBtn, ...songChords(s).map((sym) => {
     const own = !!s.voicings?.[sym];
     const b = button(`sp-ch${own ? '' : ' std'}`, prettyChord(sym), () => hearChord(sym), `${sym}: antippen zum Anhören, halten für die Tasten`);
     b.dataset.sym = sym;
@@ -905,55 +1013,6 @@ function sectionSheet(id) {
   ]);
 }
 
-/** „Takt und Tempo“ (aus „Mehr“). */
-export function openMeterSheet() {
-  if (!st) return;
-  const s = song();
-  const bpb = s.beatsPerBar;
-  const setMeter = async (n) => {
-    if (n === bpb) return;
-    if (n < bpb && s.events.some((e) => (e.at % bpb) >= n - EPS)) {
-      const a = await modal(`Auf ${meterLabel(n)} umstellen?`, `Akkorde auf Schlag ${n + 1}${bpb > n + 1 ? ` bis ${bpb}` : ''} fallen weg.`, [
-        { label: 'Abbrechen', value: '' }, { label: 'Umstellen', value: 'yes', primary: true },
-      ]);
-      if (a !== 'yes' || !st) return;
-    }
-    await save(tidy(setBeatsPerBar(song(), n)));
-  };
-  const setBpm = (bpm) => save(tidy({ ...song(), bpm }));
-  const step = (by) => setBpm(Math.max(30, Math.min(240, (song().bpm || 80) + by)));
-  const tap = () => {
-    const now = performance.now() / 1000;
-    if (st.taps.length && now - st.taps[st.taps.length - 1] > 2) st.taps = [];
-    st.taps.push(now);
-    const r = tapTempo(st.taps);
-    if (r.bpm) setBpm(r.bpm);
-    else $('#sp-tapnote').textContent = `Weiter tippen (noch ${r.need}×) …`;
-  };
-  const meters = el('div', 'seg');
-  meters.setAttribute('role', 'group');
-  meters.setAttribute('aria-label', 'Taktart');
-  for (const n of METERS) {
-    const b = button('seg-btn', meterLabel(n), () => setMeter(n));
-    b.setAttribute('aria-pressed', n === bpb ? 'true' : 'false');
-    meters.append(b);
-  }
-  const tapNote = el('span', 'small muted', st.taps.length > 1 ? `${st.taps.length} Tipps` : '');
-  tapNote.id = 'sp-tapnote';
-  openSheet('meter', null, 'Takt und Tempo',
-    `Mit Tempo und der Startzeit des ersten Abschnitts läuft die Markierung im Raster mit dem Video mit; Abschnitte ohne eigene Startzeit rechnen sich daraus. Tempo in ${unitLabel(bpb)}n pro Minute.`, [
-      label('Taktart'),
-      meters,
-      label('Tempo'),
-      row(
-        stepper(s.bpm ? String(s.bpm) : '–', step, 'Tempo'),
-        button('btn btn-secondary btn-sm', 'Tippen', tap, `Tempo tippen (je ${unitLabel(bpb)})`),
-        ...(s.bpm ? [button('btn btn-ghost btn-sm', 'ohne', () => setBpm(null))] : []),
-        tapNote,
-      ),
-    ]);
-}
-
 /* ---------- Zeitleiste (ziehen zum Spulen) ----------------------------- */
 
 function wireTrack() {
@@ -1095,6 +1154,7 @@ function followIntoView(node) {
 function onKey(e) {
   if (!st || screenName() !== 'song' || !$('#modal').hidden) return;
   if (e.key === 'Escape' && st.sheet) { e.preventDefault(); closeSheet(); return; }
+  if (e.key === 'Escape' && st.settings) { e.preventDefault(); toggleSettings(false); return; }
   if (e.target.closest?.('input, textarea, select')) return;
   if (e.key === ' ') { e.preventDefault(); togglePlay(); }
   else if (e.key === 'ArrowLeft') { e.preventDefault(); skip(-SKIP); }
