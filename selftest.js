@@ -403,6 +403,9 @@ function pureTests() {
   check('9 Export mit Text auf Wunsch', parseSongText(exportSong(vs(base()).song, { lyrics: true })).song.lyrics[0].line === 'Zeile A');
   check('9 Import: kein JSON → deutsche Meldung', /Kein gültiges JSON/.test(parseSongText('{ nein').errors[0]));
   const ed = setEvent(vs(base()).song, 3.5, 'Am');
+  const rs = setEvent(vs(base()).song, 2, 'Am', true);
+  check('9 Bearbeiten: gleicher Akkord mit again bleibt als Neuanschlag, ohne again wird er zusammengefasst',
+    eq(rs.events.map((e) => e.again === true), [false, true, false]) && setEvent(vs(base()).song, 2, 'Am').events.length === 2);
   check('9 Bearbeiten: Ereignis an belegter Stelle ersetzt, gleiche Nachbarn zusammengefasst',
     eq(ed.events, [{ at: 0, chord: 'Am' }, { at: 6, chord: 'F6/9' }]));
   const ren = renameChord(vs(base()).song, 'D/F#', 'D');
