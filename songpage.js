@@ -1,16 +1,17 @@
 /* songpage.js — Liedseite: ein Song zum Mitspielen. Oben der YouTube-Player
    (immer sichtbar, nie überdeckt) mit großer Play/Pause-Taste, ±5 s, Tempo
-   0,5 / 0,75 / 1, Zeitleiste und Loop (A–B, Abschnitt, gespeicherte Loops).
+   0,5 / 0,75 / 1 und Zeitleiste.
    Darunter das Leadsheet (leadsheet.js): jeder Abschnitt eine Karte über die
    ganze Breite mit festem Raster — 2 Takte pro Zeile, eine Zelle je Schlag —
    und darunter sein Teil der Tabs. Zelle antippen → Akkord ab diesem Schlag
    wählen (Blatt unten, überdeckt den Player nicht). Mit Startzeit und Tempo
-   läuft die Markierung mit dem Video mit. Tabs sind eingefügter Text oder
-   ein PDF vom Gerät; beides bleibt auf dem Gerät. Tasten: Leertaste
-   Play/Pause, ←/→ ±5 s, L Loop, Esc schließt das Blatt. */
+   läuft die Markierung mit dem Video mit. Loop über einen Abschnitt oder
+   einzelne Takte: ↻ an der Karte. Die Tabs sind eingefügter Text und
+   bleiben auf dem Gerät. Tasten: Leertaste Play/Pause, ←/→ ±5 s, Esc
+   schließt das Blatt. */
 
 import * as yt from './yt.js';
-import { S, putSong, saveSettings, getPdf, putPdf, deletePdf } from './store.js';
+import { S, putSong, saveSettings } from './store.js';
 import { setYoutube, addChord, songFromVideo } from './songdata.js';
 import { youtubeSource, eventIndexAt } from './timeline.js';
 import { parseYouTubeId, tapTempo } from './tap.js';
@@ -18,7 +19,7 @@ import { parseTabText, chordsInText, stripMarkup } from './tabtext.js';
 import { parseChord } from './chordsym.js';
 import { voicingFor } from './voicing.js';
 import * as audio from './audio.js';
-import { nextMarkName, fmtClock, addLoop, updateLoop, removeLoop, sortLoops } from './marks.js';
+import { nextMarkName, fmtClock } from './marks.js';
 import {
   METERS, MAX_BARS, sectionList, addSection, resizeSection, deleteSection, updateSection, setBeatsPerBar,
   setChordAt, shiftChordAt, sectionGrid, sectionTimes, playPos, tabBlocks, blocksForSections, sectionsFromTabs,
@@ -27,7 +28,7 @@ import {
 import { drillChunks } from './drill.js';
 import { openDrill } from './drillpage.js';
 import { initWizard, startWizard, stopWizard, paintWizard } from './songwizard.js';
-import { $, $$, showScreen, screenName, modal, ask, frameLoop, onLongPress } from './ui.js';
+import { $, $$, showScreen, screenName, modal, ask, frameLoop } from './ui.js';
 
 const RATES = [0.5, 0.75, 1];
 const SKIP = 5;
@@ -96,10 +97,6 @@ function wire() {
   $('#sp-play').addEventListener('click', togglePlay);
   $('#sp-rew').addEventListener('click', () => skip(-SKIP));
   $('#sp-fwd').addEventListener('click', () => skip(SKIP));
-  $('#sp-loop').addEventListener('click', toggleLoop);
-  $('#sp-a').addEventListener('click', () => setAB('a'));
-  $('#sp-b').addEventListener('click', () => setAB('b'));
-  $('#sp-saveloop').addEventListener('click', saveLoop);
   $('#sp-load').addEventListener('click', loadFromInput);
   $('#sp-url').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); loadFromInput(); } });
   wireTrack();
@@ -109,13 +106,9 @@ function wire() {
   $('#sp-sheet-close').addEventListener('click', closeSheet);
   initWizard(wizardApi);
   // Tabs
-  for (const b of $$('#s-song [data-tabmode]')) b.addEventListener('click', () => setTabMode(b.dataset.tabmode));
   $('#sp-smaller').addEventListener('click', () => setSize(-SIZE.step));
   $('#sp-bigger').addEventListener('click', () => setSize(SIZE.step));
   $('#sp-edit').addEventListener('click', toggleEdit);
-  $('#sp-pdf-file').addEventListener('change', pickPdf);
-  $('#sp-pdf-open').addEventListener('click', () => { if (st.pdfUrl) window.open(st.pdfUrl, '_blank'); });
-  $('#sp-pdf-del').addEventListener('click', removePdf);
   document.addEventListener('keydown', onKey);
 }
 
@@ -130,7 +123,7 @@ export function openSongPage(songId, { wizard = null } = {}) {
   if (ordered !== s) { putSong(ordered); s = ordered; }
   return new Promise((resolve) => {
     st = {
-      songId, resolve, player: null, loop: null, loopOn: false, rate: 1, editing: false, pdfUrl: null,
+      songId, resolve, player: null, loop: null, loopOn: false, rate: 1, editing: false,
       stop: null, drag: null, lastPos: null, lastSec: null, leadLeft: null, folded: new Set(), sheet: null, taps: [],
     };
     $('#sp-title').textContent = s.title;
@@ -142,7 +135,6 @@ export function openSongPage(songId, { wizard = null } = {}) {
     $('#sp-yt').hidden = !src?.videoId;
     $('#sp-sheet').hidden = true;
     showScreen('song');
-    paintLoops();
     paintTransport();
     paintTabs();
     if (wizard) startWizard(wizard); else stopWizard();
@@ -157,7 +149,6 @@ function close() {
   closeSheet();
   st.stop?.();
   st.player?.destroy();
-  if (st.pdfUrl?.startsWith('blob:')) URL.revokeObjectURL(st.pdfUrl);
   const r = st.resolve;
   st = null;
   r?.();
@@ -285,7 +276,6 @@ function startLoop(id, bars) {
   if (!p.playing()) play(p);
   paintSections();
   paintTransport();
-  paintLoops();
 }
 
 /** Takt antippen (Nummer oben im Takt): nur diese Takte wiederholen. */
@@ -301,21 +291,6 @@ function whyNoRange(id) {
   const tm = sectionTimes(song(), dur()).find((x) => x.id === id);
   if (tm?.start == null) return `Für „${sec?.name}“ fehlt die Startzeit: im Video an den Anfang spulen, dann ⋯ → „Start hier“.`;
   return `Für „${sec?.name}“ fehlt das Ende: Tempo setzen (Mehr → Takt und Tempo) oder beim nächsten Abschnitt „Start hier“.`;
-}
-
-/** Loop an: A–B, falls gesetzt, sonst der Abschnitt an der aktuellen Stelle. */
-function toggleLoop() {
-  if (!st.player) return;
-  if (st.loopOn) { st.loopOn = false; paintSections(); paintTransport(); paintLoops(); return; }
-  if (!st.loop) {
-    const pos = playPos(song(), st.player.now(), dur());
-    const r = pos && sectionRange(pos.id);
-    if (!r) { $('#sp-vnote').textContent = pos ? whyNoRange(pos.id) : 'Für den Loop A und B tippen – oder bei einem Abschnitt ↻.'; return; }
-    st.loop = { ...r, sec: pos.id, bars: null, pre: loopLead(song()) };
-  }
-  st.loopOn = true;
-  paintSections();
-  paintTransport();
 }
 
 /** Abschnitt als Loop (↻ an der Karte). Noch einmal: Loop aus. */
@@ -341,110 +316,8 @@ function playSection(id) {
   paintTransport();
 }
 
-/** A bzw. B an die aktuelle Stelle. */
-function setAB(which) {
-  const p = st.player;
-  if (!p) return;
-  const t = p.now();
-  const cur = st.loop && !st.loop.sec ? st.loop : { start: 0, end: dur() || t + 10 };
-  const next = which === 'a' ? { start: t, end: Math.max(t + 1, cur.end) } : { start: Math.min(cur.start, t - 1), end: t };
-  st.loop = { start: Math.max(0, next.start), end: next.end, name: 'A–B', sec: null };
-  st.loopOn = true;
-  paintTransport();
-  paintLoops();
-}
-
-/* ---------- Gespeicherte Loops ----------------------------------------- */
-
-/** Wo ein Loop beginnt: Start minus Vorlauf. */
+/** Wo ein Loop beginnt: Start minus Vorlauf (der Takt davor). */
 const loopStart = (l) => Math.max(0, l.start - (l.pre || 0));
-const PRE_STEPS = [0, 1, 2, 3];
-
-/** Bereich unter einem Namen speichern. → gespeicherter Loop oder null */
-async function storeLoop(range, suggestion) {
-  const name = await ask('Loop speichern', `${fmtClock(range.start, { tenths: true })} bis ${fmtClock(range.end, { tenths: true })}`, { value: suggestion, ok: 'Speichern' });
-  if (!name || !st) return null;
-  const r = addLoop(song().loops || [], { name, start: range.start, end: Math.min(range.end, dur() || range.end), pre: 0 });
-  await putSong({ ...song(), loops: r.loops });
-  return r.loops.find((l) => l.id === r.id);
-}
-
-/** Laufenden Loop (A–B oder Abschnitt) speichern. */
-async function saveLoop() {
-  if (!st.loop) return;
-  const saved = await storeLoop(st.loop, st.loop.sec ? st.loop.name : nextMarkName(song().loops || [], 'Loop'));
-  if (!saved || !st) return;
-  st.loop = { ...saved, sec: null, saved: saved.id };
-  paintLoops();
-  paintTransport();
-}
-
-/** Gespeicherten Loop starten (Antippen). Noch einmal antippen: Loop aus. */
-function playLoop(l) {
-  const p = st.player;
-  if (!p) { $('#sp-vnote').textContent = 'Erst ein Video laden.'; return; }
-  if (st.loopOn && st.loop?.saved === l.id) { st.loopOn = false; paintTransport(); paintLoops(); return; }
-  st.loop = { start: l.start, end: l.end, pre: l.pre || 0, name: l.name, sec: null, saved: l.id };
-  st.loopOn = true;
-  p.seek(loopStart(st.loop));
-  if (!p.playing()) play(p);
-  paintTransport();
-  paintLoops();
-}
-
-async function loopMenu(l) {
-  const t = st.player ? st.player.now() : null;
-  const pre = l.pre || 0;
-  const nextPre = PRE_STEPS[(PRE_STEPS.indexOf(pre) + 1) % PRE_STEPS.length] ?? 0;
-  const a = await modal(l.name, `${fmtClock(l.start, { tenths: true })} bis ${fmtClock(l.end, { tenths: true })}${pre ? ` · ${pre} s Vorlauf` : ''}`, [
-    ...(t != null ? [{ label: `Start hier (${fmtClock(t)})`, value: 'start' }, { label: `Ende hier (${fmtClock(t)})`, value: 'end' }] : []),
-    { label: 'Start −0,2 s', value: 's-' }, { label: 'Start +0,2 s', value: 's+' },
-    { label: 'Ende −0,2 s', value: 'e-' }, { label: 'Ende +0,2 s', value: 'e+' },
-    { label: nextPre ? `Vorlauf ${nextPre} s` : 'Ohne Vorlauf', value: 'pre' },
-    { label: 'Umbenennen', value: 'ren' },
-    { label: 'Löschen', value: 'del' },
-    { label: 'Schließen', value: '', primary: true },
-  ]);
-  const loops = song().loops || [];
-  let next = null;
-  if (a === 'start') next = updateLoop(loops, l.id, { start: t });
-  else if (a === 'end') next = updateLoop(loops, l.id, { end: t });
-  else if (a === 's-' || a === 's+') next = updateLoop(loops, l.id, { start: l.start + (a === 's-' ? -0.2 : 0.2) });
-  else if (a === 'e-' || a === 'e+') next = updateLoop(loops, l.id, { end: l.end + (a === 'e-' ? -0.2 : 0.2) });
-  else if (a === 'pre') next = updateLoop(loops, l.id, { pre: nextPre });
-  else if (a === 'ren') {
-    const n = await ask('Loop umbenennen', '', { value: l.name, ok: 'Umbenennen' });
-    if (n) next = updateLoop(loops, l.id, { name: n });
-  } else if (a === 'del') {
-    const yes = await modal(`„${l.name}“ löschen?`, '', [{ label: 'Abbrechen', value: 'no' }, { label: 'Löschen', value: 'yes', primary: true }]);
-    if (yes === 'yes') {
-      next = removeLoop(loops, l.id);
-      if (st.loop?.saved === l.id) { st.loop = null; st.loopOn = false; }
-    }
-  }
-  if (!next) return;
-  await putSong({ ...song(), loops: next });
-  // Läuft dieser Loop gerade, gilt die Änderung sofort.
-  const now = next.find((x) => x.id === l.id);
-  if (now && st.loop?.saved === l.id) Object.assign(st.loop, { start: now.start, end: now.end, pre: now.pre || 0, name: now.name });
-  paintLoops();
-  paintTransport();
-}
-
-function paintLoops() {
-  if (!st) return;
-  const loops = sortLoops(song().loops);
-  $('#sp-loops').replaceChildren(...loops.map((l) => {
-    const li = el('li');
-    const on = st.loopOn && st.loop?.saved === l.id;
-    const b = button(`sp-mark sp-saved${on ? ' now' : ''}`, null, () => playLoop(l));
-    b.setAttribute('aria-pressed', on ? 'true' : 'false');
-    b.append(el('b', '', `↻ ${l.name}`), el('small', '', `${fmtClock(l.start)}–${fmtClock(l.end)}${l.pre ? ` · ${l.pre} s vorher` : ''}`));
-    onLongPress(b, () => loopMenu(l));
-    li.append(b);
-    return li;
-  }));
-}
 
 /* ---------- Abschnitte (Leadsheet) -------------------------------------- */
 
@@ -563,12 +436,12 @@ function paintSections() {
   const list = sectionList(s);
   const times = sectionTimes(s, dur());
   const text = s.tabText || '';
-  const showText = tabMode() === 'text' && !!text;
+  const showText = !!text;
   const lines = showText ? parseTabText(text, s) : [];
   const blocks = showText ? tabBlocks(text, lines) : [];
   const { map, rest, intro } = blocksForSections(s, blocks);
   $('#sp-main').style.setProperty('--tab-size', `${S.settings.tabSize || 15}px`);
-  $('#sp-text-empty').hidden = !!text || tabMode() !== 'text';
+  $('#sp-text-empty').hidden = !!text;
   // Ohne Abschnitte: die Tabs am Stück; sonst nur der Text vor der ersten Überschrift.
   paintLines($('#sp-intro'), list.length ? intro.flatMap((b) => b.lines) : lines);
   $('#sp-sec-empty').hidden = list.length > 0;
@@ -829,11 +702,6 @@ function sectionSheet(id) {
     const n = await ask('Abschnitt umbenennen', '', { value: sec.name, ok: 'Umbenennen' });
     if (n && st) await save(updateSection(song(), id, { name: n }));
   };
-  const keep = async () => {
-    const r = sectionRange(id);
-    if (!r) { $('#sp-vnote').textContent = whyNoRange(id); return; }
-    if (await storeLoop(r, sec.name)) paintLoops();
-  };
   const times = [
     ...(t != null ? [big(`Start hier (${fmtClock(t)})`, () => setStart(st.player.now()), { quiet: true })] : []),
     ...(sec.startSec != null ? [
@@ -850,7 +718,7 @@ function sectionSheet(id) {
     row(stepper(String(sec.bars), resize, 'Takte'), ...(fits && sec.barsSet ? [auto] : [])),
     ...(times.length ? [row(...times)] : []),
     row(big('Folgen üben', () => drill([id]), { quiet: true }), big('Umbenennen', rename, { quiet: true }),
-      big('Loop speichern', keep, { quiet: true }), big('Löschen', del, { quiet: true })),
+      big('Löschen', del, { quiet: true })),
   ]);
 }
 
@@ -940,7 +808,7 @@ function paintTransport() {
   btn.setAttribute('aria-label', playing ? 'Pause' : 'Abspielen');
   btn.classList.toggle('on', playing);
   $('#sp-play-icon').setAttribute('d', playing ? 'M7 5h4v14H7zM13 5h4v14h-4z' : 'M8 5l11 7-11 7z');
-  for (const b of [btn, $('#sp-rew'), $('#sp-fwd'), $('#sp-loop'), $('#sp-a'), $('#sp-b')]) b.disabled = !p;
+  for (const b of [btn, $('#sp-rew'), $('#sp-fwd')]) b.disabled = !p;
   const rates = p ? p.rates().filter((r) => RATES.includes(r)) : RATES;
   $('#sp-rates').replaceChildren(...rates.map((r) => {
     const b = button('seg-btn', `${String(r).replace('.', ',')}×`, () => setRate(r));
@@ -948,12 +816,6 @@ function paintTransport() {
     b.disabled = !p;
     return b;
   }));
-  const loop = $('#sp-loop');
-  loop.setAttribute('aria-pressed', st.loopOn ? 'true' : 'false');
-  // Ein gespeicherter Loop steht hervorgehoben in der Liste; der Knopf bleibt kurz.
-  loop.textContent = st.loopOn && st.loop && !st.loop.saved ? `Loop: ${st.loop.name}` : 'Loop';
-  // „Speichern“ nur für einen laufenden, noch nicht gespeicherten Loop.
-  $('#sp-saveloop').hidden = !(st.loopOn && st.loop && !st.loop.saved);
   for (const b of $$('#sp-sections [data-loop]')) {
     const on = st.loopOn && st.loop?.sec === b.dataset.loop;
     // Im Vorlauf (Takt vor dem Loop) zählt der Knopf die Schläge herunter.
@@ -1046,18 +908,9 @@ function onKey(e) {
   if (e.key === ' ') { e.preventDefault(); togglePlay(); }
   else if (e.key === 'ArrowLeft') { e.preventDefault(); skip(-SKIP); }
   else if (e.key === 'ArrowRight') { e.preventDefault(); skip(SKIP); }
-  else if (e.key === 'l' || e.key === 'L') toggleLoop();
 }
 
-/* ---------- Tabs: Text oder PDF ---------------------------------------- */
-
-const tabMode = () => song().tabMode || 'text';
-
-async function setTabMode(mode) {
-  if (st.editing) await finishEdit();
-  await putSong({ ...song(), tabMode: mode });
-  paintTabs();
-}
+/* ---------- Tabs (eingefügter Text) ------------------------------------ */
 
 function setSize(by) {
   const cur = S.settings.tabSize || 15;
@@ -1066,14 +919,9 @@ function setSize(by) {
   $('#sp-main').style.setProperty('--tab-size', `${S.settings.tabSize}px`);
 }
 
-async function paintTabs() {
-  const mode = tabMode();
-  for (const b of $$('#s-song [data-tabmode]')) b.setAttribute('aria-pressed', b.dataset.tabmode === mode ? 'true' : 'false');
-  $('#sp-pdfbox').hidden = mode !== 'pdf';
-  $('#sp-smaller').hidden = $('#sp-bigger').hidden = $('#sp-edit').hidden = mode !== 'text';
+function paintTabs() {
   paintEdit();
   paintSections();
-  if (mode === 'pdf') await paintPdf();
 }
 
 function paintEdit() {
@@ -1108,43 +956,4 @@ async function finishEdit() {
   paintEdit();
   paintSections();
   paintWizard();
-}
-
-async function paintPdf() {
-  const rec = await getPdf(st.songId);
-  if (!st) return;
-  if (st.pdfUrl?.startsWith('blob:')) URL.revokeObjectURL(st.pdfUrl);
-  st.pdfUrl = null;
-  const has = !!rec?.blob;
-  $('#sp-pdf-name').textContent = has ? rec.name : 'Noch kein PDF.';
-  $('#sp-pdf-open').hidden = !has;
-  $('#sp-pdf-del').hidden = !has;
-  const frame = $('#sp-pdf-frame');
-  if (has) {
-    // Über den Service Worker (eigene Antwort ohne die CSP der Seite); ohne
-    // ihn als blob: — dann zeigt manch ein Browser das PDF nur über „Groß öffnen“.
-    st.pdfUrl = navigator.serviceWorker?.controller ? `pdf/${st.songId}?v=${rec.blob.size}-${Date.now()}` : URL.createObjectURL(rec.blob);
-    frame.src = st.pdfUrl;
-    frame.hidden = false;
-  } else {
-    frame.removeAttribute('src');
-    frame.hidden = true;
-  }
-}
-
-async function pickPdf(e) {
-  const f = e.target.files?.[0];
-  e.target.value = '';
-  if (!f) return;
-  if (f.type && f.type !== 'application/pdf') { await modal('Kein PDF', 'Bitte eine PDF-Datei wählen.', [{ label: 'OK', value: 'ok', primary: true }]); return; }
-  await putPdf(st.songId, f.name, f);
-  await putSong({ ...song(), tabMode: 'pdf' });
-  paintTabs();
-}
-
-async function removePdf() {
-  const a = await modal('PDF entfernen?', 'Es liegt nur auf diesem Gerät.', [{ label: 'Abbrechen', value: 'no' }, { label: 'Entfernen', value: 'yes', primary: true }]);
-  if (a !== 'yes') return;
-  await deletePdf(st.songId);
-  paintPdf();
 }

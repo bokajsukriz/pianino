@@ -156,13 +156,6 @@
         </div>
       </div>
       <div class="sp-sec">
-        <div class="sp-looprow">
-          <button type="button" class="toggle toggle-sm" id="sp-loop" aria-pressed="false">Loop</button>
-          <button type="button" class="btn btn-secondary btn-sm" id="sp-a" aria-label="Loop-Anfang hier">A</button>
-          <button type="button" class="btn btn-secondary btn-sm" id="sp-b" aria-label="Loop-Ende hier">B</button>
-          <button type="button" class="btn btn-primary btn-sm" id="sp-saveloop" hidden>Speichern</button>
-        </div>
-        <ol class="sp-loops" id="sp-loops" aria-label="Gespeicherte Loops"></ol>
         <div class="sp-wiz" id="sp-wiz" role="region" aria-label="Assistent" hidden>
           <div class="sp-wiz-head">
             <b id="sp-wiz-step"></b>
@@ -181,10 +174,6 @@
       </div>
       <div class="sp-tabs" id="sp-main">
         <div class="sp-tabbar">
-          <div class="seg" role="group" aria-label="Tabs als">
-            <button type="button" class="seg-btn" data-tabmode="text" aria-pressed="true">Text</button>
-            <button type="button" class="seg-btn" data-tabmode="pdf" aria-pressed="false">PDF</button>
-          </div>
           <button type="button" class="btn btn-secondary btn-sm" id="sp-smaller" aria-label="Schrift kleiner">A−</button>
           <button type="button" class="btn btn-secondary btn-sm" id="sp-bigger" aria-label="Schrift größer">A+</button>
           <button type="button" class="btn btn-secondary btn-sm" id="sp-edit">Tabs</button>
@@ -203,18 +192,6 @@
           <div class="sp-rest" id="sp-rest" hidden>
             <h3 class="sp-rest-h">Weitere Tabs (ohne Abschnitt)</h3>
             <div class="sp-text" id="sp-rest-text"></div>
-          </div>
-          <div id="sp-pdfbox" hidden>
-            <div class="tr-row">
-              <label class="btn btn-secondary btn-sm file-btn">PDF wählen
-                <input type="file" id="sp-pdf-file" accept="application/pdf,.pdf" class="visually-hidden">
-              </label>
-              <button type="button" class="btn btn-secondary btn-sm" id="sp-pdf-open" hidden>Groß öffnen</button>
-              <button type="button" class="btn btn-ghost btn-sm" id="sp-pdf-del" hidden>Entfernen</button>
-              <span class="small muted" id="sp-pdf-name"></span>
-            </div>
-            <iframe class="sp-pdf" id="sp-pdf-frame" title="Tabs als PDF" hidden></iframe>
-            <p class="small muted">Das PDF bleibt nur auf diesem Gerät. Zeigt das iPhone nur die erste Seite: „Groß öffnen“.</p>
           </div>
         </div>
       </div>
