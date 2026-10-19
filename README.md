@@ -12,7 +12,12 @@ Unterricht kommen in den Griff-Editor: Tasten antippen, fertig — Hände und
 Finger trägt man nicht ein (unter G3 gilt als linke Hand, `voicingFromKeys`). Mitgeliefert ist nur „Perfect Ruin“ (Kwabs) mit seinen Akkorden,
 noch ohne Wechsel.
 
-**Neuer Song** startet einen Assistenten auf der Liedseite
+**Neuer Song:** ein YouTube-Link genügt — Titel und Interpret liest die
+Liedseite aus den Angaben des eingebetteten Players (`yt.js meta()`, keine
+eigene Netzanfrage; `songFromVideo` schneidet Zusätze wie „(Official Video)“
+ab, Vorschlag, im Menü „Mehr“ änderbar). Mehr gibt YouTube nicht her: keine
+Akkorde, Teile oder Tempo. Ohne Link: Titel und Interpret eintippen.
+Danach startet ein Assistent auf der Liedseite
 (`songwizard.js`): 1 YouTube-Link, 2 beim Abspielen am Anfang jedes Teils
 seinen Namen tippen und einmal das Tempo mittippen (die Takte ergeben sich
 daraus), 3 Akkorde anlegen (Tabs einfügen oder „+ Akkord“) und beim

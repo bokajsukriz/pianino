@@ -9,7 +9,7 @@ import { parseChord, nameFromKeys, sameChord, prettyChord } from './chordsym.js'
 import { validateVoicing, voicingDiff, upgradeVoicing, defaultVoicing, voicingFor, voicingFromKeys } from './voicing.js';
 import {
   validateSong, normalizeSong, parseSongText, exportSong, setEvent, renameChord, deleteChord, addChord,
-  setSectionStart, nextSectionName,
+  setSectionStart, nextSectionName, songFromVideo,
 } from './songdata.js';
 import {
   beatToSec, secToBeat, chordAt, eventsIn, quantize, phrasesOf, sectionRange, chordSequence, countLabel, beatsText, predecessors,
@@ -643,6 +643,13 @@ function pureTests() {
     && tapChordAt({ ...fb2, bpm: null }, 13, 'Dm') === null);
   const vk = voicingFromKeys([62, 50, 65, 69, 62]);
   check('16 Griff aus Tasten: unter G3 links, sonst rechts, ohne Finger', eq(vk.lh, [50]) && eq(vk.rh, [62, 65, 69]) && vk.rhFingers.every((f) => f === null) && validateVoicing(vk).ok);
+
+  const sv1 = songFromVideo('Interpret A - Titel B (Official Music Video)', 'Interpret A VEVO');
+  const sv2 = songFromVideo('Titel B [Official Audio]', 'Interpret A - Topic');
+  const sv3 = songFromVideo('Interpret A – Titel B – Teil 2 (Live)', '');
+  check('16 Titel und Interpret aus dem Video: „A - B“, Zusätze weg, sonst Kanal', eq(sv1, { title: 'Titel B', artist: 'Interpret A' })
+    && eq(sv2, { title: 'Titel B', artist: 'Interpret A' }) && eq(sv3, { title: 'Titel B - Teil 2', artist: 'Interpret A' })
+    && songFromVideo('', '').title === '', JSON.stringify([sv1, sv2, sv3]));
 
   /* 17 — Folgen üben: 2-Takt-Folgen, Vorlauf, Wiederholen, Tempo */
   let dr = { ...TS, sections: [], events: [] };
