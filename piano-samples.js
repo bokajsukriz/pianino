@@ -7,7 +7,8 @@
    ChorPiano bleibt); klassisches Skript, kein ES-Modul. Inzwischen drei
    Anschlagstärken (soft/mid/loud = Stufen 4, 8, 12 von 16 aus Tone Piano,
    github.com/tambien/Piano, gleiche Aufnahmen), vorab gekürzt, zu Mono
-   gemischt und mit 96 kbit/s neu kodiert (THIRD-PARTY.md).
+   gemischt und mit 96 kbit/s neu kodiert; dazu je Taste ein Loslass-Geräusch
+   (THIRD-PARTY.md).
 
    Ein Ton alle drei Halbtöne (C1–C7 = MIDI 24–96), dazwischen umgestimmt
    (höchstens ±1,5 Halbtöne). Die Quelle klingt voll aus (bis 24 s, stereo) –
@@ -105,6 +106,43 @@
     p.catch(() => { if (sets.get(key) === p) sets.delete(key); });
     return p;
   }
+  /** Loslass-Geräusche (Dämpfer, je Taste eine Datei samples/salamander/rel/<MIDI>.mp3,
+   *  C1–C7, ≈ 0,45 s, mono). → { bufs: { midi → AudioBuffer }, gain, ref } */
+  function loadRelease({ base = './samples/salamander/rel/', from = 24, to = 96 } = {}) {
+    const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+    if (!OAC) return Promise.reject(new Error('Kein Web Audio'));
+    const dec = new OAC(1, 1, 44100);
+    const bufs = {};
+    const queue = [];
+    for (let m = from; m <= to; m++) queue.push(m);
+    const worker = async () => {
+      while (queue.length) {
+        const m = queue.shift();
+        const r = await fetch(`${base}${m}.mp3`);
+        if (!r.ok) throw new Error(`Klavier Loslassen ${m}: ${r.status}`);
+        const raw = await dec.decodeAudioData(await r.arrayBuffer());
+        const b = new AudioBuffer({ length: raw.length, numberOfChannels: 1, sampleRate: raw.sampleRate });
+        const out = new Float32Array(raw.length);
+        for (let c = 0; c < raw.numberOfChannels; c++) { const d = raw.getChannelData(c); for (let i = 0; i < raw.length; i++) out[i] += d[i] / raw.numberOfChannels; }
+        b.copyToChannel(out, 0);
+        bufs[m] = b;
+      }
+    };
+    return Promise.all([worker(), worker(), worker()]).then(() => Object.freeze({ bufs, ...levels(bufs) }));
+  }
+  /** Loslass-Geräusch der Taste `midi` zur Zeit `time`. gain: absolut (× Ausgleich der Datei). */
+  function playRelease(ctx, rel, midi, time, { gain = 1, dest = null } = {}) {
+    const keys = Object.keys(rel.bufs).map(Number);
+    const m = keys.reduce((b, x) => (Math.abs(x - midi) < Math.abs(b - midi) ? x : b), keys[0]);
+    const src = ctx.createBufferSource();
+    src.buffer = rel.bufs[m];
+    const out = ctx.createGain();
+    out.gain.value = gain * (rel.gain[m] || 1);
+    src.connect(out);
+    if (dest) out.connect(dest);
+    src.start(time);
+    return { src, out };
+  }
   /** Nächste geladene Datei zu einem Ton. */
   const nearest = (set, midi) => set.notes.reduce((b, x) => (Math.abs(x - midi) < Math.abs(b - midi) ? x : b), set.notes[0]);
   /** Abspielrate inkl. Stimmungskorrektur der Datei. */
@@ -139,5 +177,5 @@
     return { src, out };
   }
 
-  window.ChorPiano = { NOTES, LAYERS, TUNE, BASE, baseOf, load, play, nearest, rateFor };
+  window.ChorPiano = { NOTES, LAYERS, TUNE, BASE, baseOf, load, play, nearest, rateFor, loadRelease, playRelease };
 })();

@@ -300,6 +300,7 @@ function wire() {
   const openAbout = (back) => {
     aboutBack = back;
     for (const b of $$('#s-about [data-toggle="mic"]')) setToggle(b, !!S.settings.mic, !micSupported());
+    for (const b of $$('#s-about [data-toggle="reverb"]')) setToggle(b, S.settings.reverb !== false);
     paintEar();
     askVersion();
     $('#about-update-note').textContent = '';
@@ -350,7 +351,9 @@ function wire() {
     S.settings[key] = b.getAttribute('aria-pressed') !== 'true';
     for (const o of $$(`[data-toggle="${key}"]`)) if (!o.disabled) o.setAttribute('aria-pressed', S.settings[key] ? 'true' : 'false');
     saveSettings();
+    if (key === 'reverb') audio.setReverb(S.settings.reverb !== false);
   });
+  audio.setReverb(S.settings.reverb !== false);
 
   // iOS: AudioContext erst im ersten Tipp anlegen und entsperren.
   document.addEventListener('pointerdown', () => audio.unlock(), { once: true, capture: true });

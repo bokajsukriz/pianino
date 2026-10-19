@@ -14,6 +14,7 @@ liegen im Repo.
 | Lizenz | Creative Commons Namensnennung 3.0 (CC BY 3.0), https://creativecommons.org/licenses/by/3.0/ |
 | Namensnennung in der App | Startscreen → „Über und Einstellungen“ → „Lizenzen und Dank“ |
 | Verändert | **ja** — Dateien umbenannt auf die MIDI-Tonhöhe (`C4v8.mp3` → `mid/60.mp3`, `Ds4` → `63`, `Fs4` → `66`, `A4` → `69`), auf 5 s (bis MIDI 48), 4 s (bis 72) bzw. 2,5 s gekürzt, zu Mono gemischt und mit 96 kbit/s neu kodiert (ffmpeg, libmp3lame). Beim Laden in der App (`piano-samples.js`): Stille am Anfang entfernt, ausgeblendet, Pegel angeglichen (alle Stufen auf denselben Pegel, die Stufe ändert nur den Klang) und gleichstufig umgestimmt (gemessene Abweichung je Datei, `TUNE`; für die drei Stufen nachgemessen, Abweichung ≤ 1 Cent bis auf eine leise Datei mit 4 Cent). |
+| Loslass-Geräusche | `samples/salamander/rel/<MIDI>.mp3` — je Taste (C1–C7, 73 Dateien) das Dämpfer-Geräusch `rel<Nr>` aus Tone Piano (`audio/rel1.mp3` …), auf 0,45 s gekürzt, mit kurzer Ausblendung, mono, 64 kbit/s; zusammen ≈ 0,3 MB. Gleiche Quelle und Lizenz wie oben. |
 | Herkunft im Projekt | zuerst aus der Schwester-App `bokajsukriz/choirapp` übernommen (`samples/salamander/`, Abschnitt „Klavier“ in `samples/LIZENZ.md`), dann durch die drei Stufen ersetzt |
 
 ## Klavier-Lader `piano-samples.js`
