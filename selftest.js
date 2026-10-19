@@ -651,6 +651,13 @@ function pureTests() {
     && eq(sv2, { title: 'Titel B', artist: 'Interpret A' }) && eq(sv3, { title: 'Titel B - Teil 2', artist: 'Interpret A' })
     && songFromVideo('', '').title === '', JSON.stringify([sv1, sv2, sv3]));
 
+  let ag = { ...TS, bpm: 80, sections: [], events: [] };
+  ag = addSection(ag, { name: 'Intro', bars: 2, startSec: 0 });
+  ag = tapChordAt(tapChordAt(ag, 0, 'Am').song, 3, 'Am').song; // Beat 0, dann Beat 4 (3 s bei 80 BPM)
+  check('16 Derselbe Akkord noch einmal geht nicht verloren (Tippen, Raster, Tabs)', eq(ag.events, [{ at: 0, chord: 'Am' }, { at: 4, chord: 'Am', again: true }])
+    && setChordAt(setChordAt(ag, 6, 'F'), 7, 'F').events.length === 4
+    && sectionsFromTabs({ ...TS, chords: [] }, '[Intro]\nAm Am F').events.length === 3, JSON.stringify(ag.events));
+
   /* 17 — Folgen üben: 2-Takt-Folgen, Vorlauf, Wiederholen, Tempo */
   let dr = { ...TS, sections: [], events: [] };
   dr = addSection(dr, { name: 'Strophe 1', bars: 5 });
