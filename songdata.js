@@ -349,7 +349,7 @@ export function setYoutube(song, fields) {
  *  ANNAHME: „Interpret - Titel“ im Videotitel ist die übliche Form; Zusätze
  *  wie „(Official Video)“, „[Lyrics]“, „(Audio)“ sind keine Titelteile.
  *  Sonst gilt der Kanalname (ohne „- Topic“ und „VEVO“) als Interpret.
- *  Nur ein Vorschlag, im Menü „Mehr“ änderbar.
+ *  Nur ein Vorschlag, in den Einstellungen änderbar.
  *  → { title, artist } (artist darf leer sein) */
 export function songFromVideo(videoTitle, channel = '') {
   const noise = /\s*[([{][^)\]}]*(official|video|audio|lyric|visuali[sz]er|hd|4k|remaster|live|clip|musikvideo)[^)\]}]*[)\]}]\s*/gi;

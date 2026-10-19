@@ -7,11 +7,49 @@ import { logError } from './log.js';
 
 let ctx = null;
 let graph = null;
-let piano = null;     // geladener Sample-Satz oder null (dann Synth)
+let piano = null;     // geladene Sätze { soft, mid, loud } (mid zuerst) oder null (dann Synth)
 let pianoLoad = null;
 
 /** Lautstärken der Busse: Melodie lauter als die Begleitung. */
 const LEVEL = { piano: 0.8, click: 0.5, melody: 1.0 };
+
+/** Hall fürs Klavier: berechnet, kein Download (kleiner Raum). wet: die
+ *  Faltung normiert die Impulsantwort leise; mit 1,0 liegt der Hall etwa
+ *  10 dB unter dem direkten Klang (an Klaviertönen gemessen). */
+export const REVERB = { seconds: 1.6, wet: 1.0 };
+let reverbOn = true;
+
+/** Impulsantwort: Rauschen (je Ohr anders, fest gesät), exponentiell
+ *  abklingend, mit der Zeit dunkler. ANNAHME: 1,6 s bis −60 dB klingt nach
+ *  einem kleinen Raum, nicht nach einer Halle. */
+export function reverbIR(c) {
+  const sr = c.sampleRate, n = Math.round(sr * REVERB.seconds), pre = Math.round(sr * 0.012);
+  const ir = c.createBuffer(2, n, sr);
+  for (let ch = 0; ch < 2; ch++) {
+    const d = ir.getChannelData(ch);
+    let seed = (0x9e3779b9 ^ Math.imul(ch + 1, 0x85ebca6b)) | 0;
+    const rnd = () => {
+      seed = (seed + 0x6d2b79f5) | 0;
+      let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+    let lp = 0;
+    for (let i = pre; i < n; i++) {
+      const t = (i - pre) / sr;
+      const a = Math.min(0.97, 0.3 + t * 0.5); // dunkler mit der Zeit
+      lp += (1 - a) * ((rnd() * 2 - 1) - lp);
+      d[i] = lp * Math.exp((-6.9 * t) / REVERB.seconds);
+    }
+  }
+  return ir;
+}
+
+/** Hall an/aus (Einstellung „Hall“); gilt sofort. */
+export function setReverb(on) {
+  reverbOn = !!on;
+  if (graph?.wet) graph.wet.gain.value = reverbOn ? REVERB.wet : 0;
+}
 
 function buildGraph(c) {
   const comp = c.createDynamicsCompressor();
@@ -19,7 +57,14 @@ function buildGraph(c) {
   comp.attack.value = 0.005; comp.release.value = 0.15;
   comp.connect(c.destination);
   const bus = (g) => { const n = c.createGain(); n.gain.value = g; n.connect(comp); return n; };
-  return { piano: bus(LEVEL.piano), click: bus(LEVEL.click), melody: bus(LEVEL.melody) };
+  const piano = bus(LEVEL.piano);
+  // Hall: das Klavier geht zusätzlich durch einen Faltungshall.
+  const conv = c.createConvolver();
+  conv.buffer = reverbIR(c);
+  const wet = c.createGain();
+  wet.gain.value = reverbOn ? REVERB.wet : 0;
+  piano.connect(conv).connect(wet).connect(comp);
+  return { piano, click: bus(LEVEL.click), melody: bus(LEVEL.melody), wet };
 }
 
 /** Der eine AudioContext (lazy). */
@@ -44,14 +89,37 @@ export async function unlock() {
 }
 
 /** Klaviersamples im Hintergrund laden (Startscreen). */
+/** Wie lange ein Ton klingen kann (s): tiefe länger, hohe kürzer — passend zu
+ *  den vorab gekürzten Dateien. */
+const keepSec = (m) => (m <= 48 ? 5 : m <= 72 ? 4 : 2.5);
+/** Effektivwert des früheren Einzel-Satzes: alle Stufen werden darauf
+ *  ausgeglichen, die Gesamtlautstärke bleibt wie vor den drei Stufen. Die
+ *  Stufe ändert nur den Klang (leise weicher, laut heller); die Lautstärke
+ *  kommt weiter von `gain`. */
+const PIANO_REF = 0.0651;
+/** Welche Stufe zu einer Lautstärke: leise Begleitung weich, kräftig (und die
+ *  linke Hand, 1,1×) hell. */
+/** Loslass-Geräusch relativ zum Pegel des Tons. ANNAHME: leise, nur zu spüren. */
+const REL_LEVEL = 0.18;
+export const layerFor = (gain) => (gain < 0.55 ? 'soft' : gain > 1.05 ? 'loud' : 'mid');
+
 export function preloadPiano() {
   if (piano || pianoLoad || !window.ChorPiano) return pianoLoad;
-  pianoLoad = window.ChorPiano.load({ keepSec: () => 3 })
-    .then((set) => { piano = set; return set; })
+  const P = window.ChorPiano;
+  const one = (layer) => P.load({ keepSec, base: P.baseOf(layer) });
+  // „mid“ zuerst (damit klingt schon alles), die anderen Stufen danach.
+  pianoLoad = one('mid')
+    .then((mid) => {
+      piano = { mid };
+      // Loslass-Geräusche (je Taste, ≈ 0,3 MB) kommen mit.
+      P.loadRelease().then((rel) => { if (piano) piano.rel = rel; }).catch((e) => logError('audio:piano:rel', e));
+      for (const layer of ['soft', 'loud']) one(layer).then((set) => { if (piano) piano[layer] = set; }).catch((e) => logError(`audio:piano:${layer}`, e));
+      return piano;
+    })
     .catch((e) => { logError('audio:piano', e); pianoLoad = null; return null; });
   return pianoLoad;
 }
-export const pianoReady = () => !!piano;
+export const pianoReady = () => !!piano?.mid;
 
 /** Aktuelle Audiozeit. */
 export const now = () => getCtx().currentTime;
@@ -87,9 +155,13 @@ function synthNote(c, dest, midi, time, dur, gain) {
 }
 
 function pianoNote(c, dest, set, midi, time, dur, gain) {
-  if (set && window.ChorPiano) {
+  if (set?.mid && window.ChorPiano) {
     try {
-      window.ChorPiano.play(c, set, midi, time, { dur, gain: 0.32 * gain, release: 0.25, dest });
+      const layer = set[layerFor(gain)] || set.mid;
+      const level = 0.32 * gain * PIANO_REF;
+      window.ChorPiano.play(c, layer, midi, time, { dur, gain: level / layer.ref, release: 0.25, dest });
+      // Beim Loslassen leise das Dämpfer-Geräusch (Pegel: REL_LEVEL × Notenpegel).
+      if (set.rel && dur >= 0.08) window.ChorPiano.playRelease(c, set.rel, midi, time + dur, { gain: (level * REL_LEVEL) / set.rel.ref, dest });
       return;
     } catch (e) { logError('audio:sample', e); }
   }

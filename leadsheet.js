@@ -16,7 +16,7 @@ const EPS = 1e-6;
 export const METERS = Object.freeze([4, 3, 6, 2]);
 /** ANNAHME: ein neuer Abschnitt hat 8 Takte, bis man es ändert. */
 export const DEFAULT_BARS = 8;
-export const MAX_BARS = 64;
+export const MAX_BARS = 160;
 
 const sorted = (song) => [...(song.sections || [])].sort((a, b) => a.bar - b.bar);
 
@@ -221,17 +221,9 @@ export function barsTime(song, id, fromBar, toBar, durationSec = 0) {
   return { start: times[k].start + (a - s.bar) * bd, end: times[k].start + (b - s.bar + 1) * bd };
 }
 
-/** Takt-Auswahl für den Loop: Antippen eines Takts. sel = null (ganzer
- *  Abschnitt) oder { from, to }. Ist ein einzelner Takt gewählt, macht ein
- *  zweiter Takt daraus einen Bereich, derselbe noch einmal hebt die Auswahl
- *  auf; sonst wird der getippte Takt allein gewählt. → neue Auswahl */
-export function nextBarSelection(sel, bar) {
-  if (sel && sel.from === sel.to) {
-    if (sel.from === bar) return null;
-    return { from: Math.min(sel.from, bar), to: Math.max(sel.from, bar) };
-  }
-  return { from: bar, to: bar };
-}
+/** Takt-Auswahl für den Loop (lange drücken, ziehen): Ankertakt und aktueller
+ *  Takt → Bereich { from, to }, egal in welcher Richtung gezogen wird. */
+export const barSpan = (a, b) => ({ from: Math.min(a, b), to: Math.max(a, b) });
 
 /** Vorlauf vor dem Loop und zwischen den Durchgängen: der Takt davor im
  *  Video (Sekunden Videozeit), damit man den Einsatz findet.
@@ -369,10 +361,12 @@ export function orderByStart(song) {
 /** Taktzahlen aus der Zeit: Ist das Tempo bekannt, bekommt jeder Abschnitt,
  *  dessen Takte nicht von Hand gesetzt sind (barsSet), so viele Takte, wie
  *  bis zum Start des nächsten Abschnitts (mit eigener Startzeit) passen.
- *  ANNAHME: auf ganze Takte gerundet, mindestens 1. Der letzte Abschnitt
- *  behält seine Takte (sein Ende ist noch offen). Würde das Kürzen Akkorde
+ *  Der letzte Abschnitt reicht bis zum Ende des Videos (durationSec, wenn
+ *  bekannt), damit die Markierung bis zum Schluss mitläuft; zu lang? Dann
+ *  mit Takte −/+ von Hand kürzen.
+ *  ANNAHME: auf ganze Takte gerundet, mindestens 1. Würde das Kürzen Akkorde
  *  wegnehmen, bleibt der Abschnitt, wie er ist. */
-export function fitBars(song) {
+export function fitBars(song, durationSec = 0) {
   if (!song.bpm) return song;
   const bpb = song.beatsPerBar;
   let s = song;
@@ -380,10 +374,11 @@ export function fitBars(song) {
     const list = sectionList(s);
     const i = list.findIndex((x) => x.id === id);
     const sec = list[i], next = list[i + 1];
-    if (!next || sec.barsSet || next.startSec == null) continue;
+    const endSec = next ? next.startSec : (durationSec > 0 ? durationSec : null);
+    if (sec.barsSet || endSec == null) continue;
     const start = sectionTimes(s)[i].start;
-    if (start == null || next.startSec <= start) continue;
-    const n = Math.max(1, Math.min(MAX_BARS, Math.round(((next.startSec - start) * s.bpm) / 60 / bpb)));
+    if (start == null || endSec <= start) continue;
+    const n = Math.max(1, Math.min(MAX_BARS, Math.round(((endSec - start) * s.bpm) / 60 / bpb)));
     if (n === sec.bars) continue;
     const cutFrom = sec.fromBeat + n * bpb;
     if (n < sec.bars && (s.events || []).some((e) => e.at >= cutFrom - EPS && e.at < sec.toBeat - EPS)) continue;

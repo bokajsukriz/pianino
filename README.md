@@ -15,7 +15,7 @@ noch ohne Wechsel.
 **Neuer Song:** ein YouTube-Link genügt — Titel und Interpret liest die
 Liedseite aus den Angaben des eingebetteten Players (`yt.js meta()`, keine
 eigene Netzanfrage; `songFromVideo` schneidet Zusätze wie „(Official Video)“
-ab, Vorschlag, im Menü „Mehr“ änderbar). Mehr gibt YouTube nicht her: keine
+ab, Vorschlag, in den Einstellungen änderbar). Mehr gibt YouTube nicht her: keine
 Akkorde, Teile oder Tempo. Ohne Link: Titel und Interpret eintippen.
 Danach startet ein Assistent auf der Liedseite
 (`songwizard.js`): 1 YouTube-Link, 2 beim Abspielen am Anfang jedes Teils
@@ -23,7 +23,7 @@ seinen Namen tippen und einmal das Tempo mittippen (die Takte ergeben sich
 daraus), 3 Akkorde anlegen („+ Akkord“) und beim
 Abspielen den Akkord tippen, sobald er wechselt (`tapChordAt`, auf ganze
 Schläge gerundet; Tasten 1–9), 4 je Akkord die Tasten im Griff-Editor.
-Später wieder über „Mehr“ → „Assistent“.
+Später wieder über das Zahnrad → „Assistent“.
 
 **Startpunkt sind die Songs.** Je Song eine Liedseite (`songpage.js`): unten
 die Leiste — links der YouTube-Player (200 × 200, das Kleinste, was YouTube
@@ -38,27 +38,33 @@ rechts. Das Leadsheet (`leadsheet.js`): jeder Abschnitt eine Karte
 Viertel (bei 6/8 je Achtel) — und darunter sein Teil der Tabs. Zelle
 antippen → Akkord ab diesem Schlag wählen, „kein Wechsel“, eine Viertel
 früher/später. Vor jeder Zeile ein kleiner Pfeil ▶: ab diesem Takt spielen. An der Karte: ▶ ab hier, ↻ Loop, ⋯ Takte, „Start hier“
-(Sekunde im Video), Umbenennen, Löschen. „Mehr“ → „Takt und
-Tempo“ (4/4, 3/4, 6/8, 2/4; Tempo ±1 oder tippen); mit Tempo und der
+(Sekunde im Video), Umbenennen, Löschen. Das **Zahnrad** oben rechts (beim
+Öffnen wird es zum X) klappt die Einstellungen des Songs auf: Titel und
+Interpret direkt in der Titelleiste, Takt (4/4, 3/4, 6/8, 2/4), Tempo (±1,
+Tippen, „ohne“) und darunter Assistent, Video ändern, Griffe, Damit üben,
+Exportieren, Löschen. „+ Abschnitt“ steht hinter dem letzten Abschnitt,
+„Folgen üben“ als Symbol ganz vorn in der Akkordzeile. Mit Tempo und der
 Startzeit des ersten Abschnitts läuft die Markierung im Raster mit dem
 Video mit (Takt und Viertel hervorgehoben; ohne Tempo ungefähr, aus dem
 Abstand zum nächsten Start). Beim Loop über einen Abschnitt (↻) lassen sich
-einzelne Takte wählen (Taktnummer antippen, ein zweiter Takt: Bereich);
+einzelne Takte wählen (auf einen Takt lange drücken und über weitere ziehen;
+loslassen startet den Loop);
 vor dem ersten und zwischen den Durchgängen spielt der Takt davor als
 Vorlauf (ohne Tempo 2 s), der ↻-Knopf zählt bis zum Einsatz herunter. Abschnitte stehen nach
 Startzeit im Video, auch wenn man sie in anderer Reihenfolge anlegt. Mit
 Tempo ergeben sich die Takte eines Abschnitts aus dem Abstand zum nächsten
-Start (gerundet), bis man sie selbst ändert („aus der Zeit“ stellt das
-zurück). Bereits vorhandene Tabs (eingefügter Text, bleibt auf dem Gerät) stehen
-weiter unter ihren Abschnitten, und „Mehr“ → „Abschnitte aus den Tabs“ macht
+Start (gerundet), der letzte bis zum Ende des Videos, bis man sie selbst
+ändert („aus der Zeit“ stellt das zurück). Bereits vorhandene Tabs (eingefügter Text, bleibt auf dem Gerät) stehen
+weiter unter ihren Abschnitten, und das Zahnrad → „Abschnitte aus den Tabs“ macht
 aus ihren Überschriften Abschnitte (eine Akkordzeile = 2 Takte, nur ein
 Vorschlag). Neue Tabs lassen sich in der Oberfläche nicht mehr einfügen, auch
 keine Schriftgröße mehr einstellen; A–B-Loops, gespeicherte Loops und die
 PDF-Ansicht gibt es ebenfalls nicht mehr (vorhandene Daten bleiben
 unberührt). Tasten: Leertaste, ←/→, Esc.
 
-**Folgen üben** (`drillpage.js`, rein: `drill.js`): von der Liedseite (Knopf
-„Folgen üben“ für den ganzen Song, ⋯ an der Karte für einen Abschnitt). Die
+**Folgen üben** (`drillpage.js`, rein: `drill.js`): von der Liedseite (Symbol
+ganz vorn in der Akkordzeile für den ganzen Song, ⋯ an der Karte für einen
+Abschnitt). Die
 Abschnitte werden in Folgen zu 2 Takten geschnitten; gleiche Folgen kommen
 nur einmal. Jede Folge: ein Takt Vorlauf (Folge schon sichtbar, der Klick
 zählt groß ein), dann 2 Takte zum Klick mitspielen, groß der klingende
@@ -235,7 +241,7 @@ Liedseite (`marks`) Abschnitte mit Startzeit (je 8 Takte, `startSec`).
 | `song-perfect-ruin.js` | REIN: alte Songdaten, nur noch Quelle der Migration |
 | `test-melody.js` | REIN: Testmelodie (nur Selbsttest) |
 | `selftest.js` | `runSelfTests()` |
-| `piano-samples.js`, `samples/salamander/` | Klavier aus der Choirapp |
+| `piano-samples.js`, `samples/salamander/` | Klavier: Salamander in drei Anschlagstärken (leise Begleitung weich, kräftig hell), dazu je Taste ein Loslass-Geräusch, ≈ 4,1 MB; Pegel gleich, nur der Klang ändert sich. Der Hall dazu (`audio.js`, berechnet, Schalter „Hall beim Klavier“ unter „Über und Einstellungen“) braucht keinen Download |
 | `fonts/` | Bricolage Grotesque |
 | `sw.js`, `manifest.json`, `icon*` | Offline und Home-Bildschirm |
 | `docs/song-schema.md` | Schema der Song-JSONs |
