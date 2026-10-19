@@ -405,7 +405,7 @@ function pureTests() {
   const ed = setEvent(vs(base()).song, 3.5, 'Am');
   const rs = setEvent(vs(base()).song, 2, 'Am', true);
   check('9 Bearbeiten: gleicher Akkord mit again bleibt als Neuanschlag, ohne again wird er zusammengefasst',
-    eq(rs.events.map((e) => e.again === true), [false, true, false]) && setEvent(vs(base()).song, 2, 'Am').events.length === 2);
+    eq(rs.events.map((e) => e.again === true), [false, true, false, false]) && setEvent(vs(base()).song, 2, 'Am').events.length === 3);
   check('9 Bearbeiten: Ereignis an belegter Stelle ersetzt, gleiche Nachbarn zusammengefasst',
     eq(ed.events, [{ at: 0, chord: 'Am' }, { at: 6, chord: 'F6/9' }]));
   const ren = renameChord(vs(base()).song, 'D/F#', 'D');
