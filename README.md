@@ -20,20 +20,22 @@ Akkorde, Teile oder Tempo. Ohne Link: Titel und Interpret eintippen.
 Danach startet ein Assistent auf der Liedseite
 (`songwizard.js`): 1 YouTube-Link, 2 beim Abspielen am Anfang jedes Teils
 seinen Namen tippen und einmal das Tempo mittippen (die Takte ergeben sich
-daraus), 3 Akkorde anlegen (Tabs einfügen oder „+ Akkord“) und beim
+daraus), 3 Akkorde anlegen („+ Akkord“) und beim
 Abspielen den Akkord tippen, sobald er wechselt (`tapChordAt`, auf ganze
 Schläge gerundet; Tasten 1–9), 4 je Akkord die Tasten im Griff-Editor.
 Später wieder über „Mehr“ → „Assistent“.
 
 **Startpunkt sind die Songs.** Je Song eine Liedseite (`songpage.js`): oben
-der YouTube-Player mit großer Play/Pause-Taste, ±5 s, Tempo 0,5 / 0,75 / 1,
-Zeitleiste zum Ziehen, Loop über A–B oder einen Abschnitt, gespeicherte
-Loops. Darunter das Leadsheet (`leadsheet.js`): jeder Abschnitt eine Karte
+der YouTube-Player (200 × 200, das Kleinste, was YouTube erlaubt; das
+Video hat dann Ränder oben und unten), unten die Leiste mit großer Play/Pause-Taste, ±5 s,
+Tempo 0,5 / 0,75 / 1 und Zeitleiste zum Ziehen, darüber alle Akkorde des
+Songs: Antippen spielt den Akkord, Halten öffnet ein kleines Blatt mit der
+Klaviatur (Tasten antippen = an/aus). Dazwischen das Leadsheet (`leadsheet.js`): jeder Abschnitt eine Karte
 über die ganze Breite mit festem Raster — 2 Takte pro Zeile, eine Zelle je
 Viertel (bei 6/8 je Achtel) — und darunter sein Teil der Tabs. Zelle
 antippen → Akkord ab diesem Schlag wählen, „kein Wechsel“, eine Viertel
 früher/später. An der Karte: ▶ ab hier, ↻ Loop, ⋯ Takte, „Start hier“
-(Sekunde im Video), Umbenennen, Loop speichern, Löschen. „Mehr“ → „Takt und
+(Sekunde im Video), Umbenennen, Löschen. „Mehr“ → „Takt und
 Tempo“ (4/4, 3/4, 6/8, 2/4; Tempo ±1 oder tippen); mit Tempo und der
 Startzeit des ersten Abschnitts läuft die Markierung im Raster mit dem
 Video mit (Takt und Viertel hervorgehoben; ohne Tempo ungefähr, aus dem
@@ -44,13 +46,13 @@ Vorlauf (ohne Tempo 2 s), der ↻-Knopf zählt bis zum Einsatz herunter. Abschni
 Startzeit im Video, auch wenn man sie in anderer Reihenfolge anlegt. Mit
 Tempo ergeben sich die Takte eines Abschnitts aus dem Abstand zum nächsten
 Start (gerundet), bis man sie selbst ändert („aus der Zeit“ stellt das
-zurück). „Abschnitte aus den Tabs“ macht aus den Überschriften der Tabs
-Abschnitte (eine Akkordzeile = 2 Takte, nur ein Vorschlag). Tabs sind
-eingefügter Text (z. B. bei Ultimate Guitar kopiert; Akkordzeilen
-hervorgehoben, Schrift größer/kleiner, die Akkorde landen in der
-Akkordliste des Songs) oder ein PDF vom Gerät. Ein iframe von Ultimate
-Guitar geht nicht (die Seite verbietet das Einbetten). Text und PDF bleiben
-auf dem Gerät. Tasten: Leertaste, ←/→, L, Esc.
+zurück). Bereits vorhandene Tabs (eingefügter Text, bleibt auf dem Gerät) stehen
+weiter unter ihren Abschnitten, und „Mehr“ → „Abschnitte aus den Tabs“ macht
+aus ihren Überschriften Abschnitte (eine Akkordzeile = 2 Takte, nur ein
+Vorschlag). Neue Tabs lassen sich in der Oberfläche nicht mehr einfügen, auch
+keine Schriftgröße mehr einstellen; A–B-Loops, gespeicherte Loops und die
+PDF-Ansicht gibt es ebenfalls nicht mehr (vorhandene Daten bleiben
+unberührt). Tasten: Leertaste, ←/→, Esc.
 
 **Folgen üben** (`drillpage.js`, rein: `drill.js`): von der Liedseite (Knopf
 „Folgen üben“ für den ganzen Song, ⋯ an der Karte für einen Abschnitt). Die
@@ -191,12 +193,12 @@ Liedseite (`marks`) Abschnitte mit Startzeit (je 8 Takte, `startSec`).
 | `style.css` | Gestaltung, Farben (auch `--kb-rh`/`--kb-lh`), Quer-/Hochformat |
 | `app.js` | Einstieg: Laden, Start, Abschluss, Über, Verdrahtung |
 | `songs.js` | Startpunkt „Songs“ (Liste, neuer Song), „Import“, Export |
-| `songpage.js` | Liedseite: Player, Loop, Leadsheet mit Abschnitten, Tabs (Text oder PDF) |
+| `songpage.js` | Liedseite: Player, Leadsheet mit Abschnitten, Loop je Abschnitt bzw. Takten, Tabs (Text) |
 | `songwizard.js` | Assistent für neue Songs (Video, Teile und Tempo, Akkordwechsel, Griffe) |
 | `drill.js` | REIN: 2-Takt-Folgen aus den Abschnitten, Vorlauf, Weiter/Wiederholen, Tempo |
 | `drillpage.js` | Folgen üben: Klick (clock.js), Anzeige, Wiederholen, Tempo ±5 |
 | `leadsheet.js` | REIN: Abschnitte als Taktbereiche, Raster, Zeiten im Video, Tabs je Abschnitt |
-| `marks.js` | REIN: gespeicherte Loops, Uhrzeit-Anzeige (alte Sekunden-Marken nur noch für Migration 3) |
+| `marks.js` | REIN: Uhrzeit-Anzeige, Loop-Helfer (nicht mehr in der Oberfläche), alte Sekunden-Marken nur noch für Migration 3 |
 | `tabtext.js` | REIN: eingefügten Tab-Text in Akkordzeilen, Überschriften, Text zerlegen |
 | `session.js` | führt einen Übungsplan aus: weiche Zeitlimits, Pause, Beenden, Wake Lock, Fortschrittsbalken, Übungszeit pro Tag |
 | `store.js` | Zustand im Speicher (Songs, Fortschritt je Song), schreibt nach IndexedDB durch |

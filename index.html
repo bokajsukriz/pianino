@@ -136,6 +136,46 @@
           </label>
         </div>
         <p class="vnote" id="sp-vnote" aria-live="polite"></p>
+      </div>
+      </div>
+      <div class="sp-sec">
+        <div class="sp-wiz" id="sp-wiz" role="region" aria-label="Assistent" hidden>
+          <div class="sp-wiz-head">
+            <b id="sp-wiz-step"></b>
+            <button type="button" class="btn btn-ghost btn-sm" id="sp-wiz-x">Beenden</button>
+          </div>
+          <p class="sp-wiz-text" id="sp-wiz-text"></p>
+          <div class="sp-wiz-body" id="sp-wiz-body"></div>
+          <p class="small muted sp-wiz-note" id="sp-wiz-note" aria-live="polite"></p>
+          <div class="sp-wiz-nav">
+            <button type="button" class="btn btn-secondary btn-sm" id="sp-wiz-back">Zurück</button>
+            <button type="button" class="btn btn-primary btn-sm" id="sp-wiz-next">Weiter</button>
+          </div>
+        </div>
+        <span class="visually-hidden" id="sp-section" aria-live="polite"></span>
+      </div>
+      <div class="sp-tabs" id="sp-main">
+        <div class="sp-tabbar">
+          <button type="button" class="btn btn-secondary btn-sm" id="sp-addsec">+ Abschnitt</button>
+          <button type="button" class="btn btn-primary btn-sm" id="sp-drill">Folgen üben</button>
+        </div>
+        <div id="sp-sheetview">
+          <div class="sp-text" id="sp-intro"></div>
+          <div class="sp-empty" id="sp-sec-empty">
+            <p class="small muted" id="sp-sec-hint">Noch keine Abschnitte. „+ Abschnitt“ legt einen an (8 Takte, Start an der aktuellen Stelle im Video); darin jede Viertel antippen, um den Akkord zu setzen.</p>
+            <button type="button" class="btn btn-primary btn-sm" id="sp-fromtabs" hidden>Abschnitte aus den Tabs anlegen</button>
+          </div>
+          <ol class="sp-sections" id="sp-sections" aria-label="Abschnitte"></ol>
+          <div class="sp-rest" id="sp-rest" hidden>
+            <h3 class="sp-rest-h">Weitere Tabs (ohne Abschnitt)</h3>
+            <div class="sp-text" id="sp-rest-text"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="sp-dock" id="sp-dock">
+      <div class="sp-chordbar" id="sp-chordbar" role="group" aria-label="Akkorde zum Anhören"></div>
+      <div class="sp-dock-main">
         <div class="sp-seek">
           <span class="sp-time" id="sp-cur">0:00</span>
           <div class="sp-track" id="sp-track" role="slider" tabindex="0" aria-label="Stelle im Song">
@@ -153,69 +193,6 @@
           </button>
           <button type="button" class="sp-round" id="sp-fwd" aria-label="5 Sekunden vor">+5</button>
           <div class="seg" id="sp-rates" role="group" aria-label="Tempo"></div>
-        </div>
-      </div>
-      <div class="sp-sec">
-        <div class="sp-looprow">
-          <button type="button" class="toggle toggle-sm" id="sp-loop" aria-pressed="false">Loop</button>
-          <button type="button" class="btn btn-secondary btn-sm" id="sp-a" aria-label="Loop-Anfang hier">A</button>
-          <button type="button" class="btn btn-secondary btn-sm" id="sp-b" aria-label="Loop-Ende hier">B</button>
-          <button type="button" class="btn btn-primary btn-sm" id="sp-saveloop" hidden>Speichern</button>
-        </div>
-        <ol class="sp-loops" id="sp-loops" aria-label="Gespeicherte Loops"></ol>
-        <div class="sp-wiz" id="sp-wiz" role="region" aria-label="Assistent" hidden>
-          <div class="sp-wiz-head">
-            <b id="sp-wiz-step"></b>
-            <button type="button" class="btn btn-ghost btn-sm" id="sp-wiz-x">Beenden</button>
-          </div>
-          <p class="sp-wiz-text" id="sp-wiz-text"></p>
-          <div class="sp-wiz-body" id="sp-wiz-body"></div>
-          <p class="small muted sp-wiz-note" id="sp-wiz-note" aria-live="polite"></p>
-          <div class="sp-wiz-nav">
-            <button type="button" class="btn btn-secondary btn-sm" id="sp-wiz-back">Zurück</button>
-            <button type="button" class="btn btn-primary btn-sm" id="sp-wiz-next">Weiter</button>
-          </div>
-        </div>
-        <span class="visually-hidden" id="sp-section" aria-live="polite"></span>
-      </div>
-      </div>
-      <div class="sp-tabs" id="sp-main">
-        <div class="sp-tabbar">
-          <div class="seg" role="group" aria-label="Tabs als">
-            <button type="button" class="seg-btn" data-tabmode="text" aria-pressed="true">Text</button>
-            <button type="button" class="seg-btn" data-tabmode="pdf" aria-pressed="false">PDF</button>
-          </div>
-          <button type="button" class="btn btn-secondary btn-sm" id="sp-smaller" aria-label="Schrift kleiner">A−</button>
-          <button type="button" class="btn btn-secondary btn-sm" id="sp-bigger" aria-label="Schrift größer">A+</button>
-          <button type="button" class="btn btn-secondary btn-sm" id="sp-edit">Tabs</button>
-          <button type="button" class="btn btn-secondary btn-sm sp-add" id="sp-addsec">+ Abschnitt</button>
-          <button type="button" class="btn btn-primary btn-sm" id="sp-drill">Folgen üben</button>
-        </div>
-        <textarea class="sp-text-edit" id="sp-text-edit" spellcheck="false" autocapitalize="off" aria-label="Tabs als Text" hidden></textarea>
-        <div id="sp-sheetview">
-          <p class="small muted" id="sp-text-empty">Tab z. B. bei Ultimate Guitar markieren, kopieren und unter „Tabs“ einfügen. Der Text bleibt nur auf diesem Gerät.</p>
-          <div class="sp-text" id="sp-intro"></div>
-          <div class="sp-empty" id="sp-sec-empty">
-            <p class="small muted" id="sp-sec-hint">Noch keine Abschnitte. „+ Abschnitt“ legt einen an (8 Takte, Start an der aktuellen Stelle im Video); darin jede Viertel antippen, um den Akkord zu setzen.</p>
-            <button type="button" class="btn btn-primary btn-sm" id="sp-fromtabs" hidden>Abschnitte aus den Tabs anlegen</button>
-          </div>
-          <ol class="sp-sections" id="sp-sections" aria-label="Abschnitte"></ol>
-          <div class="sp-rest" id="sp-rest" hidden>
-            <h3 class="sp-rest-h">Weitere Tabs (ohne Abschnitt)</h3>
-            <div class="sp-text" id="sp-rest-text"></div>
-          </div>
-          <div id="sp-pdfbox" hidden>
-            <div class="tr-row">
-              <label class="btn btn-secondary btn-sm file-btn">PDF wählen
-                <input type="file" id="sp-pdf-file" accept="application/pdf,.pdf" class="visually-hidden">
-              </label>
-              <button type="button" class="btn btn-secondary btn-sm" id="sp-pdf-open" hidden>Groß öffnen</button>
-              <button type="button" class="btn btn-ghost btn-sm" id="sp-pdf-del" hidden>Entfernen</button>
-              <span class="small muted" id="sp-pdf-name"></span>
-            </div>
-            <iframe class="sp-pdf" id="sp-pdf-frame" title="Tabs als PDF" hidden></iframe>
-            <p class="small muted">Das PDF bleibt nur auf diesem Gerät. Zeigt das iPhone nur die erste Seite: „Groß öffnen“.</p>
-          </div>
         </div>
       </div>
     </div>

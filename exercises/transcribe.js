@@ -383,7 +383,7 @@ async function tapChord(sym) {
   if (t == null) return;
   const at = quantize(secToBeat(s, t), st.grid);
   if (at < 0) { say('Vor Takt 1 – da gibt es noch keinen Wechsel.'); return; }
-  await commit(setEvent(s, at, sym));
+  await commit(setEvent(s, at, sym, true)); // derselbe Akkord noch einmal: Neuanschlag, nicht verschlucken
   st.sel = at;
   say(`${prettyChord(sym)} ab Takt ${barOf(s, at)}, ${countLabel(s, at)}`);
 }
