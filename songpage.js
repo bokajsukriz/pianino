@@ -1,7 +1,7 @@
 /* songpage.js — Liedseite: ein Song zum Mitspielen. Oben der YouTube-Player
    200 × 200, immer sichtbar und nie überdeckt) steht mit seiner Steuerung
    (Zeitleiste, große Play/Pause-Taste, ±5 s, Geschwindigkeit als
-   Auswahlmenü) in der Leiste unten, im Querformat links.
+   Auswahlmenü, Schalter fürs Mitscrollen) in der Leiste unten, im Querformat links.
    Darunter das Leadsheet (leadsheet.js): jeder Abschnitt eine Karte über die
    ganze Breite mit festem Raster — 2 Takte pro Zeile, eine Zelle je Schlag —
    und darunter sein Teil der Tabs. Zelle antippen → Akkord ab diesem Schlag
@@ -14,7 +14,7 @@
    schließt das Blatt. */
 
 import * as yt from './yt.js';
-import { S, putSong } from './store.js';
+import { S, putSong, saveSettings } from './store.js';
 import { setYoutube, addChord, songFromVideo, setVoicing } from './songdata.js';
 import { youtubeSource, eventIndexAt } from './timeline.js';
 import { parseYouTubeId, tapTempo } from './tap.js';
@@ -102,6 +102,7 @@ function wire() {
   $('#sp-rew').addEventListener('click', () => skip(-SKIP));
   $('#sp-fwd').addEventListener('click', () => skip(SKIP));
   $('#sp-rate').addEventListener('change', (e) => setRate(Number(e.target.value)));
+  $('#sp-follow').addEventListener('click', () => { S.settings.followScroll = !follows(); saveSettings(); paintFollow(); });
   $('#sp-load').addEventListener('click', loadFromInput);
   $('#sp-url').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); loadFromInput(); } });
   wireTrack();
@@ -141,6 +142,7 @@ export function openSongPage(songId, { wizard = null } = {}) {
     $('#sp-sheet').hidden = true;
     showScreen('song');
     fitDock();
+    paintFollow();
     paintTransport();
     paintTabs();
     if (wizard) startWizard(wizard); else stopWizard();
@@ -998,7 +1000,13 @@ function paintPlayhead(pos, playing) {
     }
   }
   // Beim Abspielen mitscrollen, solange das Blatt nicht offen ist.
-  if (playing && !st.sheet) followIntoView(target === cardEl ? cardEl.querySelector('.sp-card-head') : target);
+  if (playing && !st.sheet && follows()) followIntoView(target === cardEl ? cardEl.querySelector('.sp-card-head') : target);
+}
+
+/** Automatisch mitscrollen (Schalter unten, gemerkt; Standard: an). */
+const follows = () => S.settings.followScroll !== false;
+function paintFollow() {
+  $('#sp-follow').setAttribute('aria-pressed', follows() ? 'true' : 'false');
 }
 
 /** Knoten in den sichtbaren Bereich holen (unter dem stehenden Player). */
