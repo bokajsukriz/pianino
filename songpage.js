@@ -1,6 +1,7 @@
 /* songpage.js — Liedseite: ein Song zum Mitspielen. Oben der YouTube-Player
-   (immer sichtbar, nie überdeckt) mit großer Play/Pause-Taste, ±5 s, Tempo
-   0,5 / 0,75 / 1 und Zeitleiste.
+   200 × 200, immer sichtbar und nie überdeckt) steht mit seiner Steuerung
+   (Zeitleiste, große Play/Pause-Taste, ±5 s, Geschwindigkeit als
+   Auswahlmenü) in der Leiste unten, im Querformat links.
    Darunter das Leadsheet (leadsheet.js): jeder Abschnitt eine Karte über die
    ganze Breite mit festem Raster — 2 Takte pro Zeile, eine Zelle je Schlag —
    und darunter sein Teil der Tabs. Zelle antippen → Akkord ab diesem Schlag
@@ -100,6 +101,7 @@ function wire() {
   $('#sp-play').addEventListener('click', togglePlay);
   $('#sp-rew').addEventListener('click', () => skip(-SKIP));
   $('#sp-fwd').addEventListener('click', () => skip(SKIP));
+  $('#sp-rate').addEventListener('change', (e) => setRate(Number(e.target.value)));
   $('#sp-load').addEventListener('click', loadFromInput);
   $('#sp-url').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); loadFromInput(); } });
   wireTrack();
@@ -110,7 +112,7 @@ function wire() {
   initWizard(wizardApi);
   // Tabs
   document.addEventListener('keydown', onKey);
-  // Höhe der Leiste unten: Platz am Seitenende lassen, Blatt darüber setzen.
+  // Leiste (unten bzw. links): Platz lassen, Blatt daneben setzen.
   if (window.ResizeObserver) new ResizeObserver(() => { fitDock(); placeSheet(); }).observe($('#sp-dock'));
   window.addEventListener('resize', () => { fitDock(); placeSheet(); });
 }
@@ -562,23 +564,27 @@ function openSheet(kind, arg, title, text, nodes) {
 
 /** Seitenende frei halten für die Leiste unten. → Höhe der Leiste (px) */
 function fitDock() {
-  const h = $('#sp-dock').offsetHeight || 0;
-  $('#s-song').style.paddingBottom = `calc(${h}px + 8px)`;
+  const land = matchMedia(LANDSCAPE).matches;
+  // Hochformat: die Leiste liegt unten, am Seitenende Platz lassen. Querformat:
+  // sie steht links (eigene Spalte).
+  const h = land ? 0 : $('#sp-dock').offsetHeight || 0;
+  $('#s-song').style.paddingBottom = land ? '' : `calc(${h}px + 8px)`;
   return h;
 }
 
 function placeSheet() {
   const sh = $('#sp-sheet');
   if (sh.hidden) return;
-  const dock = $('#sp-dock').offsetHeight || 0;
-  const player = $('.sp-player').getBoundingClientRect();
-  sh.style.bottom = `${dock}px`;
+  const dock = $('#sp-dock');
   if (matchMedia(LANDSCAPE).matches) {
-    sh.style.left = `${Math.round(player.right + 8)}px`;
-    sh.style.maxHeight = `${Math.max(140, Math.min(Math.round(window.innerHeight * 0.58), window.innerHeight - dock - 70))}px`;
+    sh.style.bottom = '0px';
+    sh.style.left = `${Math.round(dock.getBoundingClientRect().right + 8)}px`;
+    sh.style.maxHeight = `${Math.max(140, Math.round(window.innerHeight * 0.62))}px`;
   } else {
+    const h = dock.offsetHeight || 0;
+    sh.style.bottom = `${h}px`;
     sh.style.left = '0px';
-    sh.style.maxHeight = `${Math.max(150, Math.round(window.innerHeight - dock - Math.max(0, player.bottom) - 8))}px`;
+    sh.style.maxHeight = `${Math.max(150, window.innerHeight - h - 70)}px`;
   }
 }
 
@@ -890,13 +896,15 @@ function paintTransport() {
   btn.classList.toggle('on', playing);
   $('#sp-play-icon').setAttribute('d', playing ? 'M7 5h4v14H7zM13 5h4v14h-4z' : 'M8 5l11 7-11 7z');
   for (const b of [btn, $('#sp-rew'), $('#sp-fwd')]) b.disabled = !p;
+  // Geschwindigkeit als Auswahlmenü (nur neu aufbauen, wenn sich die Liste ändert).
   const rates = p ? p.rates().filter((r) => RATES.includes(r)) : RATES;
-  $('#sp-rates').replaceChildren(...rates.map((r) => {
-    const b = button('seg-btn', `${String(r).replace('.', ',')}×`, () => setRate(r));
-    b.setAttribute('aria-pressed', r === st.rate ? 'true' : 'false');
-    b.disabled = !p;
-    return b;
-  }));
+  const sel = $('#sp-rate');
+  if (sel.dataset.rates !== rates.join()) {
+    sel.dataset.rates = rates.join();
+    sel.replaceChildren(...rates.map((r) => { const o = el('option', '', `${String(r).replace('.', ',')}×`); o.value = String(r); return o; }));
+  }
+  sel.value = String(st.rate);
+  sel.disabled = !p;
   for (const b of $$('#sp-sections [data-loop]')) {
     const on = st.loopOn && st.loop?.sec === b.dataset.loop;
     // Im Vorlauf (Takt vor dem Loop) zählt der Knopf die Schläge herunter.
@@ -974,7 +982,7 @@ function followIntoView(node) {
   const r = node.getBoundingClientRect();
   const land = matchMedia(LANDSCAPE).matches;
   const box = land ? $('#sp-main').getBoundingClientRect() : null;
-  const top = land ? box.top : $('.sp-top').getBoundingClientRect().bottom;
+  const top = land ? box.top : 8;
   const bottom = land ? box.bottom : window.innerHeight - ($('#sp-dock').offsetHeight || 0);
   if (r.top >= top + 4 && r.bottom <= bottom - 4) return;
   const by = r.top - top - 12;
