@@ -29,14 +29,15 @@ Später wieder über „Mehr“ → „Assistent“.
 die Leiste — links der YouTube-Player (200 × 200, das Kleinste, was YouTube
 erlaubt; das Video hat dann Ränder oben und unten), daneben die Steuerung
 (Zeitleiste zum Ziehen, große Play/Pause-Taste, ±5 s, Geschwindigkeit
-0,5 / 0,75 / 1 als Auswahlmenü), darüber alle Akkorde des Songs: Antippen
+0,5 / 0,75 / 1 als Auswahlmenü, daneben „Scroll“: automatisches Mitscrollen
+an/aus), darüber alle Akkorde des Songs: Antippen
 spielt den Akkord, Halten öffnet ein kleines Blatt mit der Klaviatur (Tasten
 antippen = an/aus). Im Querformat steht die Leiste links, das Leadsheet
 rechts. Das Leadsheet (`leadsheet.js`): jeder Abschnitt eine Karte
 über die ganze Breite mit festem Raster — 2 Takte pro Zeile, eine Zelle je
 Viertel (bei 6/8 je Achtel) — und darunter sein Teil der Tabs. Zelle
 antippen → Akkord ab diesem Schlag wählen, „kein Wechsel“, eine Viertel
-früher/später. An der Karte: ▶ ab hier, ↻ Loop, ⋯ Takte, „Start hier“
+früher/später. Vor jeder Zeile ein kleiner Pfeil ▶: ab diesem Takt spielen. An der Karte: ▶ ab hier, ↻ Loop, ⋯ Takte, „Start hier“
 (Sekunde im Video), Umbenennen, Löschen. „Mehr“ → „Takt und
 Tempo“ (4/4, 3/4, 6/8, 2/4; Tempo ±1 oder tippen); mit Tempo und der
 Startzeit des ersten Abschnitts läuft die Markierung im Raster mit dem

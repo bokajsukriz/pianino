@@ -216,6 +216,15 @@ export function idFromTitle(title) {
 /* ---------- Bearbeiten (Editor, Griff-Editor) ---------------------------
    Alle Funktionen geben einen neuen Song zurück; der alte bleibt. */
 
+/** Beim Bearbeiten entstandene gleiche Nachbarn (z. B. Am gesetzt, im
+ *  nächsten Takt steht schon Am; oder der Akkord dazwischen entfällt) bleiben
+ *  als Neuanschlag (`again`) erhalten, statt von der Normalisierung
+ *  verschluckt zu werden. Nur für Änderungen von Hand: Beim Import fasst
+ *  normalizeSong gleiche Nachbarn weiter zusammen. */
+export function keepRepeats(events) {
+  return events.map((e, i, all) => (i && all[i - 1].chord === e.chord && e.again !== true ? { ...e, again: true } : e));
+}
+
 /** Ereignis setzen: liegt bei `at` schon eines, wird es ersetzt. Danach
  *  sortiert und gleiche Nachbarn zusammengefasst — außer mit again: true
  *  (Neuanschlag desselben Akkords). */
@@ -223,12 +232,16 @@ export function setEvent(song, at, chord, again = false) {
   const events = song.events.filter((e) => Math.abs(e.at - at) > EPS);
   events.push(again ? { at, chord, again: true } : { at, chord });
   events.sort((a, b) => a.at - b.at);
+  // Ein schon vorhandener gleicher Akkord direkt danach geht nicht verloren.
+  const i = events.findIndex((e) => Math.abs(e.at - at) < EPS);
+  const next = events[i + 1];
+  if (next && next.chord === chord && next.again !== true) events[i + 1] = { ...next, again: true };
   return normalizeSong({ ...song, events });
 }
 
 /** Ereignis bei `at` entfernen. */
 export function removeEvent(song, at) {
-  return normalizeSong({ ...song, events: song.events.filter((e) => Math.abs(e.at - at) > EPS) });
+  return normalizeSong({ ...song, events: keepRepeats(song.events.filter((e) => Math.abs(e.at - at) > EPS)) });
 }
 
 /** Ereignis bei `at` um `by` Schläge verschieben (nicht über Nachbarn oder
@@ -240,12 +253,12 @@ export function moveEvent(song, at, by) {
   const prev = song.events[i - 1], next = song.events[i + 1];
   if (to < 0 || (prev && to <= prev.at + EPS) || (next && to >= next.at - EPS)) return { song, at };
   const events = song.events.map((e, k) => (k === i ? { ...e, at: to } : e));
-  return { song: normalizeSong({ ...song, events }), at: to };
+  return { song: normalizeSong({ ...song, events: keepRepeats(events) }), at: to };
 }
 
 /** Akkord an `at` ändern. */
 export function changeEvent(song, at, chord) {
-  return normalizeSong({ ...song, events: song.events.map((e) => (Math.abs(e.at - at) < EPS ? { ...e, chord } : e)) });
+  return normalizeSong({ ...song, events: keepRepeats(song.events.map((e) => (Math.abs(e.at - at) < EPS ? { ...e, chord } : e))) });
 }
 
 /** Akkord ans Ende von chords anhängen (wenn neu). */
