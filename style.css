@@ -625,7 +625,7 @@ button.band-ev { cursor: pointer; min-height: 30px; font: inherit; font-weight: 
 .sp-bar { position: relative; min-width: 0; padding-top: 14px; border-left: 2px solid var(--line); }
 .sp-bar:nth-child(2n+1) { border-left: 0; }
 .sp-bar:nth-child(n+3) { border-top: 2px solid var(--line); }
-.sp-rows { display: flex; flex-direction: column; margin: 0 8px 8px; border: 2px solid var(--line); border-radius: 10px; overflow: hidden; }
+.sp-rows { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; display: flex; flex-direction: column; margin: 0 8px 8px; border: 2px solid var(--line); border-radius: 10px; overflow: hidden; }
 .sp-row { display: grid; grid-template-columns: 30px minmax(0, 1fr) minmax(0, 1fr); }
 .sp-row + .sp-row { border-top: 2px solid var(--line); }
 .sp-rows .sp-row .sp-bar { border-left: 2px solid var(--line); border-top: 0; }
@@ -637,8 +637,8 @@ button.band-ev { cursor: pointer; min-height: 30px; font: inherit; font-weight: 
 .sp-go:focus-visible { outline: 3px solid var(--text); outline-offset: -3px; }
 .sp-bar.playing { background: var(--from); box-shadow: inset 0 0 0 2px var(--accent-text); }
 .sp-no {
-  position: absolute; top: 0; left: 0; right: 0; height: 14px; padding: 0 5px; border: 0; background: transparent;
-  text-align: left; font: inherit; font-size: 10px; font-weight: 700; color: var(--muted); cursor: pointer; touch-action: manipulation;
+  position: absolute; top: 0; left: 0; right: 0; height: 14px; padding: 0 5px;
+  font-size: 10px; font-weight: 700; color: var(--muted); pointer-events: none;
 }
 .sp-rows.looping .sp-no { height: 18px; font-size: 12px; color: var(--accent-text); }
 .sp-rows.looping .sp-bar { padding-top: 18px; }

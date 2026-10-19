@@ -28,7 +28,7 @@ import { nextMarkName, fmtClock } from './marks.js';
 import {
   METERS, MAX_BARS, sectionList, addSection, resizeSection, deleteSection, updateSection, setBeatsPerBar,
   setChordAt, shiftChordAt, sectionGrid, sectionTimes, playPos, tabBlocks, blocksForSections, sectionsFromTabs,
-  orderByStart, fitBars, tapChordAt, barsTime, nextBarSelection, loopLead,
+  orderByStart, fitBars, tapChordAt, barsTime, barSpan, loopLead,
 } from './leadsheet.js';
 import { drillChunks } from './drill.js';
 import { openDrill } from './drillpage.js';
@@ -68,7 +68,7 @@ async function save(next) {
 }
 
 /** Nach Startzeit ordnen, dann Takte aus Tempo und Zeit (wo nicht von Hand). */
-const tidy = (s) => fitBars(orderByStart(s));
+const tidy = (s) => fitBars(orderByStart(s), youtubeSource(s)?.durationSec || 0);
 
 function el(tag, cls = '', text = null) {
   const e = document.createElement(tag);
@@ -113,6 +113,9 @@ function wire() {
   initWizard(wizardApi);
   // Tabs
   document.addEventListener('keydown', onKey);
+  // Takte wählen (lange drücken, ziehen): dabei nicht scrollen; der Klick danach zählt nicht.
+  $('#sp-sections').addEventListener('touchmove', (e) => { if (st?.barDrag) e.preventDefault(); }, { passive: false });
+  $('#sp-sections').addEventListener('click', (e) => { if (performance.now() < barClickGuard) { e.stopPropagation(); e.preventDefault(); } }, true);
   // Leiste (unten bzw. links): Platz lassen, Blatt daneben setzen.
   if (window.ResizeObserver) {
     new ResizeObserver(() => { fitDock(); placeSheet(); }).observe($('#sp-dock'));
@@ -199,7 +202,7 @@ async function loadVideo(id) {
     $('#sp-vnote').textContent = '';
     const d = p.duration();
     const src = youtubeSource(song());
-    if (d > 0 && Math.abs((src?.durationSec || 0) - d) > 0.5) await putSong(setYoutube(song(), { durationSec: Math.round(d * 10) / 10 }));
+    if (d > 0 && Math.abs((src?.durationSec || 0) - d) > 0.5) await save(tidy(setYoutube(song(), { durationSec: Math.round(d * 10) / 10 })));
     st.rate = 1;
     paintTransport();
     paintSections();
@@ -289,11 +292,63 @@ function startLoop(id, bars) {
   paintTransport();
 }
 
-/** Takt antippen (Nummer oben im Takt): nur diese Takte wiederholen. */
-function barTap(id, bar) {
-  const cur = st.loopOn && st.loop?.sec === id ? st.loop.bars : null;
-  const fresh = !(st.loopOn && st.loop?.sec === id);
-  startLoop(id, fresh ? { from: bar, to: bar } : nextBarSelection(cur, bar));
+/** Takte wählen: auf einen Takt lange drücken, dann über weitere ziehen; beim
+ *  Loslassen läuft der Loop über die markierten Takte (ein Takt, wenn man
+ *  nicht zieht). Kurzes Tippen bleibt für die Zellen (Akkord wählen). */
+const HOLD_MS = 450, HOLD_SLOP = 10;
+let barClickGuard = 0; // bis dahin zählt der Klick nach dem Ziehen nicht
+
+function wireBarDrag(rows, secId) {
+  let timer = null, down = null, anchor = null, span = null;
+  const barAt = (x, y) => {
+    const e = document.elementFromPoint(x, y)?.closest('.sp-bar');
+    return e && rows.contains(e) ? Number(e.dataset.bar) : null;
+  };
+  const show = (a, b) => {
+    span = barSpan(a, b);
+    for (const el2 of rows.querySelectorAll('.sp-bar')) el2.classList.toggle('looped', Number(el2.dataset.bar) >= span.from && Number(el2.dataset.bar) <= span.to);
+  };
+  const stop = () => {
+    clearTimeout(timer); timer = null;
+    window.removeEventListener('pointermove', move);
+    window.removeEventListener('pointerup', up);
+    window.removeEventListener('pointercancel', cancel);
+    st.barDrag = false;
+    down = null; anchor = null;
+  };
+  const move = (e) => {
+    if (!down) return;
+    if (anchor == null) { if (Math.hypot(e.clientX - down.x, e.clientY - down.y) > HOLD_SLOP) stop(); return; }
+    const b = barAt(e.clientX, e.clientY);
+    if (b != null) show(anchor, b);
+  };
+  const up = () => {
+    const sel = anchor != null ? span : null;
+    stop();
+    if (!sel) return;
+    barClickGuard = performance.now() + 500;
+    // Erst nach dem Klick, der auf das Loslassen folgt (der Raster wird neu gezeichnet).
+    setTimeout(() => startLoop(secId, sel), 0);
+  };
+  const cancel = () => { stop(); for (const el2 of rows.querySelectorAll('.sp-bar.looped')) el2.classList.remove('looped'); };
+  rows.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    const b = barAt(e.clientX, e.clientY);
+    if (b == null || st.barDrag) return;
+    down = { x: e.clientX, y: e.clientY };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', cancel);
+    timer = setTimeout(() => {
+      timer = null;
+      anchor = b;
+      st.barDrag = true; // ab jetzt kein Scrollen mehr (touchmove, siehe wire)
+      navigator.vibrate?.(12);
+      show(b, b);
+    }, HOLD_MS);
+  });
+  // Kein Kontextmenü beim langen Drücken.
+  rows.addEventListener('contextmenu', (e) => e.preventDefault());
 }
 
 /** Warum ein Abschnitt (noch) nicht im Video zu finden ist. */
@@ -519,9 +574,7 @@ function card(s, sec, time, block, sel) {
     bar.dataset.bar = b.bar;
     const picked = loopBars && b.bar >= loopBars.from && b.bar <= loopBars.to;
     if (picked) bar.classList.add('looped');
-    const no = button('sp-no', String(b.bar), () => barTap(sec.id, b.bar), `Takt ${b.bar} wiederholen`);
-    no.setAttribute('aria-pressed', picked ? 'true' : 'false');
-    bar.append(no);
+    bar.append(el('span', 'sp-no', String(b.bar)));
     const beats = el('div', 'sp-beats');
     beats.style.gridTemplateColumns = `repeat(${bpb}, minmax(0, 1fr))`;
     b.cells.forEach((c, k) => {
@@ -539,7 +592,8 @@ function card(s, sec, time, block, sel) {
     row.append(bar);
   }
   li.append(head);
-  if (loopOn) li.append(el('p', 'sp-loophint', loopBars ? 'Wiederholt die markierten Takte. Taktnummer antippen: anderer Takt; ein zweiter Takt macht einen Bereich, derselbe noch einmal den ganzen Abschnitt.' : 'Wiederholt den Abschnitt. Taktnummer oben im Takt antippen, um nur diesen Takt zu wiederholen (ein zweiter: Bereich).'));
+  if (loopOn) li.append(el('p', 'sp-loophint', loopBars ? 'Wiederholt die markierten Takte. Neu wählen: auf einen Takt lange drücken und über weitere ziehen. ↻ noch einmal beendet den Loop.' : 'Wiederholt den Abschnitt. Nur bestimmte Takte: auf einen Takt lange drücken und über weitere ziehen.'));
+  wireBarDrag(bars, sec.id);
   li.append(bars);
   if (block) {
     const folded = st.folded.has(sec.id);

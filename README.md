@@ -43,13 +43,14 @@ Tempo“ (4/4, 3/4, 6/8, 2/4; Tempo ±1 oder tippen); mit Tempo und der
 Startzeit des ersten Abschnitts läuft die Markierung im Raster mit dem
 Video mit (Takt und Viertel hervorgehoben; ohne Tempo ungefähr, aus dem
 Abstand zum nächsten Start). Beim Loop über einen Abschnitt (↻) lassen sich
-einzelne Takte wählen (Taktnummer antippen, ein zweiter Takt: Bereich);
+einzelne Takte wählen (auf einen Takt lange drücken und über weitere ziehen;
+loslassen startet den Loop);
 vor dem ersten und zwischen den Durchgängen spielt der Takt davor als
 Vorlauf (ohne Tempo 2 s), der ↻-Knopf zählt bis zum Einsatz herunter. Abschnitte stehen nach
 Startzeit im Video, auch wenn man sie in anderer Reihenfolge anlegt. Mit
 Tempo ergeben sich die Takte eines Abschnitts aus dem Abstand zum nächsten
-Start (gerundet), bis man sie selbst ändert („aus der Zeit“ stellt das
-zurück). Bereits vorhandene Tabs (eingefügter Text, bleibt auf dem Gerät) stehen
+Start (gerundet), der letzte bis zum Ende des Videos, bis man sie selbst
+ändert („aus der Zeit“ stellt das zurück). Bereits vorhandene Tabs (eingefügter Text, bleibt auf dem Gerät) stehen
 weiter unter ihren Abschnitten, und „Mehr“ → „Abschnitte aus den Tabs“ macht
 aus ihren Überschriften Abschnitte (eine Akkordzeile = 2 Takte, nur ein
 Vorschlag). Neue Tabs lassen sich in der Oberfläche nicht mehr einfügen, auch
