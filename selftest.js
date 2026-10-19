@@ -9,7 +9,7 @@ import { parseChord, nameFromKeys, sameChord, prettyChord } from './chordsym.js'
 import { validateVoicing, voicingDiff, upgradeVoicing, defaultVoicing, voicingFor, voicingFromKeys } from './voicing.js';
 import {
   validateSong, normalizeSong, parseSongText, exportSong, setEvent, renameChord, deleteChord, addChord,
-  setSectionStart, nextSectionName,
+  setSectionStart, nextSectionName, songFromVideo,
 } from './songdata.js';
 import {
   beatToSec, secToBeat, chordAt, eventsIn, quantize, phrasesOf, sectionRange, chordSequence, countLabel, beatsText, predecessors,
@@ -403,6 +403,9 @@ function pureTests() {
   check('9 Export mit Text auf Wunsch', parseSongText(exportSong(vs(base()).song, { lyrics: true })).song.lyrics[0].line === 'Zeile A');
   check('9 Import: kein JSON → deutsche Meldung', /Kein gültiges JSON/.test(parseSongText('{ nein').errors[0]));
   const ed = setEvent(vs(base()).song, 3.5, 'Am');
+  const rs = setEvent(vs(base()).song, 2, 'Am', true);
+  check('9 Bearbeiten: gleicher Akkord mit again bleibt als Neuanschlag, ohne again wird er zusammengefasst',
+    eq(rs.events.map((e) => e.again === true), [false, true, false, false]) && setEvent(vs(base()).song, 2, 'Am').events.length === 3);
   check('9 Bearbeiten: Ereignis an belegter Stelle ersetzt, gleiche Nachbarn zusammengefasst',
     eq(ed.events, [{ at: 0, chord: 'Am' }, { at: 6, chord: 'F6/9' }]));
   const ren = renameChord(vs(base()).song, 'D/F#', 'D');
@@ -640,6 +643,13 @@ function pureTests() {
     && tapChordAt({ ...fb2, bpm: null }, 13, 'Dm') === null);
   const vk = voicingFromKeys([62, 50, 65, 69, 62]);
   check('16 Griff aus Tasten: unter G3 links, sonst rechts, ohne Finger', eq(vk.lh, [50]) && eq(vk.rh, [62, 65, 69]) && vk.rhFingers.every((f) => f === null) && validateVoicing(vk).ok);
+
+  const sv1 = songFromVideo('Interpret A - Titel B (Official Music Video)', 'Interpret A VEVO');
+  const sv2 = songFromVideo('Titel B [Official Audio]', 'Interpret A - Topic');
+  const sv3 = songFromVideo('Interpret A – Titel B – Teil 2 (Live)', '');
+  check('16 Titel und Interpret aus dem Video: „A - B“, Zusätze weg, sonst Kanal', eq(sv1, { title: 'Titel B', artist: 'Interpret A' })
+    && eq(sv2, { title: 'Titel B', artist: 'Interpret A' }) && eq(sv3, { title: 'Titel B - Teil 2', artist: 'Interpret A' })
+    && songFromVideo('', '').title === '', JSON.stringify([sv1, sv2, sv3]));
 
   /* 17 — Folgen üben: 2-Takt-Folgen, Vorlauf, Wiederholen, Tempo */
   let dr = { ...TS, sections: [], events: [] };

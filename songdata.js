@@ -47,8 +47,12 @@ export function normalizeSong(json) {
   const ev = Array.isArray(s.events) ? s.events : [];
   s.events = [];
   for (const e of ev) {
-    if (s.events.length && s.events[s.events.length - 1].chord === e.chord) continue;
-    s.events.push({ ...e });
+    const prev = s.events[s.events.length - 1];
+    const same = prev && prev.chord === e.chord;
+    if (same && e.again !== true) continue;
+    const { again, ...rest } = e;
+    // again: derselbe Akkord wird hier neu angeschlagen; nur sinnvoll, wenn der Vorgänger gleich ist.
+    s.events.push(same ? { ...rest, again: true } : rest);
   }
   if (isObj(s.voicings)) {
     for (const k of Object.keys(s.voicings)) s.voicings[k] = upgradeVoicing(s.voicings[k]);
@@ -213,10 +217,11 @@ export function idFromTitle(title) {
    Alle Funktionen geben einen neuen Song zurück; der alte bleibt. */
 
 /** Ereignis setzen: liegt bei `at` schon eines, wird es ersetzt. Danach
- *  sortiert und gleiche Nachbarn zusammengefasst. */
-export function setEvent(song, at, chord) {
+ *  sortiert und gleiche Nachbarn zusammengefasst — außer mit again: true
+ *  (Neuanschlag desselben Akkords). */
+export function setEvent(song, at, chord, again = false) {
   const events = song.events.filter((e) => Math.abs(e.at - at) > EPS);
-  events.push({ at, chord });
+  events.push(again ? { at, chord, again: true } : { at, chord });
   events.sort((a, b) => a.at - b.at);
   return normalizeSong({ ...song, events });
 }
@@ -325,4 +330,20 @@ export function setYoutube(song, fields) {
   const next = { ...cur, ...fields };
   if (i >= 0) sources[i] = next; else sources.unshift(next);
   return { ...song, sources };
+}
+
+/** Titel und Interpret aus den Angaben eines YouTube-Videos (Titel, Kanal).
+ *  ANNAHME: „Interpret - Titel“ im Videotitel ist die übliche Form; Zusätze
+ *  wie „(Official Video)“, „[Lyrics]“, „(Audio)“ sind keine Titelteile.
+ *  Sonst gilt der Kanalname (ohne „- Topic“ und „VEVO“) als Interpret.
+ *  Nur ein Vorschlag, im Menü „Mehr“ änderbar.
+ *  → { title, artist } (artist darf leer sein) */
+export function songFromVideo(videoTitle, channel = '') {
+  const noise = /\s*[([{][^)\]}]*(official|video|audio|lyric|visuali[sz]er|hd|4k|remaster|live|clip|musikvideo)[^)\]}]*[)\]}]\s*/gi;
+  const clean = (x) => String(x || '').replace(noise, ' ').replace(/\s{2,}/g, ' ').trim();
+  const chan = String(channel || '').replace(/\s*-\s*Topic$/i, '').replace(/\s*VEVO$/i, '').trim();
+  const t = clean(videoTitle);
+  const parts = t.split(/\s+[-–—]\s+/);
+  if (parts.length >= 2 && parts[0] && parts[1]) return { title: parts.slice(1).join(' - ').trim(), artist: parts[0].trim() };
+  return { title: t || String(videoTitle || '').trim(), artist: chan };
 }
