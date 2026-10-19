@@ -4,7 +4,7 @@
      1 Video     YouTube-Link oben einfügen (oder ohne Video weiter)
      2 Teile     beim Abspielen am Anfang jedes Teils seinen Namen tippen,
                  einmal das Tempo mittippen (dann ergeben sich die Takte)
-     3 Wechsel   Akkorde anlegen (Tabs einfügen oder „+ Akkord“), dann beim
+     3 Wechsel   Akkorde anlegen („+ Akkord“), dann beim
                  Abspielen den Akkord tippen, sobald er wechselt (Tasten 1–9)
      4 Griffe    je Akkord die Tasten im Griff-Editor eintragen
    Die Liedseite gibt die Aktionen als api (initWizard). */
@@ -27,7 +27,7 @@ let wired = false;
 
 /** api: song(), now() (Videozeit oder null), hasVideo(), addSection(base) → id,
  *  deleteSection(id), setBpm(bpm), tapChord(sym) → at | null,
- *  clearChord(at), newChord() → Symbol | null, editTabs(), griffe(sym). */
+ *  clearChord(at), newChord() → Symbol | null, griffe(sym). */
 export function initWizard(a) {
   api = a;
   if (wired) return;
@@ -109,18 +109,17 @@ export function paintWizard() {
   } else if (step.id === 'chords') {
     const timed = !!s.bpm && s.sections.some((x) => x.startSec != null);
     text = !s.chords.length
-      ? 'Welche Akkorde kommen vor? „Tabs einfügen“ übernimmt sie aus den Tabs – oder leg sie mit „+ Akkord“ an.'
+      ? 'Welche Akkorde kommen vor? Leg sie mit „+ Akkord“ an.'
       : timed
         ? 'Spiel einen Teil ab und tippe den Akkord, sobald er wechselt (am Rechner: Tasten 1–9). Feinheiten danach im Raster: Zelle antippen.'
         : 'Ohne Tempo und Startzeit: im Raster die Viertel antippen und den Akkord wählen.';
     body = [
       row(...s.chords.map((c, k) => btn(c, () => tapChord(c), 'btn btn-secondary sp-wiz-chord', `${c}${k < 9 ? ` (Taste ${k + 1})` : ''}`)),
         btn('+ Akkord', newChord, 'btn btn-ghost btn-sm')),
-      row(btn('Tabs einfügen', () => api.editTabs(), 'btn btn-ghost btn-sm'),
-        btn('↶ Letzten Wechsel weg', undoChord, 'btn btn-ghost btn-sm')),
+      row(btn('↶ Letzten Wechsel weg', undoChord, 'btn btn-ghost btn-sm')),
     ];
     for (const b of body[0].querySelectorAll('.sp-wiz-chord')) b.disabled = !timed;
-    body[1].lastChild.disabled = !st.tapped.length;
+    body[1].firstChild.disabled = !st.tapped.length;
   } else if (step.id === 'grips') {
     text = s.chords.length
       ? 'Wie spielst du die Akkorde? Tippe einen an und trag die Tasten auf der Klaviatur ein (✓ = eigener Griff).'
