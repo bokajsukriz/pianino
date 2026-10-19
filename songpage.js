@@ -1,7 +1,7 @@
 /* songpage.js — Liedseite: ein Song zum Mitspielen. Oben der YouTube-Player
    200 × 200, immer sichtbar und nie überdeckt) steht mit seiner Steuerung
    (Zeitleiste, große Play/Pause-Taste, ±5 s, Geschwindigkeit als
-   Auswahlmenü) in der Leiste unten, im Querformat links.
+   Auswahlmenü, Schalter fürs Mitscrollen) in der Leiste unten, im Querformat links.
    Darunter das Leadsheet (leadsheet.js): jeder Abschnitt eine Karte über die
    ganze Breite mit festem Raster — 2 Takte pro Zeile, eine Zelle je Schlag —
    und darunter sein Teil der Tabs. Zelle antippen → Akkord ab diesem Schlag
@@ -14,7 +14,7 @@
    schließt das Blatt. */
 
 import * as yt from './yt.js';
-import { S, putSong } from './store.js';
+import { S, putSong, saveSettings } from './store.js';
 import { setYoutube, addChord, songFromVideo, setVoicing } from './songdata.js';
 import { youtubeSource, eventIndexAt } from './timeline.js';
 import { parseYouTubeId, tapTempo } from './tap.js';
@@ -102,6 +102,7 @@ function wire() {
   $('#sp-rew').addEventListener('click', () => skip(-SKIP));
   $('#sp-fwd').addEventListener('click', () => skip(SKIP));
   $('#sp-rate').addEventListener('change', (e) => setRate(Number(e.target.value)));
+  $('#sp-follow').addEventListener('click', () => { S.settings.followScroll = !follows(); saveSettings(); paintFollow(); });
   $('#sp-load').addEventListener('click', loadFromInput);
   $('#sp-url').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); loadFromInput(); } });
   wireTrack();
@@ -113,7 +114,10 @@ function wire() {
   // Tabs
   document.addEventListener('keydown', onKey);
   // Leiste (unten bzw. links): Platz lassen, Blatt daneben setzen.
-  if (window.ResizeObserver) new ResizeObserver(() => { fitDock(); placeSheet(); }).observe($('#sp-dock'));
+  if (window.ResizeObserver) {
+    new ResizeObserver(() => { fitDock(); placeSheet(); }).observe($('#sp-dock'));
+    new ResizeObserver(() => reserveSpace()).observe($('#sp-sheet'));
+  }
   window.addEventListener('resize', () => { fitDock(); placeSheet(); });
 }
 
@@ -141,6 +145,7 @@ export function openSongPage(songId, { wizard = null } = {}) {
     $('#sp-sheet').hidden = true;
     showScreen('song');
     fitDock();
+    paintFollow();
     paintTransport();
     paintTabs();
     if (wizard) startWizard(wizard); else stopWizard();
@@ -303,6 +308,23 @@ function whyNoRange(id) {
 function loopSection(id) {
   if (st.loopOn && st.loop?.sec === id) { st.loopOn = false; paintSections(); paintTransport(); return; }
   startLoop(id, null);
+}
+
+/** Ab einem Takt spielen (Pfeil vor der Zeile). Ein laufender Loop bleibt nur,
+ *  wenn der Takt darin liegt. */
+function playFromBar(id, bar) {
+  const p = st.player;
+  if (!p) { $('#sp-vnote').textContent = 'Erst ein Video laden.'; return; }
+  const b = barsTime(song(), id, bar, bar, dur());
+  if (!b) { $('#sp-vnote').textContent = whyNoRange(id); return; }
+  $('#sp-vnote').textContent = '';
+  if (st.loopOn && !(st.loop?.sec === id && b.start >= st.loop.start - 0.01 && b.start < st.loop.end)) {
+    st.loopOn = false;
+    paintSections();
+    paintTransport();
+  }
+  p.seek(b.start);
+  if (!p.playing()) play(p);
 }
 
 /** Ab dem Anfang eines Abschnitts spielen (▶ an der Karte). */
@@ -484,8 +506,15 @@ function card(s, sec, time, block, sel) {
     button('sp-chip', '⋯', () => sectionSheet(sec.id), `${sec.name}: Takte, Start, Name`),
   );
   const loopBars = loopOn ? st.loop.bars : null;
-  const bars = el('div', `sp-bars m${bpb}${loopOn ? ' looping' : ''}`);
+  const bars = el('div', `sp-rows m${bpb}${loopOn ? ' looping' : ''}`);
+  let row = null;
   for (const b of sectionGrid(s, sec)) {
+    // Zwei Takte pro Zeile; vor jeder Zeile ein Pfeil: ab hier spielen.
+    if (!row || row.querySelectorAll('.sp-bar').length >= 2) {
+      row = el('div', 'sp-row');
+      row.append(button('sp-go', '▶', () => playFromBar(sec.id, b.bar), `Ab Takt ${b.bar} spielen`));
+      bars.append(row);
+    }
     const bar = el('div', 'sp-bar');
     bar.dataset.bar = b.bar;
     const picked = loopBars && b.bar >= loopBars.from && b.bar <= loopBars.to;
@@ -507,7 +536,7 @@ function card(s, sec, time, block, sel) {
       beats.append(cell);
     });
     bar.append(beats);
-    bars.append(bar);
+    row.append(bar);
   }
   li.append(head);
   if (loopOn) li.append(el('p', 'sp-loophint', loopBars ? 'Wiederholt die markierten Takte. Taktnummer antippen: anderer Takt; ein zweiter Takt macht einen Bereich, derselbe noch einmal den ganzen Abschnitt.' : 'Wiederholt den Abschnitt. Taktnummer oben im Takt antippen, um nur diesen Takt zu wiederholen (ein zweiter: Bereich).'));
@@ -565,11 +594,22 @@ function openSheet(kind, arg, title, text, nodes) {
 /** Seitenende frei halten für die Leiste unten. → Höhe der Leiste (px) */
 function fitDock() {
   const land = matchMedia(LANDSCAPE).matches;
-  // Hochformat: die Leiste liegt unten, am Seitenende Platz lassen. Querformat:
-  // sie steht links (eigene Spalte).
   const h = land ? 0 : $('#sp-dock').offsetHeight || 0;
-  $('#s-song').style.paddingBottom = land ? '' : `calc(${h}px + 8px)`;
+  reserveSpace();
   return h;
+}
+
+/** Platz am Ende lassen: Hochformat unter der Leiste, bei offenem Blatt
+ *  zusätzlich so hoch wie das Blatt — sonst lassen sich die letzten Zeilen
+ *  nicht über das Blatt hinaus hochschieben. Querformat: die Leiste steht
+ *  links; bei offenem Blatt Platz im scrollenden Leadsheet. */
+function reserveSpace() {
+  const land = matchMedia(LANDSCAPE).matches;
+  const sh = $('#sp-sheet');
+  const sheetH = sh.hidden ? 0 : sh.offsetHeight + 16;
+  const dockH = land ? 0 : $('#sp-dock').offsetHeight || 0;
+  $('#s-song').style.paddingBottom = land ? '' : `calc(${dockH + sheetH}px + 8px)`;
+  $('#sp-main').style.paddingBottom = land && sheetH ? `${sheetH}px` : '';
 }
 
 function placeSheet() {
@@ -586,6 +626,7 @@ function placeSheet() {
     sh.style.left = '0px';
     sh.style.maxHeight = `${Math.max(150, window.innerHeight - h - 70)}px`;
   }
+  reserveSpace();
 }
 
 /** Zelle nicht unter dem Blatt verschwinden lassen. */
@@ -604,6 +645,7 @@ function closeSheet() {
   st.sheet = null;
   st.taps = [];
   $('#sp-sheet').hidden = true;
+  reserveSpace();
   for (const c of $$('#sp-sections .sp-bt.sel')) c.classList.remove('sel');
 }
 
@@ -974,7 +1016,13 @@ function paintPlayhead(pos, playing) {
     }
   }
   // Beim Abspielen mitscrollen, solange das Blatt nicht offen ist.
-  if (playing && !st.sheet) followIntoView(target === cardEl ? cardEl.querySelector('.sp-card-head') : target);
+  if (playing && !st.sheet && follows()) followIntoView(target === cardEl ? cardEl.querySelector('.sp-card-head') : target);
+}
+
+/** Automatisch mitscrollen (Schalter unten, gemerkt; Standard: an). */
+const follows = () => S.settings.followScroll !== false;
+function paintFollow() {
+  $('#sp-follow').setAttribute('aria-pressed', follows() ? 'true' : 'false');
 }
 
 /** Knoten in den sichtbaren Bereich holen (unter dem stehenden Player). */
