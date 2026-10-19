@@ -331,3 +331,19 @@ export function setYoutube(song, fields) {
   if (i >= 0) sources[i] = next; else sources.unshift(next);
   return { ...song, sources };
 }
+
+/** Titel und Interpret aus den Angaben eines YouTube-Videos (Titel, Kanal).
+ *  ANNAHME: „Interpret - Titel“ im Videotitel ist die übliche Form; Zusätze
+ *  wie „(Official Video)“, „[Lyrics]“, „(Audio)“ sind keine Titelteile.
+ *  Sonst gilt der Kanalname (ohne „- Topic“ und „VEVO“) als Interpret.
+ *  Nur ein Vorschlag, im Menü „Mehr“ änderbar.
+ *  → { title, artist } (artist darf leer sein) */
+export function songFromVideo(videoTitle, channel = '') {
+  const noise = /\s*[([{][^)\]}]*(official|video|audio|lyric|visuali[sz]er|hd|4k|remaster|live|clip|musikvideo)[^)\]}]*[)\]}]\s*/gi;
+  const clean = (x) => String(x || '').replace(noise, ' ').replace(/\s{2,}/g, ' ').trim();
+  const chan = String(channel || '').replace(/\s*-\s*Topic$/i, '').replace(/\s*VEVO$/i, '').trim();
+  const t = clean(videoTitle);
+  const parts = t.split(/\s+[-–—]\s+/);
+  if (parts.length >= 2 && parts[0] && parts[1]) return { title: parts.slice(1).join(' - ').trim(), artist: parts[0].trim() };
+  return { title: t || String(videoTitle || '').trim(), artist: chan };
+}

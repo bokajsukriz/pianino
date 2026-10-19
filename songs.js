@@ -4,7 +4,8 @@
    Normalisieren rein in songdata.js. */
 
 import { S, songList, currentSong, setCurrentSong, putSong, deleteSong } from './store.js';
-import { parseSongText, exportSong, songSummary, copyId, newSong } from './songdata.js';
+import { parseSongText, exportSong, songSummary, copyId, newSong, setYoutube } from './songdata.js';
+import { parseYouTubeId } from './tap.js';
 import { prettyChord } from './chordsym.js';
 import { $, showScreen, modal, ask } from './ui.js';
 import { logError } from './log.js';
@@ -58,13 +59,28 @@ export function showSongs() {
   showScreen('songs');
 }
 
-/** Neuer Song: Titel und Interpret, dann die Liedseite mit dem Assistenten
- *  (Video → Teile → Akkordwechsel → Griffe). */
+/** Neuer Song: YouTube-Link genügt — Titel und Interpret holt die Liedseite
+ *  aus dem Video (Player). Ohne Link: Titel und Interpret eintippen. Danach
+ *  der Assistent (Video → Teile → Akkordwechsel → Griffe). */
 async function createSong() {
-  const title = await ask('Neuer Song', 'Titel', { placeholder: 'z. B. Perfect Ruin', ok: 'Weiter' });
-  if (!title) return;
-  const artist = await ask('Interpret', 'Darf leer bleiben.', { ok: 'Anlegen' });
-  const song = { ...newSong(title, [...S.songs.keys()]), artist: (artist || '').trim() };
+  const link = await ask('Neuer Song', 'YouTube-Link (leer lassen, um Titel selbst einzutragen).', { placeholder: 'https://youtu.be/…', ok: 'Weiter' });
+  if (link == null) return;
+  const taken = [...S.songs.keys()];
+  let song;
+  if (link.trim()) {
+    const videoId = parseYouTubeId(link);
+    if (!videoId) {
+      await modal('Kein YouTube-Link', 'Das ist weder ein Link noch eine Video-ID.', [{ label: 'OK', value: '', primary: true }]);
+      return;
+    }
+    // Der Titel kommt aus dem Video (liedseite.autoTitle); bis dahin „Neuer Song“.
+    song = setYoutube({ ...newSong('Neuer Song', taken), autoTitle: true }, { videoId, offsetSec: null, durationSec: 0 });
+  } else {
+    const title = await ask('Titel', '', { placeholder: 'z. B. Perfect Ruin', ok: 'Weiter' });
+    if (!title) return;
+    const artist = await ask('Interpret', 'Darf leer bleiben.', { ok: 'Anlegen' });
+    song = { ...newSong(title, taken), artist: (artist || '').trim() };
+  }
   await putSong(song);
   await setCurrentSong(song.id);
   hooks.open(song.id, { wizard: 'video' });

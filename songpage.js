@@ -11,7 +11,7 @@
 
 import * as yt from './yt.js';
 import { S, putSong, saveSettings, getPdf, putPdf, deletePdf } from './store.js';
-import { setYoutube, addChord } from './songdata.js';
+import { setYoutube, addChord, songFromVideo } from './songdata.js';
 import { youtubeSource, eventIndexAt } from './timeline.js';
 import { parseYouTubeId, tapTempo } from './tap.js';
 import { parseTabText, chordsInText, stripMarkup } from './tabtext.js';
@@ -190,7 +190,7 @@ async function loadVideo(id) {
   try {
     const p = await yt.create($('#sp-yt'), id, {
       onError: (code) => { if (st === mine) $('#sp-vnote').textContent = yt.errorText(code); },
-      onState: () => { if (st === mine) paintTransport(); },
+      onState: () => { if (st === mine) { paintTransport(); autoTitle(); } },
     });
     if (st !== mine) { p.destroy(); return; }
     st.player = p;
@@ -202,12 +202,27 @@ async function loadVideo(id) {
     paintTransport();
     paintSections();
     paintWizard();
+    autoTitle();
   } catch (e) {
     if (st !== mine) return;
     $('#sp-vnote').textContent = e?.message === 'offline'
       ? 'Kein Netz – das Video lässt sich gerade nicht laden. Die Tabs gehen trotzdem.'
       : yt.errorText(e?.message);
   }
+}
+
+/** Neuer Song aus einem YouTube-Link: Titel und Interpret aus den Angaben des
+ *  Players übernehmen (einmal; danach gehört der Titel dem Nutzer). */
+async function autoTitle() {
+  const s = song();
+  if (!st?.player || !s?.autoTitle) return;
+  const m = st.player.meta();
+  if (!m) return; // kommt mit einem späteren Zustandswechsel
+  const { title, artist } = songFromVideo(m.title, m.author);
+  const next = { ...s, title: title || s.title, artist: artist || s.artist };
+  delete next.autoTitle;
+  await putSong(next);
+  refreshSongPage();
 }
 
 function togglePlay() {
