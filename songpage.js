@@ -305,6 +305,23 @@ function loopSection(id) {
   startLoop(id, null);
 }
 
+/** Ab einem Takt spielen (Pfeil vor der Zeile). Ein laufender Loop bleibt nur,
+ *  wenn der Takt darin liegt. */
+function playFromBar(id, bar) {
+  const p = st.player;
+  if (!p) { $('#sp-vnote').textContent = 'Erst ein Video laden.'; return; }
+  const b = barsTime(song(), id, bar, bar, dur());
+  if (!b) { $('#sp-vnote').textContent = whyNoRange(id); return; }
+  $('#sp-vnote').textContent = '';
+  if (st.loopOn && !(st.loop?.sec === id && b.start >= st.loop.start - 0.01 && b.start < st.loop.end)) {
+    st.loopOn = false;
+    paintSections();
+    paintTransport();
+  }
+  p.seek(b.start);
+  if (!p.playing()) play(p);
+}
+
 /** Ab dem Anfang eines Abschnitts spielen (▶ an der Karte). */
 function playSection(id) {
   const p = st.player;
@@ -484,8 +501,15 @@ function card(s, sec, time, block, sel) {
     button('sp-chip', '⋯', () => sectionSheet(sec.id), `${sec.name}: Takte, Start, Name`),
   );
   const loopBars = loopOn ? st.loop.bars : null;
-  const bars = el('div', `sp-bars m${bpb}${loopOn ? ' looping' : ''}`);
+  const bars = el('div', `sp-rows m${bpb}${loopOn ? ' looping' : ''}`);
+  let row = null;
   for (const b of sectionGrid(s, sec)) {
+    // Zwei Takte pro Zeile; vor jeder Zeile ein Pfeil: ab hier spielen.
+    if (!row || row.querySelectorAll('.sp-bar').length >= 2) {
+      row = el('div', 'sp-row');
+      row.append(button('sp-go', '▶', () => playFromBar(sec.id, b.bar), `Ab Takt ${b.bar} spielen`));
+      bars.append(row);
+    }
     const bar = el('div', 'sp-bar');
     bar.dataset.bar = b.bar;
     const picked = loopBars && b.bar >= loopBars.from && b.bar <= loopBars.to;
@@ -507,7 +531,7 @@ function card(s, sec, time, block, sel) {
       beats.append(cell);
     });
     bar.append(beats);
-    bars.append(bar);
+    row.append(bar);
   }
   li.append(head);
   if (loopOn) li.append(el('p', 'sp-loophint', loopBars ? 'Wiederholt die markierten Takte. Taktnummer antippen: anderer Takt; ein zweiter Takt macht einen Bereich, derselbe noch einmal den ganzen Abschnitt.' : 'Wiederholt den Abschnitt. Taktnummer oben im Takt antippen, um nur diesen Takt zu wiederholen (ein zweiter: Bereich).'));

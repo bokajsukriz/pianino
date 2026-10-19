@@ -36,7 +36,7 @@ rechts. Das Leadsheet (`leadsheet.js`): jeder Abschnitt eine Karte
 über die ganze Breite mit festem Raster — 2 Takte pro Zeile, eine Zelle je
 Viertel (bei 6/8 je Achtel) — und darunter sein Teil der Tabs. Zelle
 antippen → Akkord ab diesem Schlag wählen, „kein Wechsel“, eine Viertel
-früher/später. An der Karte: ▶ ab hier, ↻ Loop, ⋯ Takte, „Start hier“
+früher/später. Vor jeder Zeile ein kleiner Pfeil ▶: ab diesem Takt spielen. An der Karte: ▶ ab hier, ↻ Loop, ⋯ Takte, „Start hier“
 (Sekunde im Video), Umbenennen, Löschen. „Mehr“ → „Takt und
 Tempo“ (4/4, 3/4, 6/8, 2/4; Tempo ±1 oder tippen); mit Tempo und der
 Startzeit des ersten Abschnitts läuft die Markierung im Raster mit dem
