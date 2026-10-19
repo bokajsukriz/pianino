@@ -3,13 +3,17 @@
    Alexander Holm, CC BY 3.0) in der Fassung von Tone.js (github.com/Tonejs/audio,
    Ordner salamander/). Die Dateien liegen unverändert in samples/salamander/
    (MIDI-Nummer als Name), Herkunft und Lizenz in THIRD-PARTY.md.
-   Übernommen aus der Schwester-App bokajsukriz/choirapp (Namespace ChorPiano
-   bleibt); klassisches Skript, kein ES-Modul.
+   Zuerst aus der Schwester-App bokajsukriz/choirapp übernommen (Namespace
+   ChorPiano bleibt); klassisches Skript, kein ES-Modul. Inzwischen drei
+   Anschlagstärken (soft/mid/loud = Stufen 4, 8, 12 von 16 aus Tone Piano,
+   github.com/tambien/Piano, gleiche Aufnahmen), vorab gekürzt, zu Mono
+   gemischt und mit 96 kbit/s neu kodiert (THIRD-PARTY.md).
 
    Ein Ton alle drei Halbtöne (C1–C7 = MIDI 24–96), dazwischen umgestimmt
    (höchstens ±1,5 Halbtöne). Die Quelle klingt voll aus (bis 24 s, stereo) –
    dekodiert wären das über 100 MB. load() kürzt deshalb beim Laden auf die
-   Länge, die die App braucht (keepSec), mischt zu Mono und blendet aus;
+   Länge, die die App braucht (keepSec), mischt zu Mono und blendet aus
+   (die Dateien sind schon auf diese Längen gekürzt);
    dekodiert wird höchstens zu dritt gleichzeitig.
 
    Stimmung: Salamander ist konzertmäßig gespreizt gestimmt (tief bis −24,
@@ -33,7 +37,10 @@
     51: -1.9, 54: -5.9, 57: .8, 60: -1.4, 63: 1.2, 66: -2.9, 69: .7, 72: 4.9, 75: 3.3, 78: 4.4,
     81: 7.1, 84: 8.6, 87: 6.8, 90: 12.1, 93: 14.7, 96: 23.6,
   };
-  const BASE = './samples/salamander/';
+  /** Drei Anschlagstärken desselben Flügels (Ordner samples/salamander/<Stufe>/). */
+  const LAYERS = ['soft', 'mid', 'loud'];
+  const BASE = './samples/salamander/mid/';
+  const baseOf = (layer) => `./samples/salamander/${layer}/`;
 
   /** Rohdatei → Mono-Puffer: Stille am Anfang weg (MP3-Vorlauf, sonst kommt der
    *  Anschlag spät), auf keepSec gekürzt, am Ende ausgeblendet. */
@@ -66,11 +73,12 @@
       rms[n] = Math.sqrt(e / Math.max(1, z - a));
     }
     const sorted = Object.values(rms).sort((x, y) => x - y), med = sorted[sorted.length >> 1];
-    return Object.fromEntries(Object.entries(rms).map(([n, v]) => [n, v > 0 ? Math.min(6, Math.max(.25, med / v)) : 1]));
+    return { ref: med, gain: Object.fromEntries(Object.entries(rms).map(([n, v]) => [n, v > 0 ? Math.min(6, Math.max(.25, med / v)) : 1])) };
   }
 
   const sets = new Map(); // Schlüssel aus Tönen und Länge → Promise eines Satzes
-  /** Satz laden: { notes, bufs, gain }. notes: welche Dateien (Teilmenge von
+  /** Satz laden: { notes, bufs, gain, ref } (ref: Effektivwert, auf den die
+   *  Datei-Pegel angeglichen sind — damit lassen sich Sätze untereinander ausgleichen). notes: welche Dateien (Teilmenge von
    *  NOTES), keepSec(midi): Länge je Ton in s. Einmal je Schlüssel; nach einem
    *  Fehler (offline) beim nächsten Aufruf erneut. */
   function load({ notes = NOTES, keepSec = () => 4, base = BASE } = {}) {
@@ -92,7 +100,7 @@
         }
       } catch (err) { failed = true; throw err; }
     };
-    const p = Promise.all([worker(), worker(), worker()]).then(() => Object.freeze({ notes: [...notes], bufs, gain: levels(bufs) }));
+    const p = Promise.all([worker(), worker(), worker()]).then(() => Object.freeze({ notes: [...notes], bufs, ...levels(bufs) }));
     sets.set(key, p);
     p.catch(() => { if (sets.get(key) === p) sets.delete(key); });
     return p;
@@ -131,5 +139,5 @@
     return { src, out };
   }
 
-  window.ChorPiano = { NOTES, TUNE, BASE, load, play, nearest, rateFor };
+  window.ChorPiano = { NOTES, LAYERS, TUNE, BASE, baseOf, load, play, nearest, rateFor };
 })();
