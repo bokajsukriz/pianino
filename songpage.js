@@ -114,7 +114,10 @@ function wire() {
   // Tabs
   document.addEventListener('keydown', onKey);
   // Leiste (unten bzw. links): Platz lassen, Blatt daneben setzen.
-  if (window.ResizeObserver) new ResizeObserver(() => { fitDock(); placeSheet(); }).observe($('#sp-dock'));
+  if (window.ResizeObserver) {
+    new ResizeObserver(() => { fitDock(); placeSheet(); }).observe($('#sp-dock'));
+    new ResizeObserver(() => reserveSpace()).observe($('#sp-sheet'));
+  }
   window.addEventListener('resize', () => { fitDock(); placeSheet(); });
 }
 
@@ -591,11 +594,22 @@ function openSheet(kind, arg, title, text, nodes) {
 /** Seitenende frei halten für die Leiste unten. → Höhe der Leiste (px) */
 function fitDock() {
   const land = matchMedia(LANDSCAPE).matches;
-  // Hochformat: die Leiste liegt unten, am Seitenende Platz lassen. Querformat:
-  // sie steht links (eigene Spalte).
   const h = land ? 0 : $('#sp-dock').offsetHeight || 0;
-  $('#s-song').style.paddingBottom = land ? '' : `calc(${h}px + 8px)`;
+  reserveSpace();
   return h;
+}
+
+/** Platz am Ende lassen: Hochformat unter der Leiste, bei offenem Blatt
+ *  zusätzlich so hoch wie das Blatt — sonst lassen sich die letzten Zeilen
+ *  nicht über das Blatt hinaus hochschieben. Querformat: die Leiste steht
+ *  links; bei offenem Blatt Platz im scrollenden Leadsheet. */
+function reserveSpace() {
+  const land = matchMedia(LANDSCAPE).matches;
+  const sh = $('#sp-sheet');
+  const sheetH = sh.hidden ? 0 : sh.offsetHeight + 16;
+  const dockH = land ? 0 : $('#sp-dock').offsetHeight || 0;
+  $('#s-song').style.paddingBottom = land ? '' : `calc(${dockH + sheetH}px + 8px)`;
+  $('#sp-main').style.paddingBottom = land && sheetH ? `${sheetH}px` : '';
 }
 
 function placeSheet() {
@@ -612,6 +626,7 @@ function placeSheet() {
     sh.style.left = '0px';
     sh.style.maxHeight = `${Math.max(150, window.innerHeight - h - 70)}px`;
   }
+  reserveSpace();
 }
 
 /** Zelle nicht unter dem Blatt verschwinden lassen. */
@@ -630,6 +645,7 @@ function closeSheet() {
   st.sheet = null;
   st.taps = [];
   $('#sp-sheet').hidden = true;
+  reserveSpace();
   for (const c of $$('#sp-sections .sp-bt.sel')) c.classList.remove('sel');
 }
 
