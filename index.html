@@ -136,24 +136,7 @@
           </label>
         </div>
         <p class="vnote" id="sp-vnote" aria-live="polite"></p>
-        <div class="sp-seek">
-          <span class="sp-time" id="sp-cur">0:00</span>
-          <div class="sp-track" id="sp-track" role="slider" tabindex="0" aria-label="Stelle im Song">
-            <div class="sp-region" id="sp-region" hidden></div>
-            <div class="sp-fill" id="sp-fill"></div>
-            <div class="sp-ticks" id="sp-ticks"></div>
-            <div class="sp-thumb" id="sp-thumb"></div>
-          </div>
-          <span class="sp-time" id="sp-dur">–:––</span>
-        </div>
-        <div class="sp-transport">
-          <button type="button" class="sp-round" id="sp-rew" aria-label="5 Sekunden zurück">−5</button>
-          <button type="button" class="sp-play" id="sp-play" aria-label="Abspielen">
-            <svg aria-hidden="true" viewBox="0 0 24 24" width="36" height="36"><path id="sp-play-icon" d="M8 5l11 7-11 7z"/></svg>
-          </button>
-          <button type="button" class="sp-round" id="sp-fwd" aria-label="5 Sekunden vor">+5</button>
-          <div class="seg" id="sp-rates" role="group" aria-label="Tempo"></div>
-        </div>
+      </div>
       </div>
       <div class="sp-sec">
         <div class="sp-wiz" id="sp-wiz" role="region" aria-label="Assistent" hidden>
@@ -170,7 +153,6 @@
           </div>
         </div>
         <span class="visually-hidden" id="sp-section" aria-live="polite"></span>
-      </div>
       </div>
       <div class="sp-tabs" id="sp-main">
         <div class="sp-tabbar">
@@ -193,6 +175,29 @@
             <h3 class="sp-rest-h">Weitere Tabs (ohne Abschnitt)</h3>
             <div class="sp-text" id="sp-rest-text"></div>
           </div>
+        </div>
+      </div>
+    </div>
+    <div class="sp-dock" id="sp-dock">
+      <div class="sp-chordbar" id="sp-chordbar" role="group" aria-label="Akkorde zum Anhören"></div>
+      <div class="sp-dock-main">
+        <div class="sp-seek">
+          <span class="sp-time" id="sp-cur">0:00</span>
+          <div class="sp-track" id="sp-track" role="slider" tabindex="0" aria-label="Stelle im Song">
+            <div class="sp-region" id="sp-region" hidden></div>
+            <div class="sp-fill" id="sp-fill"></div>
+            <div class="sp-ticks" id="sp-ticks"></div>
+            <div class="sp-thumb" id="sp-thumb"></div>
+          </div>
+          <span class="sp-time" id="sp-dur">–:––</span>
+        </div>
+        <div class="sp-transport">
+          <button type="button" class="sp-round" id="sp-rew" aria-label="5 Sekunden zurück">−5</button>
+          <button type="button" class="sp-play" id="sp-play" aria-label="Abspielen">
+            <svg aria-hidden="true" viewBox="0 0 24 24" width="36" height="36"><path id="sp-play-icon" d="M8 5l11 7-11 7z"/></svg>
+          </button>
+          <button type="button" class="sp-round" id="sp-fwd" aria-label="5 Sekunden vor">+5</button>
+          <div class="seg" id="sp-rates" role="group" aria-label="Tempo"></div>
         </div>
       </div>
     </div>

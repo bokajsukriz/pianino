@@ -5,19 +5,23 @@
    ganze Breite mit festem Raster — 2 Takte pro Zeile, eine Zelle je Schlag —
    und darunter sein Teil der Tabs. Zelle antippen → Akkord ab diesem Schlag
    wählen (Blatt unten, überdeckt den Player nicht). Mit Startzeit und Tempo
-   läuft die Markierung mit dem Video mit. Loop über einen Abschnitt oder
+   läuft die Markierung mit dem Video mit. Unten die Leiste: darüber alle
+   Akkorde des Songs (Antippen: anhören; Halten: die Tasten ansehen und
+   ändern), darunter Zeitleiste und Abspielen. Loop über einen Abschnitt oder
    einzelne Takte: ↻ an der Karte. Die Tabs sind eingefügter Text und
    bleiben auf dem Gerät. Tasten: Leertaste Play/Pause, ←/→ ±5 s, Esc
    schließt das Blatt. */
 
 import * as yt from './yt.js';
 import { S, putSong, saveSettings } from './store.js';
-import { setYoutube, addChord, songFromVideo } from './songdata.js';
+import { setYoutube, addChord, songFromVideo, setVoicing } from './songdata.js';
 import { youtubeSource, eventIndexAt } from './timeline.js';
 import { parseYouTubeId, tapTempo } from './tap.js';
 import { parseTabText, chordsInText, stripMarkup } from './tabtext.js';
-import { parseChord } from './chordsym.js';
-import { voicingFor } from './voicing.js';
+import { parseChord, prettyChord } from './chordsym.js';
+import { voicingFor, allKeys, voicingFromKeys, NOTE_MAX } from './voicing.js';
+import { renderKeyboard, voicingMarks } from './keyboard.js';
+import { noteName } from './chords.js';
 import * as audio from './audio.js';
 import { nextMarkName, fmtClock } from './marks.js';
 import {
@@ -28,7 +32,7 @@ import {
 import { drillChunks } from './drill.js';
 import { openDrill } from './drillpage.js';
 import { initWizard, startWizard, stopWizard, paintWizard } from './songwizard.js';
-import { $, $$, showScreen, screenName, modal, ask, frameLoop } from './ui.js';
+import { $, $$, showScreen, screenName, modal, ask, frameLoop, onLongPress } from './ui.js';
 
 const RATES = [0.5, 0.75, 1];
 const SKIP = 5;
@@ -110,6 +114,9 @@ function wire() {
   $('#sp-bigger').addEventListener('click', () => setSize(SIZE.step));
   $('#sp-edit').addEventListener('click', toggleEdit);
   document.addEventListener('keydown', onKey);
+  // Höhe der Leiste unten: Platz am Seitenende lassen, Blatt darüber setzen.
+  if (window.ResizeObserver) new ResizeObserver(() => { fitDock(); placeSheet(); }).observe($('#sp-dock'));
+  window.addEventListener('resize', () => { fitDock(); placeSheet(); });
 }
 
 /** Liedseite öffnen; wizard: Assistent ab diesem Schritt ('video' …).
@@ -135,6 +142,7 @@ export function openSongPage(songId, { wizard = null } = {}) {
     $('#sp-yt').hidden = !src?.videoId;
     $('#sp-sheet').hidden = true;
     showScreen('song');
+    fitDock();
     paintTransport();
     paintTabs();
     if (wizard) startWizard(wizard); else stopWizard();
@@ -451,6 +459,7 @@ function paintSections() {
   $('#sp-rest').hidden = !list.length || !rest.length;
   paintLines($('#sp-rest-text'), rest.flatMap((b) => [{ kind: 'header', text: b.header }, ...b.lines]));
   paintTicks(times);
+  paintChordBar();
   st.lastPos = null;
   st.lastSec = null;
 }
@@ -557,16 +566,25 @@ function openSheet(kind, arg, title, text, nodes) {
   if (wasHidden) $('#sp-sheet-close').focus({ preventScroll: true });
 }
 
+/** Seitenende frei halten für die Leiste unten. → Höhe der Leiste (px) */
+function fitDock() {
+  const h = $('#sp-dock').offsetHeight || 0;
+  $('#s-song').style.paddingBottom = `calc(${h}px + 8px)`;
+  return h;
+}
+
 function placeSheet() {
   const sh = $('#sp-sheet');
   if (sh.hidden) return;
+  const dock = $('#sp-dock').offsetHeight || 0;
   const player = $('.sp-player').getBoundingClientRect();
+  sh.style.bottom = `${dock}px`;
   if (matchMedia(LANDSCAPE).matches) {
     sh.style.left = `${Math.round(player.right + 8)}px`;
-    sh.style.maxHeight = `${Math.round(window.innerHeight * 0.58)}px`;
+    sh.style.maxHeight = `${Math.max(140, Math.min(Math.round(window.innerHeight * 0.58), window.innerHeight - dock - 70))}px`;
   } else {
     sh.style.left = '0px';
-    sh.style.maxHeight = `${Math.max(200, Math.round(window.innerHeight - Math.max(0, player.bottom) - 8))}px`;
+    sh.style.maxHeight = `${Math.max(150, Math.round(window.innerHeight - dock - Math.max(0, player.bottom) - 8))}px`;
   }
 }
 
@@ -593,6 +611,7 @@ function refreshSheet() {
   const k = st?.sheet;
   if (!k) return;
   if (k.kind === 'chord') chordSheet(k.arg);
+  else if (k.kind === 'grip') gripSheet(k.arg);
   else if (k.kind === 'section') sectionSheet(k.arg);
   else if (k.kind === 'meter') openMeterSheet();
 }
@@ -614,6 +633,74 @@ function stepper(value, onStep, what) {
     button('sp-round', '+', () => onStep(1), `${what} mehr`),
   );
   return box;
+}
+
+/** Alle Akkorde des Songs (Liste und die in den Wechseln verwendeten). */
+const songChords = (s) => {
+  const out = [...s.chords];
+  for (const e of s.events) if (!out.includes(e.chord)) out.push(e.chord);
+  return out;
+};
+
+/** Akkord anhören (Griff des Songs oder Standardlage). */
+async function hearChord(sym) {
+  await audio.unlock();
+  const v = voicingFor(song(), sym);
+  if (v) audio.chord(v, audio.now() + 0.02, { dur: 1.8 });
+}
+
+/** Akkordzeile unten: Antippen hört den Akkord, Halten öffnet die Tasten. */
+function paintChordBar() {
+  const s = song();
+  $('#sp-chordbar').replaceChildren(...songChords(s).map((sym) => {
+    const own = !!s.voicings?.[sym];
+    const b = button(`sp-ch${own ? '' : ' std'}`, prettyChord(sym), () => hearChord(sym), `${sym}: antippen zum Anhören, halten für die Tasten`);
+    b.dataset.sym = sym;
+    onLongPress(b, () => gripSheet(sym));
+    return b;
+  }));
+}
+
+/** Kleiner Editor: welche Tasten zum Akkord gehören; Tasten antippen
+ *  schaltet sie an/aus (Hände und Finger trägt man nicht ein). */
+function gripSheet(sym) {
+  const s = song();
+  const v = voicingFor(s, sym);
+  const keys = allKeys(v);
+  const prev = $('#sp-sheet .sp-gripkb');
+  const keep = st.sheet?.kind === 'grip' && st.sheet.arg === sym && prev ? prev.scrollLeft : null;
+  const marks = voicingMarks(v);
+  for (const [m, x] of marks) marks.set(m, { ...x, hand: 'rh', finger: null });
+  const wrap = el('div', 'sp-gripkb');
+  const kb = renderKeyboard(wrap, {
+    lo: 36, hi: 84, marks, ww: 26, wh: matchMedia(LANDSCAPE).matches ? 58 : 92, px: true,
+    title: `Klaviatur C2 bis C6, ${prettyChord(sym)}: ${keys.map(noteName).join(', ') || 'keine Taste'}`,
+  });
+  wrap.addEventListener('click', (e) => {
+    const g = e.target.closest('[data-midi]');
+    if (g) toggleKey(sym, Number(g.dataset.midi));
+  });
+  const names = el('p', 'sp-gripnames', keys.length ? keys.map(noteName).join(' · ') : 'Keine Taste – antippen, um den Griff einzutragen.');
+  const own = !!s.voicings?.[sym];
+  openSheet('grip', sym, prettyChord(sym),
+    v?.std ? 'Standardlage. Tasten antippen, um den Griff aus dem Unterricht einzutragen.' : '', [
+      names,
+      wrap,
+      row(big('Anhören', () => hearChord(sym), { quiet: true }),
+        ...(own ? [big('Standardlage', () => save(setVoicing(song(), sym, null)), { quiet: true })] : [])),
+    ]);
+  const mid = keys.length ? Math.round((keys[0] + keys[keys.length - 1]) / 2) : 60;
+  wrap.scrollLeft = keep ?? Math.max(0, kb.center(Math.max(36, Math.min(84, mid))) - wrap.clientWidth / 2);
+}
+
+async function toggleKey(sym, m) {
+  const s = song();
+  const keys = allKeys(voicingFor(s, sym));
+  const next = keys.includes(m) ? keys.filter((k) => k !== m) : [...keys, m];
+  const v = voicingFromKeys(next, s.voicings?.[sym]?.note?.slice(0, NOTE_MAX));
+  if (v.rh.length > 5 || v.lh.length > 5) { $('#sp-sheet-text').textContent = 'Höchstens 5 Tasten über und 5 unter G3.'; $('#sp-sheet-text').hidden = false; return; }
+  if (!keys.includes(m)) { await audio.unlock(); audio.note(m, audio.now() + 0.02, { dur: 1.2 }); }
+  await save(setVoicing(s, sym, next.length ? v : null));
 }
 
 /** Akkord ab Schlag `beat` wählen. */
@@ -894,7 +981,7 @@ function followIntoView(node) {
   const land = matchMedia(LANDSCAPE).matches;
   const box = land ? $('#sp-main').getBoundingClientRect() : null;
   const top = land ? box.top : $('.sp-top').getBoundingClientRect().bottom;
-  const bottom = land ? box.bottom : window.innerHeight;
+  const bottom = land ? box.bottom : window.innerHeight - ($('#sp-dock').offsetHeight || 0);
   if (r.top >= top + 4 && r.bottom <= bottom - 4) return;
   const by = r.top - top - 12;
   if (land) $('#sp-main').scrollBy({ top: by, behavior: 'smooth' });

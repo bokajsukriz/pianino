@@ -26,8 +26,11 @@ Schläge gerundet; Tasten 1–9), 4 je Akkord die Tasten im Griff-Editor.
 Später wieder über „Mehr“ → „Assistent“.
 
 **Startpunkt sind die Songs.** Je Song eine Liedseite (`songpage.js`): oben
-der YouTube-Player mit großer Play/Pause-Taste, ±5 s, Tempo 0,5 / 0,75 / 1,
-Zeitleiste zum Ziehen. Darunter das Leadsheet (`leadsheet.js`): jeder Abschnitt eine Karte
+der YouTube-Player (mindestens 200 × 200, mehr verlangt YouTube nicht und
+weniger erlaubt es nicht), unten die Leiste mit großer Play/Pause-Taste, ±5 s,
+Tempo 0,5 / 0,75 / 1 und Zeitleiste zum Ziehen, darüber alle Akkorde des
+Songs: Antippen spielt den Akkord, Halten öffnet ein kleines Blatt mit der
+Klaviatur (Tasten antippen = an/aus). Dazwischen das Leadsheet (`leadsheet.js`): jeder Abschnitt eine Karte
 über die ganze Breite mit festem Raster — 2 Takte pro Zeile, eine Zelle je
 Viertel (bei 6/8 je Achtel) — und darunter sein Teil der Tabs. Zelle
 antippen → Akkord ab diesem Schlag wählen, „kein Wechsel“, eine Viertel

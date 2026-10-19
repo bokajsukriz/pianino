@@ -557,6 +557,35 @@ button.band-ev { cursor: pointer; min-height: 30px; font: inherit; font-weight: 
 .sp-empty p { margin: 0; }
 .sp-rest-h { margin: 6px 0 0; font-size: 15px; }
 
+/* Leiste unten: Akkorde zum Anhören (Halten: Tasten ansehen und ändern),
+   darunter Zeitleiste und Abspielen. Das Blatt sitzt darüber (Höhe per JS). */
+.sp-dock {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; background: var(--bg); border-top: 1px solid var(--line);
+  padding: 6px var(--pad-x) max(8px, env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 4px;
+}
+.sp-dock[hidden] { display: none; }
+.sp-dock-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.sp-dock .sp-track { height: 28px; }
+.sp-dock .sp-track::before, .sp-dock .sp-fill { top: 11px; }
+.sp-dock .sp-region { top: 5px; }
+.sp-dock .sp-ticks i { top: 2px; }
+.sp-dock .sp-thumb { top: 4px; }
+.sp-dock .sp-play { width: 56px; height: 56px; }
+.sp-dock .sp-play svg { width: 30px; height: 30px; }
+.sp-dock .sp-round { width: 44px; height: 44px; }
+.sp-chordbar { display: flex; gap: 6px; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
+.sp-chordbar:empty { display: none; }
+.sp-ch {
+  flex: none; min-width: 52px; min-height: 42px; padding: 0 12px; border-radius: 12px; border: 2px solid var(--line); background: var(--surface);
+  color: var(--text); font: inherit; font-weight: 800; font-size: 17px; cursor: pointer; touch-action: manipulation;
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+}
+.sp-ch:active, .sp-ch.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.sp-ch.std { border-style: dashed; }
+.sp-gripkb { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
+.sp-gripkb svg { display: block; }
+.sp-gripnames { margin: 0; font-weight: 750; font-size: 15px; }
+
 /* Assistent für neue Songs: Leiste unter Player und Loop */
 .sp-wiz { border: 2px solid var(--accent-text); border-radius: 14px; background: var(--surface); padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
 .sp-wiz[hidden] { display: none; }
@@ -647,12 +676,17 @@ button.band-ev { cursor: pointer; min-height: 30px; font: inherit; font-weight: 
    scrollt in sich, die Seite steht). */
 @media (orientation: landscape) and (min-width: 700px) {
   .songpage { height: 100dvh; overflow: hidden; }
+  .sp-dock-main { flex-direction: row; align-items: center; gap: 14px; }
+  .sp-dock-main .sp-seek { flex: 1; min-width: 0; order: 2; }
+  .sp-dock-main .sp-transport { order: 1; flex-wrap: nowrap; }
+  .sp-dock .sp-round { width: 40px; height: 40px; }
+  .sp-dock .sp-play { width: 48px; height: 48px; }
   .sp-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(356px, 34%) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); gap: 8px 16px; }
   .sp-top { display: contents; }
   .sp-player { grid-column: 1; grid-row: 1 / span 2; overflow-y: auto; min-height: 0; }
   .sp-sec { grid-column: 2; grid-row: 1; }
   .sp-tabs { grid-column: 2; grid-row: 2; min-height: 0; overflow-y: auto; }
-  .sp-player .yt-host { height: auto; width: 100%; max-height: calc(100dvh - 210px); min-height: 200px; }
+  .sp-player .yt-host { height: auto; width: 100%; max-height: calc(100dvh - 200px); min-height: 200px; }
   .sp-sheet { right: 0; border-radius: 22px 0 0 0; padding-top: 8px; }
   .sp-sheet > p { margin: 2px 0 4px; }
   .sp-big { min-height: 42px; font-size: 16px; }
