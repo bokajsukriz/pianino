@@ -7,7 +7,7 @@ import { logError } from './log.js';
 
 let ctx = null;
 let graph = null;
-let piano = null;     // geladener Sample-Satz oder null (dann Synth)
+let piano = null;     // geladene Sätze { soft, mid, loud } (mid zuerst) oder null (dann Synth)
 let pianoLoad = null;
 
 /** Lautstärken der Busse: Melodie lauter als die Begleitung. */
@@ -44,14 +44,33 @@ export async function unlock() {
 }
 
 /** Klaviersamples im Hintergrund laden (Startscreen). */
+/** Wie lange ein Ton klingen kann (s): tiefe länger, hohe kürzer — passend zu
+ *  den vorab gekürzten Dateien. */
+const keepSec = (m) => (m <= 48 ? 5 : m <= 72 ? 4 : 2.5);
+/** Effektivwert des früheren Einzel-Satzes: alle Stufen werden darauf
+ *  ausgeglichen, die Gesamtlautstärke bleibt wie vor den drei Stufen. Die
+ *  Stufe ändert nur den Klang (leise weicher, laut heller); die Lautstärke
+ *  kommt weiter von `gain`. */
+const PIANO_REF = 0.0651;
+/** Welche Stufe zu einer Lautstärke: leise Begleitung weich, kräftig (und die
+ *  linke Hand, 1,1×) hell. */
+export const layerFor = (gain) => (gain < 0.55 ? 'soft' : gain > 1.05 ? 'loud' : 'mid');
+
 export function preloadPiano() {
   if (piano || pianoLoad || !window.ChorPiano) return pianoLoad;
-  pianoLoad = window.ChorPiano.load({ keepSec: () => 3 })
-    .then((set) => { piano = set; return set; })
+  const P = window.ChorPiano;
+  const one = (layer) => P.load({ keepSec, base: P.baseOf(layer) });
+  // „mid“ zuerst (damit klingt schon alles), die anderen Stufen danach.
+  pianoLoad = one('mid')
+    .then((mid) => {
+      piano = { mid };
+      for (const layer of ['soft', 'loud']) one(layer).then((set) => { if (piano) piano[layer] = set; }).catch((e) => logError(`audio:piano:${layer}`, e));
+      return piano;
+    })
     .catch((e) => { logError('audio:piano', e); pianoLoad = null; return null; });
   return pianoLoad;
 }
-export const pianoReady = () => !!piano;
+export const pianoReady = () => !!piano?.mid;
 
 /** Aktuelle Audiozeit. */
 export const now = () => getCtx().currentTime;
@@ -87,9 +106,10 @@ function synthNote(c, dest, midi, time, dur, gain) {
 }
 
 function pianoNote(c, dest, set, midi, time, dur, gain) {
-  if (set && window.ChorPiano) {
+  if (set?.mid && window.ChorPiano) {
     try {
-      window.ChorPiano.play(c, set, midi, time, { dur, gain: 0.32 * gain, release: 0.25, dest });
+      const layer = set[layerFor(gain)] || set.mid;
+      window.ChorPiano.play(c, layer, midi, time, { dur, gain: 0.32 * gain * (PIANO_REF / layer.ref), release: 0.25, dest });
       return;
     } catch (e) { logError('audio:sample', e); }
   }

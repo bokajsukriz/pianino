@@ -236,7 +236,7 @@ Liedseite (`marks`) Abschnitte mit Startzeit (je 8 Takte, `startSec`).
 | `song-perfect-ruin.js` | REIN: alte Songdaten, nur noch Quelle der Migration |
 | `test-melody.js` | REIN: Testmelodie (nur Selbsttest) |
 | `selftest.js` | `runSelfTests()` |
-| `piano-samples.js`, `samples/salamander/` | Klavier aus der Choirapp |
+| `piano-samples.js`, `samples/salamander/` | Klavier: Salamander in drei Anschlagstärken (leise Begleitung weich, kräftig hell), ≈ 3,8 MB; Pegel gleich, nur der Klang ändert sich |
 | `fonts/` | Bricolage Grotesque |
 | `sw.js`, `manifest.json`, `icon*` | Offline und Home-Bildschirm |
 | `docs/song-schema.md` | Schema der Song-JSONs |
