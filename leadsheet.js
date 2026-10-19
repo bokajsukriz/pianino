@@ -7,7 +7,7 @@
    Raster ist ein Schlag (4/4: Viertel, 6/8: Achtel). Kein DOM, keine Zeit,
    kein Zufall. */
 
-import { normalizeSong, setEvent, removeEvent, moveEvent } from './songdata.js';
+import { normalizeSong, setEvent, removeEvent, moveEvent, keepRepeats } from './songdata.js';
 import { eventIndexAt } from './timeline.js';
 import { classifyLine, stripMarkup } from './tabtext.js';
 import { sortMarks } from './marks.js';
@@ -51,7 +51,7 @@ const clampBars = (n) => Math.max(1, Math.min(MAX_BARS, Math.round(n)));
 function shiftTimeline(song, fromBeat, by, cutFrom = null, cutTo = null) {
   const inCut = (at) => cutFrom != null && at >= cutFrom - EPS && at < cutTo - EPS;
   const move = (at) => (at >= fromBeat - EPS ? at + by : at);
-  const events = (song.events || []).filter((e) => !inCut(e.at)).map((e) => ({ ...e, at: move(e.at) }));
+  const events = keepRepeats((song.events || []).filter((e) => !inCut(e.at)).map((e) => ({ ...e, at: move(e.at) })));
   const out = { ...song, events };
   if (Array.isArray(song.lyrics)) {
     out.lyrics = song.lyrics.map((l) => (l.at == null ? l : inCut(l.at) ? { ...l, at: null } : { ...l, at: move(l.at) }));
@@ -111,7 +111,7 @@ export function setBeatsPerBar(song, n) {
     const at = conv(e.at);
     if (at != null) events.push({ ...e, at });
   }
-  const out = { ...song, beatsPerBar: n, events };
+  const out = { ...song, beatsPerBar: n, events: keepRepeats(events) };
   if (Array.isArray(song.lyrics)) out.lyrics = song.lyrics.map((l) => (l.at == null ? l : { ...l, at: conv(l.at) }));
   return normalizeSong(out);
 }
