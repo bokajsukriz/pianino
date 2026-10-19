@@ -19,7 +19,7 @@ import { runMigrations } from './migrations.js';
 import {
   sectionList, addSection, resizeSection, deleteSection, setBeatsPerBar, setChordAt, sectionGrid, sectionTimes, playPos,
   tabBlocks, blocksForSections, sectionsFromTabs, marksToSections,
-  orderByStart, fitBars, updateSection, tapChordAt, barsTime, nextBarSelection, loopLead,
+  orderByStart, fitBars, updateSection, tapChordAt, barsTime, barSpan, loopLead,
 } from './leadsheet.js';
 import { drillChunks, cycleBeats, cyclePhase, nextChunk, stepBpm, startBpm, DRILL } from './drill.js';
 import { addMark, removeMark, markRange, markAt, nextMarkName, fmtClock, addLoop, updateLoop, removeLoop } from './marks.js';
@@ -622,9 +622,8 @@ function pureTests() {
   const bt = barsTime({ ...ob2, bpm: 60 }, sectionList(ob2)[1].id, 4, 5);
   check('16 Takte im Video: mit Tempo je 4 s, außerhalb des Abschnitts begrenzt', bt.start === 14 && bt.end === 22
     && barsTime({ ...ob2, bpm: 60 }, sectionList(ob2)[1].id, 1, 3).end === 14 && barsTime({ ...ob2, bpm: null }, sectionList(ob2)[1].id, 3, 3).end === 17.5);
-  check('16 Takt-Auswahl: einer, Bereich, derselbe hebt auf, neuer wählt neu', eq(nextBarSelection(null, 5), { from: 5, to: 5 })
-    && eq(nextBarSelection({ from: 5, to: 5 }, 3), { from: 3, to: 5 }) && nextBarSelection({ from: 5, to: 5 }, 5) === null
-    && eq(nextBarSelection({ from: 3, to: 5 }, 7), { from: 7, to: 7 }) && loopLead({ bpm: 120, beatsPerBar: 4 }) === 2 && loopLead({ bpm: null }) === 2 && loopLead({ bpm: 60, beatsPerBar: 3 }) === 3);
+  check('16 Takt-Auswahl: ein Takt, Bereich in beiden Richtungen; Vorlauf = ein Takt', eq(barSpan(5, 5), { from: 5, to: 5 }) && eq(barSpan(3, 6), { from: 3, to: 6 }) && eq(barSpan(6, 3), { from: 3, to: 6 })
+    && loopLead({ bpm: 120, beatsPerBar: 4 }) === 2 && loopLead({ bpm: null }) === 2 && loopLead({ bpm: 60, beatsPerBar: 3 }) === 3);
 
   let fb = { ...TS, bpm: 80, sections: [], events: [] };
   fb = addSection(fb, { name: 'Intro', startSec: 0 });
@@ -667,6 +666,12 @@ function pureTests() {
     eq(kr1.events.map((e) => [e.at, e.chord]), [[0, 'Am'], [4, 'Am'], [8, 'C']]) && kr1.events[1].again === true
     && eq(kr2.events.map((e) => [e.at, e.chord]), [[0, 'F'], [8, 'Am']]) === true
     && eq(setChordAt(setChordAt(setChordAt(kr, 0, 'Am'), 4, 'Am'), 8, 'Am').events.length, 3), JSON.stringify([kr1.events, kr2.events]));
+
+  const fl = fitBars(fb, 60); // letzter Abschnitt (Start 36 s) reicht bis zum Videoende (60 s): 24 s bei 80 BPM = 8 Takte
+  const fl2 = fitBars({ ...fb, bpm: 80, sections: sectionList(fb).map(({ fromBeat, toBeat, ...x }) => (void fromBeat, void toBeat, x)).map((x, i, a) => (i === a.length - 1 ? { ...x, startSec: 12 } : x)) }, 100);
+  check('16 Letzter Abschnitt reicht bis zum Videoende (Takte laufen mit), von Hand gesetzte bleiben',
+    sectionList(fl)[2].bars === 8 && sectionList(fl2)[2].bars === 29 && fitBars(updateSection(fb, sectionList(fb)[2].id, { barsSet: true }), 100) === updateSection(fb, sectionList(fb)[2].id, { barsSet: true }) === false
+    && sectionList(fitBars(updateSection(fb, sectionList(fb)[2].id, { barsSet: true }), 100))[2].bars === 8 && sectionList(fitBars(fb, 0))[2].bars === 8, JSON.stringify([sectionList(fl2).map((x) => x.bars)]));
 
   /* 17 — Folgen üben: 2-Takt-Folgen, Vorlauf, Wiederholen, Tempo */
   let dr = { ...TS, sections: [], events: [] };
