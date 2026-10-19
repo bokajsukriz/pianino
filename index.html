@@ -123,9 +123,15 @@
       <div class="sp-titles">
         <h1 class="sp-title" id="sp-title"></h1>
         <span class="sp-artist" id="sp-artist"></span>
+        <input type="text" class="sp-name-in sp-title-in" id="sp-title-in" aria-label="Titel" autocomplete="off" hidden>
+        <input type="text" class="sp-name-in sp-artist-in" id="sp-artist-in" aria-label="Interpret" placeholder="Interpret" autocomplete="off" hidden>
       </div>
-      <button type="button" class="btn btn-secondary btn-sm" id="sp-more">Mehr</button>
+      <button type="button" class="icon-btn" id="sp-more" aria-label="Einstellungen" aria-expanded="false" aria-controls="sp-settings">
+        <svg id="sp-gear" aria-hidden="true" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="4.4" stroke-width="2"/><circle cx="12" cy="12" r="8.6" stroke-width="2.8" stroke-dasharray="2.7 4.05"/></svg>
+        <svg id="sp-x" aria-hidden="true" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" hidden><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
     </header>
+    <div class="sp-settings" id="sp-settings" role="region" aria-label="Einstellungen des Songs" hidden></div>
     <div class="sp-body">
       <div class="sp-sec">
         <div class="sp-wiz" id="sp-wiz" role="region" aria-label="Assistent" hidden>
@@ -144,10 +150,6 @@
         <span class="visually-hidden" id="sp-section" aria-live="polite"></span>
       </div>
       <div class="sp-tabs" id="sp-main">
-        <div class="sp-tabbar">
-          <button type="button" class="btn btn-secondary btn-sm" id="sp-addsec">+ Abschnitt</button>
-          <button type="button" class="btn btn-primary btn-sm" id="sp-drill">Folgen üben</button>
-        </div>
         <div id="sp-sheetview">
           <div class="sp-text" id="sp-intro"></div>
           <div class="sp-empty" id="sp-sec-empty">
@@ -155,6 +157,7 @@
             <button type="button" class="btn btn-primary btn-sm" id="sp-fromtabs" hidden>Abschnitte aus den Tabs anlegen</button>
           </div>
           <ol class="sp-sections" id="sp-sections" aria-label="Abschnitte"></ol>
+          <button type="button" class="btn btn-secondary sp-addsec" id="sp-addsec">+ Abschnitt</button>
           <div class="sp-rest" id="sp-rest" hidden>
             <h3 class="sp-rest-h">Weitere Tabs (ohne Abschnitt)</h3>
             <div class="sp-text" id="sp-rest-text"></div>
@@ -669,7 +672,11 @@
       <div class="toggles">
         <button type="button" class="toggle" data-toggle="mic" aria-pressed="false">Mikrofon in „Geführt“</button>
         <button type="button" class="toggle" data-ear aria-label="Erkenner wechseln">Hören: eigen</button>
+        <button type="button" class="toggle" data-toggle="reverb" aria-pressed="true">Hall beim Klavier</button>
       </div>
+      <p class="small muted">Der Hall lässt das Klavier wie in einem kleinen Raum klingen; dazu
+        kommt beim Loslassen einer Taste ein leises Dämpfer-Geräusch. Der Hall wird
+        berechnet (kein Download) und lässt sich hier abschalten.</p>
       <p class="small muted">Zum Ausprobieren, Tippen wechselt: „eigen“ prüft, ob die drei Töne
         des Akkords klingen. „essentia“ vergleicht den Klang mit Hilfe der Bibliothek
         essentia.js. „beide“ zählt nur, wenn beide einverstanden sind – lässt weniger
@@ -680,10 +687,11 @@
       <h2 class="h2">Lizenzen und Dank</h2>
       <div class="card">
         <p><b>Klavierklang:</b> Salamander Grand Piano V3 (Yamaha C5) von Alexander Holm,
-          in der Fassung von Tone.js (github.com/Tonejs/audio). Lizenz: Creative Commons
+          in der Fassung von Tone Piano (github.com/tambien/Piano). Lizenz: Creative Commons
           Namensnennung 3.0 (CC BY 3.0), creativecommons.org/licenses/by/3.0/.
-          Die Dateien liegen unverändert bei; beim Laden werden sie gekürzt, zu Mono
-          gemischt, im Pegel angeglichen und gleichstufig umgestimmt.</p>
+          Drei Anschlagstärken (leise, mittel, laut); die Dateien sind gekürzt, zu Mono
+          gemischt und neu kodiert, beim Laden im Pegel angeglichen und gleichstufig
+          umgestimmt.</p>
         <p><b>Schrift:</b> Bricolage Grotesque, Copyright 2022 The Bricolage Grotesque
           Project Authors (github.com/ateliertriay/bricolage). Lizenz: SIL Open Font
           License 1.1. Auf lateinische Zeichen beschnitten.</p>
