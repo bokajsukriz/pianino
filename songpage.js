@@ -16,6 +16,8 @@ import { youtubeSource, eventIndexAt } from './timeline.js';
 import { parseYouTubeId, tapTempo } from './tap.js';
 import { parseTabText, chordsInText, stripMarkup } from './tabtext.js';
 import { parseChord } from './chordsym.js';
+import { voicingFor } from './voicing.js';
+import * as audio from './audio.js';
 import { nextMarkName, fmtClock, addLoop, updateLoop, removeLoop, sortLoops } from './marks.js';
 import {
   METERS, MAX_BARS, sectionList, addSection, resizeSection, deleteSection, updateSection, setBeatsPerBar,
@@ -744,7 +746,12 @@ function chordSheet(beat) {
   const chords = [...s.chords];
   for (const e of s.events) if (!chords.includes(e.chord)) chords.push(e.chord);
   const clearCell = (song0) => inCell.reduce((acc, e) => setChordAt(acc, e.at, null), song0);
-  const set = (c) => save(setChordAt(clearCell(s), beat, c));
+  // Beim Wählen anspielen, damit man hört, ob er passt; gleicher Akkord wie davor = Neuanschlag.
+  const hear = (s0, c) => {
+    const v = voicingFor(s0, c);
+    if (v) audio.chord(v, audio.now() + 0.02, { dur: 1.8 });
+  };
+  const set = (c) => { hear(s, c); return save(setChordAt(clearCell(s), beat, c, true)); };
   const shift = async (dir) => {
     const r = shiftChordAt(s, beat, dir);
     if (r.at === beat) return;
@@ -758,7 +765,9 @@ function chordSheet(beat) {
       await modal('Unbekannter Akkord', `„${c}“ kann ich nicht lesen. Beispiele: Am, D/F#, Fmaj7, Bb, C#m7.`, [{ label: 'OK', value: '', primary: true }]);
       return;
     }
-    await save(setChordAt(clearCell(addChord(song(), c)), beat, c));
+    const s2 = addChord(song(), c);
+    hear(s2, c);
+    await save(setChordAt(clearCell(s2), beat, c, true));
   };
   openSheet('chord', beat, `Takt ${bar}, ${unit} ${k}`, text, [
     row(...chords.map((c) => big(c, () => set(c), { on: exact?.chord === c })), big('+ Akkord', newChord, { quiet: true })),
