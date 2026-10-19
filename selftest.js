@@ -658,6 +658,16 @@ function pureTests() {
     && setChordAt(setChordAt(ag, 6, 'F'), 7, 'F').events.length === 4
     && sectionsFromTabs({ ...TS, chords: [] }, '[Intro]\nAm Am F').events.length === 3, JSON.stringify(ag.events));
 
+  let kr = { ...TS, bpm: 80, sections: [], events: [] };
+  kr = addSection(kr, { name: 'Intro', bars: 4, startSec: 0 });
+  kr = setChordAt(setChordAt(setChordAt(kr, 0, 'F'), 4, 'Am'), 8, 'C');
+  const kr1 = setChordAt(kr, 0, 'Am');     // Am setzen, im nächsten Takt steht schon Am
+  const kr2 = setChordAt(setChordAt(kr, 8, 'Am'), 4, null); // Mittleren Wechsel entfernen: Am … Am bleibt
+  check('16 Gleicher Akkord im Nachbartakt wird nicht verschluckt (Setzen, Entfernen)',
+    eq(kr1.events.map((e) => [e.at, e.chord]), [[0, 'Am'], [4, 'Am'], [8, 'C']]) && kr1.events[1].again === true
+    && eq(kr2.events.map((e) => [e.at, e.chord]), [[0, 'F'], [8, 'Am']]) === true
+    && eq(setChordAt(setChordAt(setChordAt(kr, 0, 'Am'), 4, 'Am'), 8, 'Am').events.length, 3), JSON.stringify([kr1.events, kr2.events]));
+
   /* 17 — Folgen üben: 2-Takt-Folgen, Vorlauf, Wiederholen, Tempo */
   let dr = { ...TS, sections: [], events: [] };
   dr = addSection(dr, { name: 'Strophe 1', bars: 5 });
