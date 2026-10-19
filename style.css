@@ -515,15 +515,18 @@ button.band-ev { cursor: pointer; min-height: 30px; font: inherit; font-weight: 
 .sp-title { margin: 0; font-size: 22px; font-weight: 800; line-height: 1.15; }
 .sp-artist { color: var(--muted); font-weight: 650; font-size: 15px; }
 .sp-body { display: flex; flex-direction: column; gap: 12px; }
-.sp-top {
-  position: sticky; top: 0; z-index: 2; background: var(--bg); padding: 4px 0 8px;
-  display: flex; flex-direction: column; gap: 6px; border-bottom: 1px solid var(--line);
-}
-.sp-player, .sp-sec { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.sp-sec { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.sp-player { display: flex; flex-direction: column; gap: 6px; flex: none; width: 200px; }
 .sp-sec > p.small { margin: 0; }
 /* Liedseite: das Kleinste, was YouTube erlaubt (200 × 200); das Video hat dann Ränder oben und unten. */
-.sp-player .yt-host { height: 200px; width: 200px; aspect-ratio: auto; align-self: center; }
-.sp-seek { display: flex; align-items: center; gap: 10px; }
+.sp-player .yt-host { height: 200px; width: 200px; aspect-ratio: auto; }
+.sp-novideo .tr-row { flex-wrap: wrap; }
+.sp-novideo input { min-width: 0; width: 100%; }
+.sp-seek { display: grid; grid-template-columns: 1fr 1fr; align-items: center; row-gap: 0; }
+.sp-seek .sp-track { grid-column: 1 / -1; grid-row: 1; }
+.sp-seek .sp-time { min-width: 0; font-size: 13px; }
+.sp-seek #sp-cur { text-align: left; }
+.sp-seek #sp-dur { text-align: right; }
 .sp-time { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 14px; min-width: 3.2em; text-align: center; }
 .sp-track { position: relative; flex: 1; height: 36px; cursor: pointer; touch-action: none; }
 .sp-track::before { content: ''; position: absolute; left: 0; right: 0; top: 15px; height: 6px; border-radius: 3px; background: var(--line); }
@@ -563,15 +566,19 @@ button.band-ev { cursor: pointer; min-height: 30px; font: inherit; font-weight: 
   padding: 6px var(--pad-x) max(8px, env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 4px;
 }
 .sp-dock[hidden] { display: none; }
-.sp-dock-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.sp-media { display: flex; gap: 10px; align-items: flex-start; min-width: 0; }
+.sp-ctrl { flex: 1; min-width: 0; align-self: stretch; display: flex; flex-direction: column; justify-content: space-between; gap: 6px; }
+.sp-dock .sp-transport { gap: 6px; justify-content: center; flex-wrap: wrap; }
+.sp-rate { display: block; }
+.sp-rate .select { width: 100%; min-height: 40px; }
 .sp-dock .sp-track { height: 28px; }
 .sp-dock .sp-track::before, .sp-dock .sp-fill { top: 11px; }
 .sp-dock .sp-region { top: 5px; }
 .sp-dock .sp-ticks i { top: 2px; }
 .sp-dock .sp-thumb { top: 4px; }
-.sp-dock .sp-play { width: 56px; height: 56px; }
+.sp-dock .sp-play { width: 52px; height: 52px; }
 .sp-dock .sp-play svg { width: 30px; height: 30px; }
-.sp-dock .sp-round { width: 44px; height: 44px; }
+.sp-dock .sp-round { width: 40px; height: 40px; }
 .sp-chordbar { display: flex; gap: 6px; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
 .sp-chordbar:empty { display: none; }
 .sp-ch {
@@ -675,14 +682,12 @@ button.band-ev { cursor: pointer; min-height: 30px; font: inherit; font-weight: 
    scrollt in sich, die Seite steht). */
 @media (orientation: landscape) and (min-width: 700px) {
   .songpage { height: 100dvh; overflow: hidden; }
-  .sp-dock-main { flex-direction: row; align-items: center; gap: 14px; }
-  .sp-dock-main .sp-seek { flex: 1; min-width: 0; order: 2; }
-  .sp-dock-main .sp-transport { order: 1; flex-wrap: nowrap; }
-  .sp-dock .sp-round { width: 40px; height: 40px; }
-  .sp-dock .sp-play { width: 48px; height: 48px; }
-  .sp-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 216px minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); gap: 8px 16px; }
-  .sp-top { display: contents; }
-  .sp-player { grid-column: 1; grid-row: 1 / span 2; overflow-y: auto; min-height: 0; }
+  /* Links die Leiste mit Video, Steuerung und Akkorden; rechts das Leadsheet. */
+  .sp-dock {
+    right: auto; top: 60px; width: calc(366px + 2 * var(--pad-x)); overflow-y: auto; border-top: 0; border-right: 1px solid var(--line);
+  }
+  .sp-chordbar { order: 2; flex-wrap: wrap; overflow: visible; }
+  .sp-body { flex: 1; min-height: 0; display: grid; grid-template-columns: calc(366px + var(--pad-x)) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); gap: 8px 16px; }
   .sp-sec { grid-column: 2; grid-row: 1; }
   .sp-tabs { grid-column: 2; grid-row: 2; min-height: 0; overflow-y: auto; }
   .sp-sheet { right: 0; border-radius: 22px 0 0 0; padding-top: 8px; }
