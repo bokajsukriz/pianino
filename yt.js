@@ -16,7 +16,7 @@
 
    create(host, videoId, { onReady, onState, onError }) → Player:
      play(), pause(), seek(sec), setRate(r), rates(), rate(), now(),
-     duration(), state() ('unstarted'|'ended'|'playing'|'paused'|'buffering'|'cued'),
+     duration(), meta() → { title, author } | null, state() ('unstarted'|'ended'|'playing'|'paused'|'buffering'|'cued'),
      playing(), destroy() */
 
 import { logError } from './log.js';
@@ -104,6 +104,14 @@ export async function create(host, videoId, { onReady = null, onState = null, on
       try { return (player?.getAvailablePlaybackRates() || [1]).slice().sort((a, b) => a - b); } catch { return [1]; }
     },
     duration() { try { return player?.getDuration() || 0; } catch { return 0; } },
+    /** Titel und Kanal des Videos, soweit der Player sie schon kennt (kommt
+     *  manchmal erst nach dem Laden); sonst null. Keine eigene Netzanfrage. */
+    meta() {
+      try {
+        const v = player?.getVideoData?.();
+        return v?.title ? { title: String(v.title), author: String(v.author || '') } : null;
+      } catch { return null; }
+    },
     /** Geglättete Zeit im Video (s). */
     now() {
       if (!ready) return 0;

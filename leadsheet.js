@@ -117,8 +117,8 @@ export function setBeatsPerBar(song, n) {
 }
 
 /** Akkord ab Schlag `beat` setzen (null: kein Wechsel hier). */
-export function setChordAt(song, beat, chord) {
-  return chord ? setEvent(song, beat, chord) : removeEvent(song, beat);
+export function setChordAt(song, beat, chord, again = false) {
+  return chord ? setEvent(song, beat, chord, again) : removeEvent(song, beat);
 }
 
 /** Wechsel bei `beat` um einen Schlag verschieben. → { song, at } */

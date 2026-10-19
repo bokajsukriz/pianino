@@ -11,11 +11,13 @@
 
 import * as yt from './yt.js';
 import { S, putSong, saveSettings, getPdf, putPdf, deletePdf } from './store.js';
-import { setYoutube, addChord } from './songdata.js';
+import { setYoutube, addChord, songFromVideo } from './songdata.js';
 import { youtubeSource, eventIndexAt } from './timeline.js';
 import { parseYouTubeId, tapTempo } from './tap.js';
 import { parseTabText, chordsInText, stripMarkup } from './tabtext.js';
 import { parseChord } from './chordsym.js';
+import { voicingFor } from './voicing.js';
+import * as audio from './audio.js';
 import { nextMarkName, fmtClock, addLoop, updateLoop, removeLoop, sortLoops } from './marks.js';
 import {
   METERS, MAX_BARS, sectionList, addSection, resizeSection, deleteSection, updateSection, setBeatsPerBar,
@@ -188,7 +190,7 @@ async function loadVideo(id) {
   try {
     const p = await yt.create($('#sp-yt'), id, {
       onError: (code) => { if (st === mine) $('#sp-vnote').textContent = yt.errorText(code); },
-      onState: () => { if (st === mine) paintTransport(); },
+      onState: () => { if (st === mine) { paintTransport(); autoTitle(); } },
     });
     if (st !== mine) { p.destroy(); return; }
     st.player = p;
@@ -200,12 +202,27 @@ async function loadVideo(id) {
     paintTransport();
     paintSections();
     paintWizard();
+    autoTitle();
   } catch (e) {
     if (st !== mine) return;
     $('#sp-vnote').textContent = e?.message === 'offline'
       ? 'Kein Netz – das Video lässt sich gerade nicht laden. Die Tabs gehen trotzdem.'
       : yt.errorText(e?.message);
   }
+}
+
+/** Neuer Song aus einem YouTube-Link: Titel und Interpret aus den Angaben des
+ *  Players übernehmen (einmal; danach gehört der Titel dem Nutzer). */
+async function autoTitle() {
+  const s = song();
+  if (!st?.player || !s?.autoTitle) return;
+  const m = st.player.meta();
+  if (!m) return; // kommt mit einem späteren Zustandswechsel
+  const { title, artist } = songFromVideo(m.title, m.author);
+  const next = { ...s, title: title || s.title, artist: artist || s.artist };
+  delete next.autoTitle;
+  await putSong(next);
+  refreshSongPage();
 }
 
 function togglePlay() {
@@ -744,7 +761,12 @@ function chordSheet(beat) {
   const chords = [...s.chords];
   for (const e of s.events) if (!chords.includes(e.chord)) chords.push(e.chord);
   const clearCell = (song0) => inCell.reduce((acc, e) => setChordAt(acc, e.at, null), song0);
-  const set = (c) => save(setChordAt(clearCell(s), beat, c));
+  // Beim Wählen anspielen, damit man hört, ob er passt; gleicher Akkord wie davor = Neuanschlag.
+  const hear = (s0, c) => {
+    const v = voicingFor(s0, c);
+    if (v) audio.chord(v, audio.now() + 0.02, { dur: 1.8 });
+  };
+  const set = (c) => { hear(s, c); return save(setChordAt(clearCell(s), beat, c, true)); };
   const shift = async (dir) => {
     const r = shiftChordAt(s, beat, dir);
     if (r.at === beat) return;
@@ -758,7 +780,9 @@ function chordSheet(beat) {
       await modal('Unbekannter Akkord', `„${c}“ kann ich nicht lesen. Beispiele: Am, D/F#, Fmaj7, Bb, C#m7.`, [{ label: 'OK', value: '', primary: true }]);
       return;
     }
-    await save(setChordAt(clearCell(addChord(song(), c)), beat, c));
+    const s2 = addChord(song(), c);
+    hear(s2, c);
+    await save(setChordAt(clearCell(s2), beat, c, true));
   };
   openSheet('chord', beat, `Takt ${bar}, ${unit} ${k}`, text, [
     row(...chords.map((c) => big(c, () => set(c), { on: exact?.chord === c })), big('+ Akkord', newChord, { quiet: true })),

@@ -521,7 +521,7 @@ button.band-ev { cursor: pointer; min-height: 30px; font: inherit; font-weight: 
 }
 .sp-player, .sp-sec { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .sp-sec > p.small { margin: 0; }
-.sp-player .yt-host { height: max(200px, min(30dvh, 56vw)); width: auto; min-width: 200px; max-width: 100%; aspect-ratio: 16 / 9; align-self: center; }
+.sp-player .yt-host { height: 200px; width: auto; min-width: 200px; max-width: 100%; aspect-ratio: 16 / 9; align-self: center; }
 .sp-seek { display: flex; align-items: center; gap: 10px; }
 .sp-time { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 14px; min-width: 3.2em; text-align: center; }
 .sp-track { position: relative; flex: 1; height: 36px; cursor: pointer; touch-action: none; }
@@ -665,7 +665,7 @@ button.band-ev { cursor: pointer; min-height: 30px; font: inherit; font-weight: 
    scrollt in sich, die Seite steht). */
 @media (orientation: landscape) and (min-width: 700px) {
   .songpage { height: 100dvh; overflow: hidden; }
-  .sp-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(360px, 46%) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); gap: 8px 16px; }
+  .sp-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(356px, 34%) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); gap: 8px 16px; }
   .sp-top { display: contents; }
   .sp-player { grid-column: 1; grid-row: 1 / span 2; overflow-y: auto; min-height: 0; }
   .sp-sec { grid-column: 2; grid-row: 1; }

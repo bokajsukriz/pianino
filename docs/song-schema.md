@@ -79,7 +79,8 @@ Unbekannte Felder bleiben beim Import und Export erhalten.
 - `at` liegt auf halben Schlägen (`3.5` = „4 und“ in Takt 1), mit
   `"grid": 0.25` auch auf Vierteln von Schlägen. Aufsteigend, keins doppelt.
 - Zwei aufeinanderfolgende Ereignisse mit gleichem Akkord werden beim
-  Import zu einem zusammengefasst.
+  Import zu einem zusammengefasst — außer das spätere trägt `"again": true`
+  (derselbe Akkord wird dort neu angeschlagen).
 - Sekunde im Video = `offsetSec + at × 60 / bpm`.
 
 ## Akkordsymbole
