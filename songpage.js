@@ -13,11 +13,11 @@
    schließt das Blatt. */
 
 import * as yt from './yt.js';
-import { S, putSong, saveSettings } from './store.js';
+import { S, putSong } from './store.js';
 import { setYoutube, addChord, songFromVideo, setVoicing } from './songdata.js';
 import { youtubeSource, eventIndexAt } from './timeline.js';
 import { parseYouTubeId, tapTempo } from './tap.js';
-import { parseTabText, chordsInText, stripMarkup } from './tabtext.js';
+import { parseTabText } from './tabtext.js';
 import { parseChord, prettyChord } from './chordsym.js';
 import { voicingFor, allKeys, voicingFromKeys, NOTE_MAX } from './voicing.js';
 import { renderKeyboard, voicingMarks } from './keyboard.js';
@@ -38,7 +38,6 @@ const RATES = [0.5, 0.75, 1];
 const SKIP = 5;
 const SECTION_NAMES = ['Intro', 'Strophe', 'Pre-Chorus', 'Refrain', 'Bridge', 'Solo', 'Outro'];
 const NUMBERED = new Set(['Strophe', 'Pre-Chorus', 'Refrain', 'Bridge', 'Solo']);
-const SIZE = { min: 11, max: 30, step: 2 };
 const EPS = 1e-6;
 const LANDSCAPE = '(orientation: landscape) and (min-width: 700px)';
 const meterLabel = (n) => (n === 6 ? '6/8' : `${n}/4`);
@@ -110,9 +109,6 @@ function wire() {
   $('#sp-sheet-close').addEventListener('click', closeSheet);
   initWizard(wizardApi);
   // Tabs
-  $('#sp-smaller').addEventListener('click', () => setSize(-SIZE.step));
-  $('#sp-bigger').addEventListener('click', () => setSize(SIZE.step));
-  $('#sp-edit').addEventListener('click', toggleEdit);
   document.addEventListener('keydown', onKey);
   // Höhe der Leiste unten: Platz am Seitenende lassen, Blatt darüber setzen.
   if (window.ResizeObserver) new ResizeObserver(() => { fitDock(); placeSheet(); }).observe($('#sp-dock'));
@@ -130,7 +126,7 @@ export function openSongPage(songId, { wizard = null } = {}) {
   if (ordered !== s) { putSong(ordered); s = ordered; }
   return new Promise((resolve) => {
     st = {
-      songId, resolve, player: null, loop: null, loopOn: false, rate: 1, editing: false,
+      songId, resolve, player: null, loop: null, loopOn: false, rate: 1,
       stop: null, drag: null, lastPos: null, lastSec: null, leadLeft: null, folded: new Set(), sheet: null, taps: [],
     };
     $('#sp-title').textContent = s.title;
@@ -374,7 +370,6 @@ const wizardApi = {
     await save(addChord(song(), c));
     return c;
   },
-  editTabs: () => { if (!st.editing) toggleEdit(); $('#sp-text-edit').scrollIntoView({ block: 'nearest' }); },
   griffe: (sym) => hooks.griffe(st.songId, sym),
 };
 
@@ -449,7 +444,6 @@ function paintSections() {
   const blocks = showText ? tabBlocks(text, lines) : [];
   const { map, rest, intro } = blocksForSections(s, blocks);
   $('#sp-main').style.setProperty('--tab-size', `${S.settings.tabSize || 15}px`);
-  $('#sp-text-empty').hidden = !!text;
   // Ohne Abschnitte: die Tabs am Stück; sonst nur der Text vor der ersten Überschrift.
   paintLines($('#sp-intro'), list.length ? intro.flatMap((b) => b.lines) : lines);
   $('#sp-sec-empty').hidden = list.length > 0;
@@ -997,50 +991,8 @@ function onKey(e) {
   else if (e.key === 'ArrowRight') { e.preventDefault(); skip(SKIP); }
 }
 
-/* ---------- Tabs (eingefügter Text) ------------------------------------ */
-
-function setSize(by) {
-  const cur = S.settings.tabSize || 15;
-  S.settings.tabSize = Math.max(SIZE.min, Math.min(SIZE.max, cur + by));
-  saveSettings();
-  $('#sp-main').style.setProperty('--tab-size', `${S.settings.tabSize}px`);
-}
+/* ---------- Tabs (vorhandener Text) ------------------------------------ */
 
 function paintTabs() {
-  paintEdit();
   paintSections();
-}
-
-function paintEdit() {
-  $('#sp-sheetview').hidden = st.editing;
-  $('#sp-text-edit').hidden = !st.editing;
-  $('#sp-addsec').hidden = $('#sp-drill').hidden = st.editing;
-  $('#sp-edit').textContent = st.editing ? 'Fertig' : song().tabText ? 'Tabs ändern' : 'Tabs einfügen';
-}
-
-async function toggleEdit() {
-  if (st.editing) { await finishEdit(); return; }
-  closeSheet();
-  st.editing = true;
-  const ta = $('#sp-text-edit');
-  ta.value = song().tabText || '';
-  paintEdit();
-  ta.focus();
-}
-
-/** Text übernehmen; neue Akkorde daraus kommen in die Akkordliste des Songs. */
-async function finishEdit() {
-  st.editing = false;
-  // Gespeichert wird der aufgeräumte Text (Markdown-Reste weg, zusammengeklebte
-  // Zeilen getrennt), damit „Tabs ändern“ ihn so zeigt wie die Ansicht.
-  const text = stripMarkup($('#sp-text-edit').value).replace(/\s+$/, '');
-  const s = song();
-  const chords = [...s.chords];
-  for (const c of chordsInText(text)) if (!chords.includes(c)) chords.push(c);
-  const next = { ...s, chords, tabText: text };
-  if (!text) delete next.tabText;
-  await putSong(next);
-  paintEdit();
-  paintSections();
-  paintWizard();
 }
