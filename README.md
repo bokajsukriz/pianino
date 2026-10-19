@@ -26,8 +26,8 @@ Schläge gerundet; Tasten 1–9), 4 je Akkord die Tasten im Griff-Editor.
 Später wieder über „Mehr“ → „Assistent“.
 
 **Startpunkt sind die Songs.** Je Song eine Liedseite (`songpage.js`): oben
-der YouTube-Player (mindestens 200 × 200, mehr verlangt YouTube nicht und
-weniger erlaubt es nicht), unten die Leiste mit großer Play/Pause-Taste, ±5 s,
+der YouTube-Player (200 × 200, das Kleinste, was YouTube erlaubt; das
+Video hat dann Ränder oben und unten), unten die Leiste mit großer Play/Pause-Taste, ±5 s,
 Tempo 0,5 / 0,75 / 1 und Zeitleiste zum Ziehen, darüber alle Akkorde des
 Songs: Antippen spielt den Akkord, Halten öffnet ein kleines Blatt mit der
 Klaviatur (Tasten antippen = an/aus). Dazwischen das Leadsheet (`leadsheet.js`): jeder Abschnitt eine Karte
