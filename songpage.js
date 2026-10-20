@@ -588,7 +588,8 @@ async function fromTabs() {
 const tabsHaveHeaders = (s) => tabBlocks(s?.tabText || '').some((b) => b.header);
 
 /** „Folgen üben“: die Abschnitte (bzw. nur `sectionIds`) in 2-Takt-Folgen
- *  zum Klick. Das Video hält an; zurück geht es an dieselbe Stelle. */
+ *  zum Klick, oder umgeschaltet „Nur Akkorde“ (ihre Griffwechsel einzeln).
+ *  Das Video hält an; zurück geht es an dieselbe Stelle. */
 async function drill(sectionIds = null) {
   const chunks = drillChunks(song(), { sectionIds });
   if (!chunks.length) {
@@ -604,7 +605,7 @@ async function drill(sectionIds = null) {
     showScreen('song');
     window.scrollTo(0, y);
     paintTransport();
-  });
+  }, { sectionIds });
 }
 
 function paintSections() {

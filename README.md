@@ -71,6 +71,22 @@ zählt groß ein), dann 2 Takte zum Klick mitspielen, groß der klingende
 Akkord und „dann …“. Danach der Vorlauf der nächsten. „↻ Wiederholen“ bleibt
 bei derselben, Tempo ±5 gilt ab dem nächsten Vorlauf und wird je Song
 gemerkt. Ohne Mikrofon. Tasten: Leertaste, ←/→, R, +/−.
+Umschalter **„Nur Akkorde“** (gemerkt): kein Takt, kein Klick, geübt werden
+die Griffwechsel einzeln. Groß der zu greifende Akkord, klein „A → B“,
+darunter der Wechsel auf der Tastatur (bei sitzenden Übergängen erst nach
+2,5 s); liegt er (Mikrofon, sonst antippen bzw. Enter), kommt der nächste.
+Gemessen wird vom Anschlag von A bis zum Anschlag von B (in einer Kette ab
+dem Zeigen von B): flüssig ≤ 1 Schlag im Song-Tempo (mind. 0,8 s), zögerlich
+≤ 2,5 s, sonst bzw. mit Fehlgriff oder nach 6 s (dann klingt er vor) hakt es.
+Je Übergang ein Kästchen 1–5 (3× flüssig in Folge → +1, höchstens einmal am
+Tag; hakt → 1; `settings.drillSwaps[songId]`). Gezogen werden die echten
+Wechsel der gewählten Abschnitte, schwache öfter, vom liegenden Akkord aus
+bevorzugt, nie zweimal derselbe; neue oder hakende erst geblockt
+(A → B → A → B). Sitzen alle (Kästchen ≥ 3, also frühestens am zweiten Tag),
+ist jeder zweite ein Zufallswechsel zwischen Akkorden des Songs. Eine Runde:
+30 Wechsel oder 3 min, danach der schwächste Wechsel und „… jetzt im Takt“
+(springt zu seiner Folge). Regeln rein in `drill.js` (`SWAP`), nach Einschätzung
+eines Musikpädagogik-Subagenten.
 
 Zum Üben geht es von der Songliste aus weiter. Im Mittelpunkt steht dort „Geführt“: Phrasen aus dem Song am Stück, ohne aufs
 Handy zu tippen. Auf Wunsch hört die App übers Mikrofon, ob der erwartete
