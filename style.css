@@ -749,7 +749,7 @@ button.band-ev { cursor: pointer; min-height: 30px; font: inherit; font-weight: 
 .dr-big.got { color: #8a5a00; }
 .dark .dr-big.got { color: #ffc65c; }
 .dr-kb { height: 120px; }
-.dr-transfer { align-self: center; }
+.dr-transfer, .dr-peek { align-self: center; }
 .dr-mode .toggle { min-width: 112px; }
 .dr-controls { display: flex; flex-direction: column; align-items: center; gap: 12px; }
 .dr-controls > p { margin: 0; text-align: center; }
