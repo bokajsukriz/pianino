@@ -21,7 +21,7 @@ import {
   tabBlocks, blocksForSections, sectionsFromTabs, marksToSections,
   orderByStart, fitBars, updateSection, tapChordAt, barsTime, barSpan, loopLead,
 } from './leadsheet.js';
-import { drillChunks, cycleBeats, cyclePhase, nextChunk, stepBpm, startBpm, DRILL } from './drill.js';
+import { drillChunks, cycleBeats, cyclePhase, nextChunk, stepBpm, startBpm, DRILL, SWAP, swapPairs, rateSwap, applySwap, pickSwap, swapQueue, roundOver, weakestSwap, chunkWith, allSolid } from './drill.js';
 import { addMark, removeMark, markRange, markAt, nextMarkName, fmtClock, addLoop, updateLoop, removeLoop } from './marks.js';
 import { classifyLine, parseTabText, chordsInText, stripMarkup } from './tabtext.js';
 import {
@@ -691,6 +691,49 @@ function pureTests() {
     && ph2.cell === 7 && ph2.chord === 'F' && ph2.next === null && cyclePhase(ch[0], 4, 12) === null);
   check('17 Weiter, Wiederholen, Tempo ±5 in Grenzen', nextChunk(2, 3) === 0 && nextChunk(1, 3, true) === 1 && nextChunk(0, 0) === -1
     && stepBpm(77, 1) === 82 && stepBpm(DRILL.min + 2, -1) === DRILL.min && startBpm({ bpm: null }) === DRILL.start && startBpm({ bpm: 90 }, 65) === 65);
+
+  /* 17 — Nur Akkorde: echte Wechsel, Bewertung, Kästchen, Auswahl */
+  const sp = swapPairs(dr);
+  check('17 Wechsel: echte Übergänge in Song-Reihenfolge, über direkt folgende Abschnitte hinweg',
+    eq(sp.pairs.map((p) => [p.key, p.count]), [['Am>F', 2], ['F>C', 1], ['C>Am', 1]]) && eq(sp.chords, ['Am', 'F', 'C'])
+    && eq(swapPairs(dr, { sectionIds: [sectionList(dr)[1].id] }).pairs.map((p) => p.key), ['Am>F']), JSON.stringify(sp));
+  let gap = addSection({ ...TS, sections: [], events: [] }, { name: 'A', bars: 1 });
+  gap = addSection(addSection(gap, { name: 'B', bars: 1 }), { name: 'C', bars: 1 });
+  gap = setChordAt(setChordAt(setChordAt(gap, 0, 'Am'), 4, 'F'), 8, 'C');
+  check('17 Wechsel: nicht gewählter Abschnitt dazwischen erfindet keinen Übergang',
+    swapPairs(gap, { sectionIds: [sectionList(gap)[0].id, sectionList(gap)[2].id] }).pairs.length === 0);
+  check('17 Bewertung: flüssig ≤ 1 Schlag (mind. 0,8 s), zögerlich ≤ 2,5 s, sonst bzw. mit Fehlgriff hakt',
+    rateSwap(0.8) === 'fluent' && rateSwap(0.9, { bpm: 60 }) === 'fluent' && rateSwap(0.9, { bpm: 120 }) === 'slow'
+    && rateSwap(2.5) === 'slow' && rateSwap(2.6) === 'stuck' && rateSwap(0.5, { missed: true }) === 'stuck');
+  let sw = undefined;
+  for (let i = 0; i < 3; i++) sw = applySwap(sw, 'fluent', 0.7 + i / 10, '2026-01-01');
+  const sw2 = [1, 2, 3].reduce((t) => applySwap(t, 'fluent', 0.6, '2026-01-01'), sw);
+  const sw3 = [1, 2, 3].reduce((t) => applySwap(t, 'fluent', 0.6, '2026-01-02'), sw2);
+  check('17 Kästchen: 3× flüssig → +1, höchstens einmal am Tag; hakt → 1; Bestwert',
+    sw.box === 2 && sw.best === 0.7 && sw2.box === 2 && sw3.box === 3 && sw3.best === 0.6
+    && applySwap(sw3, 'stuck', 9, '2026-01-02').box === 1 && applySwap(sw3, 'stuck', 0.1, '2026-01-02').best === 0.6
+    && applySwap(sw3, 'slow', 2, '2026-01-02').box === 3, JSON.stringify([sw, sw2, sw3]));
+  const seq = (xs) => { let i = 0; return () => xs[i++ % xs.length]; };
+  const solid = Object.fromEntries(sp.pairs.map((p) => [p.key, { box: 3, last: 'fluent' }]));
+  const picks = Array.from({ length: 200 }, (_, i) => pickSwap({ ...sp, states: { 'Am>F': { box: 3 } }, lastKey: 'F>C', rand: seq([(i * 0.618) % 1]) }));
+  check('17 Auswahl: nie derselbe direkt, schwache öfter, Zufall erst wenn alle sitzen',
+    picks.every((p) => p.key !== 'F>C' && !p.random) && picks.filter((p) => p.key === 'C>Am').length > picks.filter((p) => p.key === 'Am>F').length * 2
+    && !allSolid(sp.pairs, {}) && allSolid(sp.pairs, solid)
+    && pickSwap({ ...sp, states: solid, rand: seq([0.1, 0.5]) }).random === true && pickSwap({ ...sp, states: solid, rand: seq([0.9, 0.5]) }).random === false
+    && pickSwap({ ...sp, states: solid, rand: seq([0.1, 0.99]) }).from !== pickSwap({ ...sp, states: solid, rand: seq([0.1, 0.99]) }).to
+    && pickSwap({ pairs: [], chords: [], rand: Math.random }) === null);
+  const chainy = Array.from({ length: 100 }, (_, i) => pickSwap({ ...sp, states: solid, current: 'C', rand: seq([0.9, (i + 0.5) / 100]) }));
+  check('17 Auswahl: Wechsel vom liegenden Akkord aus bevorzugt', chainy.filter((p) => p.from === 'C').length >= 50);
+  check('17 Neu oder hakend: erst geblockt A → B → A → B, sonst einmal',
+    eq(swapQueue({ key: 'Am>F', from: 'Am', to: 'F' }, {}).map((x) => `${x.from}>${x.to}`), ['Am>F', 'F>Am', 'Am>F'])
+    && swapQueue({ key: 'Am>F', from: 'Am', to: 'F' }, { 'Am>F': { last: 'slow' } }).length === 1
+    && swapQueue({ key: 'Am>F', from: 'Am', to: 'F' }, { 'Am>F': { last: 'stuck' } }).length === 3);
+  const wk = weakestSwap([{ key: 'Am>F', from: 'Am', to: 'F', rating: 'slow', sec: 2 }, { key: 'F>C', from: 'F', to: 'C', rating: 'stuck', sec: 3 },
+    { key: 'C>Am', from: 'C', to: 'Am', rating: 'fluent', sec: 0.5 }]);
+  check('17 Runde: 30 Wechsel oder 3 min; schwächster Wechsel und seine Folge im Takt',
+    roundOver(SWAP.roundChanges, 0) && roundOver(0, SWAP.roundSec) && !roundOver(29, 179) && wk.key === 'F>C'
+    && weakestSwap([{ key: 'C>Am', from: 'C', to: 'Am', rating: 'fluent', sec: 0.5 }]) === null
+    && chunkWith(dr, ch, 'F', 'C') === 1 && chunkWith(dr, ch, 'Am', 'F') === 0 && chunkWith(dr, ch, 'C', 'F') === -1, JSON.stringify(wk));
 
   check('14 Migration 2: zweiter Lauf ändert nichts', m2.steps[0].put.length === 0 && m2.steps[0].del.length === 0 && eq(m2.records, m1.records));
   }
