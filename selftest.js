@@ -702,9 +702,10 @@ function pureTests() {
   gap = setChordAt(setChordAt(setChordAt(gap, 0, 'Am'), 4, 'F'), 8, 'C');
   check('17 Wechsel: nicht gewählter Abschnitt dazwischen erfindet keinen Übergang',
     swapPairs(gap, { sectionIds: [sectionList(gap)[0].id, sectionList(gap)[2].id] }).pairs.length === 0);
-  check('17 Bewertung: flüssig ≤ 1 Schlag (mind. 0,8 s), zögerlich ≤ 2,5 s, sonst bzw. mit Fehlgriff hakt',
+  check('17 Bewertung: flüssig ≤ 1 Schlag (mind. 0,8 s), zögerlich ≤ 2,5 s, sonst bzw. mit Fehlgriff hakt; aufgedeckt höchstens zögerlich',
     rateSwap(0.8) === 'fluent' && rateSwap(0.9, { bpm: 60 }) === 'fluent' && rateSwap(0.9, { bpm: 120 }) === 'slow'
-    && rateSwap(2.5) === 'slow' && rateSwap(2.6) === 'stuck' && rateSwap(0.5, { missed: true }) === 'stuck');
+    && rateSwap(2.5) === 'slow' && rateSwap(2.6) === 'stuck' && rateSwap(0.5, { missed: true }) === 'stuck'
+    && rateSwap(0.5, { peeked: true }) === 'slow' && rateSwap(2, { peeked: true }) === 'slow');
   let sw = undefined;
   for (let i = 0; i < 3; i++) sw = applySwap(sw, 'fluent', 0.7 + i / 10, '2026-01-01');
   const sw2 = [1, 2, 3].reduce((t) => applySwap(t, 'fluent', 0.6, '2026-01-01'), sw);
