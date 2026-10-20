@@ -90,8 +90,9 @@ export const startBpm = (song, saved = null) => saved ?? song.bpm ?? DRILL.start
 /** ANNAHME (nach Einschätzung eines Musikpädagogik-Subagenten): gemessen wird vom
  *  Anschlag des alten bis zum Anschlag des neuen Akkords (die Hörlatenz
  *  steckt in beiden und fällt heraus). Flüssig: höchstens ein Schlag im
- *  Song-Tempo, mindestens 0,8 s; zögerlich bis 2,5 s; darüber, mit
- *  Fehlgriff oder nach 6 s (dann klingt der Akkord vor) hakt es.
+ *  Song-Tempo, mindestens 0,8 s; zögerlich bis 2,5 s; darüber oder mit
+ *  Fehlgriff hakt es. Griff aufgedeckt: höchstens zögerlich (kein Fehler,
+ *  zählt aber nicht für den Aufstieg). Nichts klingt von selbst vor.
  *  3× flüssig in Folge → ein Kästchen höher, höchstens einmal am Tag (so
  *  sitzt ein Übergang frühestens am zweiten Tag); hakt es → zurück auf 1.
  *  Gewicht beim Ziehen: Kästchen 1 = 4, 2 = 2, ab 3 = 1; Wechsel, die beim
@@ -102,7 +103,7 @@ export const startBpm = (song, saved = null) => saved ?? song.bpm ?? DRILL.start
  *  ein Zufallswechsel zwischen zwei Akkorden des Songs. Eine Runde: 30
  *  Wechsel oder 3 Minuten. */
 export const SWAP = Object.freeze({
-  fluentMin: 0.8, slowSec: 2.5, helpSec: 6, upRun: 3, solidBox: 3, maxBox: 5,
+  fluentMin: 0.8, slowSec: 2.5, upRun: 3, solidBox: 3, maxBox: 5,
   weight: Object.freeze({ 1: 4, 2: 2, 3: 1 }), chainBoost: 3, randomShare: 0.5,
   roundChanges: 30, roundSec: 180,
 });
@@ -138,10 +139,10 @@ export function swapPairs(song, { sectionIds = null } = {}) {
 }
 
 /** Wie lief ein Wechsel? sec: Anschlag zu Anschlag; missed: Fehlgriff
- *  gehört oder Akkord musste vorklingen. → 'fluent' | 'slow' | 'stuck' */
-export function rateSwap(sec, { bpm = null, missed = false } = {}) {
+ *  gehört; peeked: Griff aufgedeckt. → 'fluent' | 'slow' | 'stuck' */
+export function rateSwap(sec, { bpm = null, missed = false, peeked = false } = {}) {
   if (missed || !(sec >= 0)) return 'stuck';
-  if (sec <= Math.max(SWAP.fluentMin, bpm ? 60 / bpm : 0)) return 'fluent';
+  if (sec <= Math.max(SWAP.fluentMin, bpm ? 60 / bpm : 0)) return peeked ? 'slow' : 'fluent';
   return sec <= SWAP.slowSec ? 'slow' : 'stuck';
 }
 
