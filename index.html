@@ -230,10 +230,16 @@
         <div class="dr-big" id="dr-big" aria-hidden="true"></div>
         <p class="dr-hint" id="dr-hint"></p>
         <div class="sp-bars dr-bars" id="dr-bars"></div>
+        <div class="dr-kb" id="dr-kb" hidden></div>
         <p class="small muted dr-next" id="dr-next"></p>
+        <button type="button" class="btn dr-transfer" id="dr-transfer" hidden></button>
         <span class="visually-hidden" id="dr-live" aria-live="polite"></span>
       </div>
       <div class="dr-controls">
+        <div class="dr-row dr-mode" role="group" aria-label="Wie üben">
+          <button type="button" class="toggle toggle-sm" id="dr-mode-takt" aria-pressed="true">Im Takt</button>
+          <button type="button" class="toggle toggle-sm" id="dr-mode-swap" aria-pressed="false">Nur Akkorde</button>
+        </div>
         <div class="sp-transport">
           <button type="button" class="sp-round" id="dr-prev" aria-label="Vorige Folge">◀</button>
           <button type="button" class="sp-play" id="dr-play" aria-label="Start">
@@ -241,7 +247,10 @@
           </button>
           <button type="button" class="sp-round" id="dr-nextbtn" aria-label="Nächste Folge">▶</button>
         </div>
-        <div class="dr-row">
+        <div class="dr-row" id="dr-swaprow" hidden>
+          <button type="button" class="toggle toggle-sm" id="dr-mic" aria-pressed="false">Mikro</button>
+        </div>
+        <div class="dr-row" id="dr-taktrow">
           <button type="button" class="toggle toggle-sm" id="dr-repeat" aria-pressed="false">↻ Wiederholen</button>
           <span class="sp-stepper" role="group" aria-label="Tempo">
             <button type="button" class="sp-round" id="dr-slower" aria-label="Tempo 5 langsamer">−5</button>
@@ -249,7 +258,8 @@
             <button type="button" class="sp-round" id="dr-faster" aria-label="Tempo 5 schneller">+5</button>
           </span>
         </div>
-        <p class="small muted">Ein Takt Vorlauf zeigt die nächste Folge und zählt ein, dann 2 Takte zum Klick mitspielen. Tasten: Leertaste, ←/→, R, +/−.</p>
+        <p class="small muted" id="dr-help-takt">Ein Takt Vorlauf zeigt die nächste Folge und zählt ein, dann 2 Takte zum Klick mitspielen. Tasten: Leertaste, ←/→, R, +/−.</p>
+        <p class="small muted" id="dr-help-swap" hidden>Ohne Takt: erst den kleinen Akkord, dann den großen greifen – gemessen wird der Wechsel. Ohne Pedal, Blick aufs Display. Ohne Mikro antippen (oder Enter), sobald er liegt. ▶ überspringt. Danach wieder im Takt.</p>
       </div>
     </div>
   </section>
