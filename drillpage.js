@@ -8,8 +8,9 @@
    Leertaste Start/Pause, ←/→ Folge, R Wiederholen, +/− Tempo.
 
    Umschalter „Nur Akkorde“: kein Takt, kein Klick. Groß der zu greifende
-   Akkord, klein „A → B“ und darunter der Wechsel auf der Tastatur; liegt er
-   (Mikrofon, sonst antippen bzw. Enter), kommt der nächste. Welche Wechsel,
+   Akkord, klein „A → B“; liegt er (Mikrofon, sonst antippen bzw. Enter),
+   kommt der nächste. Die Tasten nur auf Wunsch („Griff zeigen“, G), und
+   dann nur der Griff selbst, ohne den Weg dorthin. Welche Wechsel,
    wie gemessen und wann Zufallswechsel dazukommen: drill.js SWAP. Je
    Übergang gemerkt in settings.drillSwaps[songId]. */
 
@@ -47,6 +48,7 @@ function wire() {
   $('#dr-mode-swap').addEventListener('click', () => setMode('swap'));
   $('#dr-mic').addEventListener('click', toggleMic);
   $('#dr-transfer').addEventListener('click', transfer);
+  $('#dr-peek').addEventListener('click', peek);
   // Ohne Mikrofon: Antippen heißt „liegt“.
   $('.dr-stage').addEventListener('click', (e) => { if (!e.target.closest('button')) swapTap(); });
   document.addEventListener('keydown', onKey);
@@ -152,7 +154,10 @@ function onKey(e) {
   if (e.target.closest?.('input, textarea, select')) return;
   if (e.key === ' ') { e.preventDefault(); toggle(); }
   else if (e.key === 'Enter' && st.mode === 'swap') { e.preventDefault(); swapTap(); }
-  else if (st.mode === 'swap') { if (e.key === 'ArrowRight') { e.preventDefault(); go(1); } }
+  else if (st.mode === 'swap') {
+    if (e.key === 'ArrowRight') { e.preventDefault(); go(1); }
+    else if (e.key === 'g' || e.key === 'G') peek();
+  }
   else if (e.key === 'ArrowLeft') { e.preventDefault(); go(-1); }
   else if (e.key === 'ArrowRight') { e.preventDefault(); go(1); }
   else if (e.key === 'r' || e.key === 'R') $('#dr-repeat').click();
@@ -370,6 +375,7 @@ async function toggleMic() {
 function swapStop() {
   if (!st?.sw) return;
   st.sw.on = false;
+  paintKb(null);
   releaseAwake();
   paintControls();
 }
@@ -387,7 +393,7 @@ function swapNext() {
   // Liegt A schon (Kette), wird gleich B gemessen; sonst erst A greifen.
   // start: ab wann der Wechsel zählt — Anschlag von A, bzw. in der Kette
   // ab dem Zeigen von B (vorher wusste man ihn nicht).
-  sw.cur = { ...q, step: sw.held === q.from ? 'to' : 'from', start: null, missed: false, played: false, shownAt: audio.now(), okRun: 0, heard: '' };
+  sw.cur = { ...q, step: sw.held === q.from ? 'to' : 'from', start: null, missed: false, peeked: false, shownAt: audio.now(), okRun: 0, heard: '' };
   swapShow();
 }
 
@@ -410,22 +416,31 @@ function swapShow() {
     : listening ? 'Jetzt wechseln.' : 'Wechseln, dann antippen.';
   const t = states()[`${c.from}>${c.to}`];
   $('#dr-next').textContent = t?.best != null ? `Bestwert ${sym(c.from)} → ${sym(c.to)}: ${fmtSec(t.best)}` : '';
-  // ANNAHME: Die Tastatur steht sofort da, solange der Übergang neu ist oder
-  // gerade hakt (Kästchen 1); sonst erst nach SWAP.slowSec (dann ist er ohnehin
-  // nicht mehr flüssig) — sonst liest man nur ab.
-  c.kb = c.step === 'from' || (t?.box ?? 1) <= 1;
+  // Jeder Akkord startet verdeckt; „Griff zeigen“ deckt nur ihn auf.
+  c.kb = false;
   paintKb(c);
   $('#dr-live').textContent = `${sym(c.from)} nach ${sym(c.to)}`;
 }
 
+/** Tastatur: nur der Griff des gesuchten Akkords (ohne Vorgänger und
+ *  Pfeile), und nur aufgedeckt. Sonst der Knopf „Griff zeigen“. */
 function paintKb(c) {
   const host = $('#dr-kb');
-  const b = grip(c.step === 'to' ? c.to : c.from);
-  const a = c.step === 'to' ? grip(c.from) : null;
-  host.hidden = !c.kb || !b;
+  const aim = c ? (c.step === 'to' ? c.to : c.from) : null;
+  const b = aim ? grip(aim) : null;
+  host.hidden = !c?.kb || !b;
+  $('#dr-peek').hidden = !c || c.kb || !b;
   if (host.hidden) return;
-  const range = rangeFor([...allKeys(a), ...allKeys(b)], { min: 15 });
-  renderGrip(host, { prev: a, next: b, range, title: `Tastatur: ${sym(c.step === 'to' ? c.to : c.from)}` });
+  renderGrip(host, { next: b, range: rangeFor(allKeys(b), { min: 15 }), title: `Tastatur: ${sym(aim)}` });
+}
+
+/** „Griff zeigen“: zählt nicht als Fehler, aber nicht als flüssig. */
+function peek() {
+  const c = st?.mode === 'swap' && st.sw?.on ? st.sw.cur : null;
+  if (!c || c.kb) return;
+  c.kb = true;
+  if (c.step === 'to') c.peeked = true;
+  paintKb(c);
 }
 
 /** Akkord liegt (gehört zur Audiozeit `at` angeschlagen, oder getippt). */
@@ -442,7 +457,7 @@ function swapGot(at) {
   const sec = Math.max(0, at - c.start);
   const key = `${c.from}>${c.to}`;
   const known = st.swaps.pairs.some((p) => p.key === key) || c.random;
-  const rating = rateSwap(sec, { bpm: st.song.bpm, missed: c.missed });
+  const rating = rateSwap(sec, { bpm: st.song.bpm, missed: c.missed, peeked: c.peeked });
   if (known) {
     const all = { ...(S.settings.drillSwaps || {}) };
     const mine = { ...(all[st.song.id] || {}) };
@@ -452,7 +467,7 @@ function swapGot(at) {
     S.settings.drillSwaps = all;
     saveSettings();
     sw.results.push({ key, from: c.from, to: c.to, rating, sec });
-    const word = rating === 'fluent' ? 'flüssig' : rating === 'slow' ? 'noch zögerlich' : c.missed ? 'gehakt' : 'zu lang';
+    const word = rating === 'fluent' ? 'flüssig' : rating === 'slow' ? (c.peeked ? 'mit Griff' : 'noch zögerlich') : c.missed ? 'gehakt' : 'zu lang';
     const best = rating !== 'stuck' && (before == null || sec < before) ? ' · neuer Bestwert' : '';
     $('#dr-hint').textContent = `${fmtSec(sec)} – ${word}${best}`;
   } else {
@@ -461,6 +476,7 @@ function swapGot(at) {
   sw.lastKey = key;
   sw.held = c.to;
   sw.cur = null;
+  paintKb(null);
   setTimeout(() => { if (st?.sw?.on && !st.sw.cur) swapNext(); }, 300);
 }
 
@@ -479,26 +495,14 @@ function swapSkip() {
   swapNext();
 }
 
-/** Je Frame: Hilfe nach der Zeit, Mikrofon lesen. */
+/** Je Frame: Mikrofon lesen. Nichts klingt vor, nichts deckt sich von
+ *  selbst auf. */
 function swapTick() {
   const sw = st.sw;
-  if (!sw?.on || !sw.cur) return;
+  if (!sw?.on || !sw.cur || !mic.isOpen()) return;
   const c = sw.cur;
   const t = audio.now();
-  const waited = t - (c.step === 'to' ? c.start ?? c.shownAt : c.shownAt);
-  if (c.step === 'to' && !c.kb && waited >= SWAP.slowSec) { c.kb = true; paintKb(c); }
   const aim = c.step === 'to' ? c.to : c.from;
-  if (!c.played && waited >= SWAP.helpSec) {
-    // Zu lange: vorspielen, zählt als gehakt.
-    c.played = true;
-    if (c.step === 'to') c.missed = true;
-    c.kb = true;
-    paintKb(c);
-    audio.chord(grip(aim), t + 0.05, { dur: 1.5 });
-    if (mic.isOpen()) mic.ignoreUntil(t + 2.2);
-    $('#dr-hint').textContent = `So klingt ${sym(aim)}.`;
-  }
-  if (!mic.isOpen()) return;
   const smp = mic.sample(t, [target(aim)]);
   if (!smp?.fresh) return;
   const onsetAt = t - smp.sinceOnset;

@@ -72,12 +72,13 @@ Akkord und „dann …“. Danach der Vorlauf der nächsten. „↻ Wiederholen�
 bei derselben, Tempo ±5 gilt ab dem nächsten Vorlauf und wird je Song
 gemerkt. Ohne Mikrofon. Tasten: Leertaste, ←/→, R, +/−.
 Umschalter **„Nur Akkorde“** (gemerkt): kein Takt, kein Klick, geübt werden
-die Griffwechsel einzeln. Groß der zu greifende Akkord, klein „A → B“,
-darunter der Wechsel auf der Tastatur (bei sitzenden Übergängen erst nach
-2,5 s); liegt er (Mikrofon, sonst antippen bzw. Enter), kommt der nächste.
+die Griffwechsel einzeln. Groß der zu greifende Akkord, klein „A → B“;
+liegt er (Mikrofon, sonst antippen bzw. Enter), kommt der nächste. Die
+Tasten nur auf Wunsch („Griff zeigen“, G) und dann nur der Griff selbst,
+nicht der Weg dorthin; nichts klingt von selbst vor.
 Gemessen wird vom Anschlag von A bis zum Anschlag von B (in einer Kette ab
 dem Zeigen von B): flüssig ≤ 1 Schlag im Song-Tempo (mind. 0,8 s), zögerlich
-≤ 2,5 s, sonst bzw. mit Fehlgriff oder nach 6 s (dann klingt er vor) hakt es.
+≤ 2,5 s, sonst bzw. mit Fehlgriff hakt es; aufgedeckt höchstens zögerlich.
 Je Übergang ein Kästchen 1–5 (3× flüssig in Folge → +1, höchstens einmal am
 Tag; hakt → 1; `settings.drillSwaps[songId]`). Gezogen werden die echten
 Wechsel der gewählten Abschnitte, schwache öfter, vom liegenden Akkord aus
