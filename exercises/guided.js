@@ -34,7 +34,7 @@ import {
 } from '../phrases.js';
 import { countLabel } from '../timeline.js';
 import { stepHits } from '../accomp.js';
-import { GROOVE_STAGES } from '../tempo.js';
+import { GROOVE_STAGES, tempoText } from '../tempo.js';
 import { S, today, currentSong, phraseStates, getPhrase, putPhrase, saveSettings } from '../store.js';
 import { $, field, showScreen, screenName, waitChoice, frameLoop, modal, setToggle } from '../ui.js';
 import { createClock } from '../clock.js';
@@ -479,7 +479,7 @@ export async function runGuided(api, item) {
       ui.level.textContent = `${def.name}${pick.review ? ' · Wiederholung' : ''}`;
       let clean;
       if (state.mode === 'tempo') {
-        ui.bpm.textContent = `${state.bpm} BPM`;
+        ui.bpm.textContent = tempoText(state.bpm, song.bpm);
         const r = await tempoPass(api, ui, def, state.bpm, tempoPattern(def, state, d));
         const out = applyTempo(state, { errors: r.errors, today: d, target: targetBpm(song) });
         state = out.state;

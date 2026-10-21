@@ -2,7 +2,7 @@
    (drill.js) zum Klick mitspielen. Jede Folge kommt mit einem Takt Vorlauf
    (Folge schon sichtbar, Klick zählt groß ein), dann 2 Takte zum Klick;
    danach der Vorlauf der nächsten Folge. „Wiederholen“ bleibt bei derselben,
-   Tempo ±5 gilt ab dem nächsten Vorlauf. Ohne Mikrofon: man spielt einfach
+   Tempo ±10 % gilt ab dem nächsten Vorlauf. Ohne Mikrofon: man spielt einfach
    mit. Audio-Timing über clock.js (Lookahead auf der AudioContext-Uhr), die
    Anzeige folgt per requestAnimationFrame der hörbaren Audiozeit. Tasten:
    Leertaste Start/Pause, ←/→ Folge, R Wiederholen, +/− Tempo.
@@ -24,7 +24,7 @@ import * as mic from './mic.js';
 import { createClock } from './clock.js';
 import { S, saveSettings, today } from './store.js';
 import {
-  DRILL, cycleBeats, cyclePhase, nextChunk, stepBpm, startBpm,
+  DRILL, cycleBeats, cyclePhase, nextChunk, stepPct, startPct, pctBpm,
   SWAP, swapPairs, rateSwap, applySwap, pickSwap, swapQueue, roundOver, weakestSwap, chunkWith, chunkSteps,
 } from './drill.js';
 import { prettyChord } from './chordsym.js';
@@ -66,7 +66,7 @@ export function openDrill(song, chunks, onBack, { sectionIds = null } = {}) {
   wire();
   st = {
     song, chunks, onBack, idx: 0, repeat: false, running: false, cycles: [],
-    bpm: startBpm(song, S.settings.drillBpm?.[song.id]), shown: null, phaseKey: null, stop: null,
+    pct: startPct(song, S.settings.drillPct?.[song.id], S.settings.drillBpm?.[song.id]), shown: null, phaseKey: null, stop: null,
     mode: S.settings.drillMode === 'swap' ? 'swap' : 'takt', free: !!S.settings.drillFree, fr: null, swaps: swapPairs(song, { sectionIds }), sw: null,
   };
   $('#dr-song').textContent = song.title;
@@ -126,7 +126,7 @@ function startCycle(at, idx, gen) {
   const chunk = st.chunks[idx];
   const total = cycleBeats(chunk, bpb);
   const leadBeats = DRILL.lead * bpb;
-  const cyc = { idx, bpm: st.bpm, t0: at, clock: null };
+  const cyc = { idx, bpm: pctBpm(st.song, st.pct), t0: at, clock: null };
   cyc.clock = createClock(audio.getCtx(), {
     bpm: cyc.bpm, totalSteps: total, stepsPerBeat: 1, beatsPerBar: bpb,
     onStep: (step) => {
@@ -152,8 +152,8 @@ function go(dir) {
 }
 
 function setBpm(dir) {
-  st.bpm = stepBpm(st.bpm, dir);
-  S.settings.drillBpm = { ...(S.settings.drillBpm || {}), [st.song.id]: st.bpm };
+  st.pct = stepPct(st.pct, dir);
+  S.settings.drillPct = { ...(S.settings.drillPct || {}), [st.song.id]: st.pct };
   saveSettings();
   paintControls();
 }
@@ -284,11 +284,13 @@ function paintControls() {
   btn.setAttribute('aria-label', on ? (swap ? 'Stopp' : 'Pause') : 'Start');
   $('#dr-play-icon').setAttribute('d', !on ? 'M8 5l11 7-11 7z' : swap ? 'M6 6h12v12H6z' : 'M7 5h4v14H7zM13 5h4v14h-4z');
   $('#dr-repeat').setAttribute('aria-pressed', st.repeat ? 'true' : 'false');
-  $('#dr-bpm').textContent = String(st.bpm);
+  $('#dr-bpm').textContent = `${st.pct} %`;
+  $('#dr-bpm-abs').textContent = `(${pctBpm(st.song, st.pct)} BPM)`;
   $('#dr-taktrow .sp-stepper').hidden = st.free;
+  $('#dr-bpm-abs').hidden = st.free;
   setToggle($('#dr-free'), st.free);
-  $('#dr-slower').disabled = st.bpm <= DRILL.min;
-  $('#dr-faster').disabled = st.bpm >= DRILL.max;
+  $('#dr-slower').disabled = st.pct <= DRILL.minPct;
+  $('#dr-faster').disabled = st.pct >= DRILL.maxPct;
   const one = st.chunks.length < 2;
   $('#dr-prev').disabled = $('#dr-nextbtn').disabled = one;
   if (swap) $('#dr-nextbtn').disabled = !on;

@@ -69,7 +69,8 @@ Abschnitte werden in Folgen zu 2 Takten geschnitten; gleiche Folgen kommen
 nur einmal. Jede Folge: ein Takt Vorlauf (Folge schon sichtbar, der Klick
 zählt groß ein), dann 2 Takte zum Klick mitspielen, groß der klingende
 Akkord und „dann …“. Danach der Vorlauf der nächsten. „↻ Wiederholen“ bleibt
-bei derselben, Tempo ±5 gilt ab dem nächsten Vorlauf und wird je Song
+bei derselben, Tempo in Prozent vom Song-Tempo (dahinter die BPM in Klammern), −/+ in
+Zehnerschritten von 30 bis 150 %, gilt ab dem nächsten Vorlauf und wird je Song
 gemerkt. Ohne Mikrofon. Tasten: Leertaste, ←/→, R, +/−.
 Schalter **„Ohne Takt“** (gemerkt): dieselben Folgen ohne Klick und Tempo —
 die Akkorde der Folge der Reihe nach, im Raster markiert; liegt einer
@@ -113,6 +114,9 @@ IndexedDB und Service Worker brauchen eine echte Herkunft.) Für GitHub Pages
 reicht es, den Branch zu veröffentlichen — alle Pfade sind relativ.
 
 ## Übungen und Werkzeuge
+
+Das Tempo zeigen die Übungen in Prozent vom Song-Tempo, dahinter in Klammern
+die BPM (`tempo.js tempoText`; ohne Song-Tempo nur die BPM).
 
 | | Was passiert | Regeln |
 |---|---|---|
@@ -227,7 +231,7 @@ Liedseite (`marks`) Abschnitte mit Startzeit (je 8 Takte, `startSec`).
 | `songpage.js` | Liedseite: Player, Leadsheet mit Abschnitten, Loop je Abschnitt bzw. Takten, Tabs (Text) |
 | `songwizard.js` | Assistent für neue Songs (Video, Teile und Tempo, Akkordwechsel, Griffe) |
 | `drill.js` | REIN: 2-Takt-Folgen aus den Abschnitten, Vorlauf, Weiter/Wiederholen, Tempo |
-| `drillpage.js` | Folgen üben: Klick (clock.js), Anzeige, Wiederholen, Tempo ±5 |
+| `drillpage.js` | Folgen üben: Klick (clock.js), Anzeige, Wiederholen, Tempo ±10 % |
 | `leadsheet.js` | REIN: Abschnitte als Taktbereiche, Raster, Zeiten im Video, Tabs je Abschnitt |
 | `marks.js` | REIN: Uhrzeit-Anzeige, Loop-Helfer (nicht mehr in der Oberfläche), alte Sekunden-Marken nur noch für Migration 3 |
 | `tabtext.js` | REIN: eingefügten Tab-Text in Akkordzeilen, Überschriften, Text zerlegen |
