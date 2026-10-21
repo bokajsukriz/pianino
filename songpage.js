@@ -117,6 +117,10 @@ function wire() {
   initWizard(wizardApi);
   // Tabs
   document.addEventListener('keydown', onKey);
+  // Selbst gescrollt: das Mitscrollen hält kurz inne.
+  for (const ev of ['wheel', 'touchstart']) {
+    window.addEventListener(ev, (e) => { if (st && e.target.closest?.('#sp-main, #s-song') && !e.target.closest('#sp-dock')) holdFollow(); }, { passive: true });
+  }
   // Takte wählen (lange drücken, ziehen): dabei nicht scrollen; der Klick danach zählt nicht.
   $('#sp-sections').addEventListener('touchmove', (e) => { if (st?.barDrag) e.preventDefault(); }, { passive: false });
   $('#sp-sections').addEventListener('click', (e) => { if (performance.now() < barClickGuard) { e.stopPropagation(); e.preventDefault(); } }, true);
@@ -1100,6 +1104,7 @@ function tick() {
     st.lastPos = key;
     paintPlayhead(pos, playing);
   }
+  followTick(pos, playing);
 }
 
 /** Im Vorlauf eines Abschnitts-Loops: Schläge bis zum Einsatz. */
@@ -1129,8 +1134,10 @@ function paintPlayhead(pos, playing) {
       target.classList.add('playing');
     }
   }
-  // Beim Abspielen mitscrollen, solange das Blatt nicht offen ist.
-  if (playing && !st.sheet && follows()) followIntoView(target === cardEl ? cardEl.querySelector('.sp-card-head') : target);
+  // Ohne Schlag (kein Tempo): beim Abspielen die Karte ins Bild holen.
+  // Mit Schlag gleitet followTick je Frame mit.
+  st.followRow = null;
+  if (target === cardEl && playing && !st.sheet && follows()) followIntoView(cardEl.querySelector('.sp-card-head'));
 }
 
 /** Automatisch mitscrollen (Schalter unten, gemerkt; Standard: an). */
@@ -1139,42 +1146,84 @@ function paintFollow() {
   $('#sp-follow').setAttribute('aria-pressed', follows() ? 'true' : 'false');
 }
 
-/** ANNAHME: so viele Zeilen unter der aktuellen sollen beim Mitscrollen
- *  schon zu sehen sein. */
-const FOLLOW_AHEAD = 2;
-
-/** Knoten in den sichtbaren Bereich holen (unter dem stehenden Player),
- *  vorausschauend: sobald die nächsten FOLLOW_AHEAD Zeilen nicht mehr ganz
- *  zu sehen sind, rückt die aktuelle nach oben. */
+/** Knoten in den sichtbaren Bereich holen (unter dem stehenden Player). */
 function followIntoView(node) {
+  const v = followView();
   const r = node.getBoundingClientRect();
-  const land = matchMedia(LANDSCAPE).matches;
-  const box = land ? $('#sp-main').getBoundingClientRect() : null;
-  const top = land ? box.top : 8;
-  const bottom = land ? box.bottom : window.innerHeight - ($('#sp-dock').offsetHeight || 0);
-  const ahead = aheadBottom(node, r);
-  if (r.top >= top + 4 && Math.max(r.bottom, ahead) <= bottom - 4) return;
-  const by = r.top - top - 12;
-  if (Math.abs(by) < 2) return;
-  if (land) $('#sp-main').scrollBy({ top: by, behavior: 'smooth' });
-  else window.scrollBy({ top: by, behavior: 'smooth' });
+  if (r.top >= v.top + 4 && r.bottom <= v.bottom - 4) return;
+  v.scroller.scrollBy({ top: r.top - v.top - 12, behavior: 'smooth' });
 }
 
-/** Unterkante der FOLLOW_AHEAD-ten Taktzeile unter `node` (auch über
- *  Abschnitte hinweg; eine Zeile = Takte mit gleicher Oberkante), sonst
- *  die von `node` selbst. */
-function aheadBottom(node, r) {
-  let rows = 0, rowTop = r.top, out = r.bottom;
-  for (const b of $$('#sp-sections .sp-bar')) {
-    if (b === node || !(node.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)) continue;
-    const br = b.getBoundingClientRect();
-    if (br.top <= rowTop + 2) { out = Math.max(out, br.bottom); continue; }
-    if (rows === FOLLOW_AHEAD) break;
-    rows++;
-    rowTop = br.top;
-    out = br.bottom;
+/** ANNAHME: so träge folgt die Ansicht (Zeitkonstante in s) und so lange
+ *  hält sie inne, nachdem man selbst gescrollt hat. */
+const FOLLOW = Object.freeze({ tau: 0.35, hold: 4 });
+
+/** Sichtbarer Bereich des Leadsheets (Bildschirmkoordinaten) und was
+ *  scrollt: Hochformat das Fenster (über der Leiste), Querformat #sp-main. */
+function followView() {
+  if (matchMedia(LANDSCAPE).matches) {
+    const main = $('#sp-main');
+    const box = main.getBoundingClientRect();
+    return { top: box.top, bottom: box.bottom, scroller: main, get: () => main.scrollTop, set: (y) => { main.scrollTop = y; } };
   }
-  return out;
+  return {
+    top: 0, bottom: window.innerHeight - ($('#sp-dock').offsetHeight || 0), scroller: window,
+    get: () => window.scrollY, set: (y) => window.scrollTo(0, y),
+  };
+}
+
+const holdFollow = () => { if (st) { st.followHold = performance.now() + FOLLOW.hold * 1000; st.followY = null; } };
+
+/** Gleichmäßig mitscrollen: die Stelle im Raster (zwischen Oberkante der
+ *  aktuellen und der nächsten Zeile, nach dem Schlag) steht etwa in der
+ *  Mitte; die Ansicht gleitet ihr je Frame weich hinterher. */
+function followTick(pos, playing) {
+  if (!playing || st.sheet || !follows() || pos?.beat == null || st.barDrag) { st.followY = null; return; }
+  if (performance.now() < (st.followHold || 0)) return;
+  const v = followView();
+  const row = followRow(pos.beat, v);
+  if (!row) return;
+  const f = Math.max(0, Math.min(1, (pos.beat - row.beat0) / row.beats));
+  const y = row.y0 + (row.y1 - row.y0) * f; // Inhaltskoordinate der Zeilenoberkante
+  const want = Math.max(0, y + row.h / 2 - (v.top + v.bottom) / 2 + (v.scroller === window ? 0 : v.top));
+  const now = performance.now();
+  const cur = v.get();
+  // Weicht die echte Lage ab (gesprungen, selbst gescrollt): von dort weiter.
+  if (st.followY == null || Math.abs(st.followY - cur) > 3) st.followY = cur;
+  const dt = Math.min(0.1, (now - (st.followAt || now)) / 1000);
+  st.followAt = now;
+  const next = st.followY + (want - st.followY) * (1 - Math.exp(-dt / FOLLOW.tau));
+  if (Math.abs(next - cur) < 0.3) return;
+  st.followY = next;
+  v.set(next);
+}
+
+/** Lage der Zeile mit Schlag `beat` (und der nächsten), in
+ *  Inhaltskoordinaten des Scrollers; gemerkt, bis der Schlag die Zeile
+ *  verlässt. → { beat0, beats, y0, y1, h } | null */
+function followRow(beat, v) {
+  const r = st.followRow;
+  if (r && beat >= r.beat0 - EPS && beat < r.beat0 + r.beats - EPS) return r;
+  const cell = $(`#sp-sections .sp-bt[data-beat="${Math.floor(beat + EPS)}"]`);
+  const bar = cell?.closest('.sp-bar');
+  if (!bar) return (st.followRow = null);
+  const off = v.scroller === window ? window.scrollY : v.get() - v.top;
+  const top = bar.getBoundingClientRect().top;
+  const bars = $$('#sp-sections .sp-bar');
+  let first = null, n = 0, y1 = null;
+  for (const b of bars) {
+    const t = b.getBoundingClientRect().top;
+    if (Math.abs(t - top) <= 2) { if (!first) first = b; n++; }
+    else if (first && t > top + 2) { y1 = t; break; }
+  }
+  const beat0 = Number(first.querySelector('.sp-bt')?.dataset.beat);
+  const bpb = song().beatsPerBar;
+  const h = bar.getBoundingClientRect().height;
+  st.followRow = {
+    beat0: Number.isFinite(beat0) ? beat0 : Math.floor(beat), beats: Math.max(1, n) * bpb,
+    y0: top + off, y1: (y1 ?? top + h) + off, h,
+  };
+  return st.followRow;
 }
 
 function onKey(e) {
