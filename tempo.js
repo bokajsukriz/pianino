@@ -4,6 +4,13 @@
 import { daysBetween } from './dates.js';
 import { transitionCounts, chordSequence, songEndBeat } from './timeline.js';
 
+/** Tempo für die Anzeige: Prozent vom Song-Tempo, dahinter die BPM in
+ *  Klammern; ohne Song-Tempo nur die BPM. */
+export function tempoText(bpm, songBpm) {
+  if (!songBpm) return `${bpm} BPM`;
+  return `${Math.round(bpm / songBpm * 100)} % (${bpm} BPM)`;
+}
+
 /* ---------- Kurze Wege ------------------------------------------------- */
 
 export const WEGE = Object.freeze({
