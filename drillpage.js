@@ -12,7 +12,12 @@
    kommt der nächste. Die Tasten nur auf Wunsch („Griff zeigen“, G), und
    dann nur der Griff selbst, ohne den Weg dorthin. Welche Wechsel,
    wie gemessen und wann Zufallswechsel dazukommen: drill.js SWAP. Je
-   Übergang gemerkt in settings.drillSwaps[songId]. */
+   Übergang gemerkt in settings.drillSwaps[songId].
+
+   Schalter „Ohne Takt“ (gemerkt, im Modus „Im Takt“): dieselben Folgen,
+   aber ohne Klick und Tempo — die Akkorde der Folge der Reihe nach, liegt
+   einer (Mikrofon, sonst antippen bzw. Enter), kommt der nächste. Nach der
+   Folge die nächste bzw. mit „Wiederholen“ dieselbe. Nichts wird gemessen. */
 
 import * as audio from './audio.js';
 import * as mic from './mic.js';
@@ -20,7 +25,7 @@ import { createClock } from './clock.js';
 import { S, saveSettings, today } from './store.js';
 import {
   DRILL, cycleBeats, cyclePhase, nextChunk, stepBpm, startBpm,
-  SWAP, swapPairs, rateSwap, applySwap, pickSwap, swapQueue, roundOver, weakestSwap, chunkWith,
+  SWAP, swapPairs, rateSwap, applySwap, pickSwap, swapQueue, roundOver, weakestSwap, chunkWith, chunkSteps,
 } from './drill.js';
 import { prettyChord } from './chordsym.js';
 import { voicingFor, hearTarget, allKeys } from './voicing.js';
@@ -46,11 +51,12 @@ function wire() {
   $('#dr-faster').addEventListener('click', () => setBpm(1));
   $('#dr-mode-takt').addEventListener('click', () => setMode('takt'));
   $('#dr-mode-swap').addEventListener('click', () => setMode('swap'));
+  $('#dr-free').addEventListener('click', toggleFree);
   $('#dr-mic').addEventListener('click', toggleMic);
   $('#dr-transfer').addEventListener('click', transfer);
   $('#dr-peek').addEventListener('click', peek);
   // Ohne Mikrofon: Antippen heißt „liegt“.
-  $('.dr-stage').addEventListener('click', (e) => { if (!e.target.closest('button')) swapTap(); });
+  $('.dr-stage').addEventListener('click', (e) => { if (!e.target.closest('button')) { swapTap(); freeTap(); } });
   document.addEventListener('keydown', onKey);
 }
 
@@ -61,7 +67,7 @@ export function openDrill(song, chunks, onBack, { sectionIds = null } = {}) {
   st = {
     song, chunks, onBack, idx: 0, repeat: false, running: false, cycles: [],
     bpm: startBpm(song, S.settings.drillBpm?.[song.id]), shown: null, phaseKey: null, stop: null,
-    mode: S.settings.drillMode === 'swap' ? 'swap' : 'takt', swaps: swapPairs(song, { sectionIds }), sw: null,
+    mode: S.settings.drillMode === 'swap' ? 'swap' : 'takt', free: !!S.settings.drillFree, fr: null, swaps: swapPairs(song, { sectionIds }), sw: null,
   };
   $('#dr-song').textContent = song.title;
   showScreen('drill');
@@ -87,13 +93,15 @@ async function toggle() {
   if (st.running) { halt(); paintIdle(); return; }
   await audio.unlock();
   if (!st) return;
+  if (st.free) { if (!(await askMic())) return; await syncMic(); if (!st) return; }
   begin(st.idx);
 }
 
-/** Ab Folge `idx` loslegen (mit Vorlauf). */
+/** Ab Folge `idx` loslegen (mit Vorlauf; ohne Takt beim ersten Akkord). */
 function begin(idx) {
   halt();
   st.running = true;
+  if (st.free) { keepAwake(); paintControls(); freeChunk(idx); return; }
   st.gen = (st.gen || 0) + 1;
   startCycle(audio.getCtx().currentTime + 0.12, idx, st.gen);
   keepAwake();
@@ -104,6 +112,7 @@ function begin(idx) {
 function halt() {
   for (const c of st.cycles) c.clock.stop();
   st.cycles = [];
+  st.fr = null;
   st.running = false;
   st.phaseKey = null;
   releaseAwake();
@@ -154,6 +163,7 @@ function onKey(e) {
   if (e.target.closest?.('input, textarea, select')) return;
   if (e.key === ' ') { e.preventDefault(); toggle(); }
   else if (e.key === 'Enter' && st.mode === 'swap') { e.preventDefault(); swapTap(); }
+  else if (e.key === 'Enter' && st.free) { e.preventDefault(); freeTap(); }
   else if (st.mode === 'swap') {
     if (e.key === 'ArrowRight') { e.preventDefault(); go(1); }
     else if (e.key === 'g' || e.key === 'G') peek();
@@ -161,6 +171,7 @@ function onKey(e) {
   else if (e.key === 'ArrowLeft') { e.preventDefault(); go(-1); }
   else if (e.key === 'ArrowRight') { e.preventDefault(); go(1); }
   else if (e.key === 'r' || e.key === 'R') $('#dr-repeat').click();
+  else if (st.free) return;
   else if (e.key === '+') setBpm(1);
   else if (e.key === '-') setBpm(-1);
 }
@@ -181,6 +192,7 @@ function tick() {
   if (!st || screenName() !== 'drill') return;
   if (st.mode === 'swap') { swapTick(); return; }
   if (!st.running) return;
+  if (st.free) { freeTick(); return; }
   const now = audio.audibleNow();
   let cyc = st.cycles[0];
   for (const c of st.cycles) if (c.t0 <= now) cyc = c;
@@ -260,7 +272,7 @@ function paintIdle() {
   for (const x of $('#dr-bars').querySelectorAll('.cur, .playing')) x.classList.remove('cur', 'playing');
   $('#dr-big').textContent = first;
   $('#dr-big').className = `dr-big idle${first.length > 4 ? ' long' : ''}`;
-  $('#dr-hint').textContent = 'Start: ein Takt Vorlauf, dann mitspielen.';
+  $('#dr-hint').textContent = st.free ? 'Start: die Akkorde der Reihe nach, ohne Takt.' : 'Start: ein Takt Vorlauf, dann mitspielen.';
 }
 
 function paintControls() {
@@ -273,6 +285,8 @@ function paintControls() {
   $('#dr-play-icon').setAttribute('d', !on ? 'M8 5l11 7-11 7z' : swap ? 'M6 6h12v12H6z' : 'M7 5h4v14H7zM13 5h4v14h-4z');
   $('#dr-repeat').setAttribute('aria-pressed', st.repeat ? 'true' : 'false');
   $('#dr-bpm').textContent = String(st.bpm);
+  $('#dr-taktrow .sp-stepper').hidden = st.free;
+  setToggle($('#dr-free'), st.free);
   $('#dr-slower').disabled = st.bpm <= DRILL.min;
   $('#dr-faster').disabled = st.bpm >= DRILL.max;
   const one = st.chunks.length < 2;
@@ -286,7 +300,7 @@ function setMode(mode) {
   if (!st || st.mode === mode) return;
   halt();
   swapStop();
-  if (mode === 'takt' && mic.isOpen()) mic.close();
+  if (mode === 'takt' && !st.free && mic.isOpen()) mic.close();
   st.mode = mode;
   S.settings.drillMode = mode;
   saveSettings();
@@ -300,8 +314,9 @@ function paintMode() {
   setToggle($('#dr-mode-swap'), swap);
   $('#dr-bars').hidden = swap;
   $('#dr-taktrow').hidden = swap;
-  $('#dr-help-takt').hidden = swap;
-  $('#dr-swaprow').hidden = !swap;
+  $('#dr-help-takt').hidden = swap || st.free;
+  $('#dr-help-free').hidden = swap || !st.free;
+  $('#dr-swaprow').hidden = !swap && !st.free;
   $('#dr-help-swap').hidden = !swap;
   $('#dr-prev').hidden = swap;
   $('#dr-nextbtn').setAttribute('aria-label', swap ? 'Wechsel überspringen' : 'Nächste Folge');
@@ -309,7 +324,11 @@ function paintMode() {
   $('#dr-kb').hidden = true;
   paintControls();
   if (swap) swapIdle();
-  else { paintChunk(st.idx); paintIdle(); }
+  else {
+    paintChunk(st.idx);
+    paintIdle();
+    setToggle($('#dr-mic'), !!S.settings.mic && mic.supported(), !mic.supported());
+  }
 }
 
 /* ---------- Nur Akkorde ------------------------------------------------- */
@@ -329,16 +348,7 @@ async function swapStart() {
     return;
   }
   await audio.unlock();
-  if (!st) return;
-  if (wantMic() && S.settings.mic == null) {
-    const a = await modal('Mit Mikrofon üben?',
-      'Pianino hört zu, ob der Akkord liegt, und zeigt dann den nächsten – du musst nicht aufs Handy tippen. '
-      + 'Es wird nichts aufgenommen oder gespeichert.',
-      [{ label: 'Ohne', value: 'no' }, { label: 'Mikrofon an', value: 'yes', primary: true }]);
-    S.settings.mic = a === 'yes';
-    await saveSettings();
-    if (!st) return;
-  }
+  if (!st || !(await askMic())) return;
   await syncMic();
   if (!st) return;
   st.sw = { on: true, t0: performance.now(), results: [], queue: [], cur: null, lastKey: null, held: null };
@@ -346,6 +356,20 @@ async function swapStart() {
   keepAwake();
   swapNext();
   paintControls();
+}
+
+/** Beim ersten Mal fragen, ob mit Mikrofon. → false, wenn die Seite
+ *  inzwischen zu ist. */
+async function askMic() {
+  if (wantMic() && S.settings.mic == null) {
+    const a = await modal('Mit Mikrofon üben?',
+      'Pianino hört zu, ob der Akkord liegt, und zeigt dann den nächsten – du musst nicht aufs Handy tippen. '
+      + 'Es wird nichts aufgenommen oder gespeichert.',
+      [{ label: 'Ohne', value: 'no' }, { label: 'Mikrofon an', value: 'yes', primary: true }]);
+    S.settings.mic = a === 'yes';
+    await saveSettings();
+  }
+  return !!st;
 }
 
 /** Mikrofon zum Schalter öffnen bzw. schließen. */
@@ -367,9 +391,12 @@ async function toggleMic() {
   S.settings.mic = !S.settings.mic;
   await saveSettings();
   if (!st) return;
-  if (st.sw?.on || S.settings.mic === false) await syncMic();
+  const busy = st.sw?.on || (st.free && st.running);
+  if (busy || S.settings.mic === false) await syncMic();
   else setToggle($('#dr-mic'), !!S.settings.mic, !mic.supported());
+  if (!st) return;
   if (st.sw?.on) swapShow(); // neu ansetzen, mit oder ohne Mikrofon
+  if (st.free && st.fr) freeShow();
 }
 
 function swapStop() {
@@ -567,4 +594,91 @@ function swapIdle() {
     ? 'Alle Wechsel sitzen – jetzt kommen auch Zufallswechsel.'
     : `${solid} von ${pairs.length} sitzen. Erst die echten Wechsel, die schwachen öfter.`;
   setToggle($('#dr-mic'), !!S.settings.mic && mic.supported(), !mic.supported());
+}
+
+/* ---------- Ohne Takt --------------------------------------------------- */
+
+/** Schalter „Ohne Takt“: hält an, merkt sich die Wahl. */
+function toggleFree() {
+  if (!st || st.mode !== 'takt') return;
+  halt();
+  st.free = !st.free;
+  S.settings.drillFree = st.free;
+  saveSettings();
+  if (!st.free && mic.isOpen()) mic.close();
+  paintMode();
+}
+
+/** Folge `idx` ab ihrem ersten Akkord. */
+function freeChunk(idx) {
+  paintChunk(idx);
+  st.fr = { list: chunkSteps(st.chunks[idx]), i: 0, shownAt: 0, okRun: 0, heard: '' };
+  freeShow();
+}
+
+/** Aktuellen Akkord zeigen: groß, im Raster markiert, „dann …“. */
+function freeShow() {
+  const f = st.fr, s = f.list[f.i];
+  f.shownAt = audio.now();
+  f.okRun = 0;
+  f.heard = '';
+  f.wait = false;
+  const cells = [...$('#dr-bars').querySelectorAll('.sp-bt')];
+  for (const x of $('#dr-bars').querySelectorAll('.cur, .playing')) x.classList.remove('cur', 'playing');
+  cells[s.cell]?.classList.add('cur');
+  cells[s.cell]?.closest('.sp-bar')?.classList.add('playing');
+  const big = $('#dr-big');
+  big.textContent = s.chord;
+  big.className = `dr-big${s.chord.length > 4 ? ' long' : ''}`;
+  const next = f.list[f.i + 1]?.chord;
+  const listening = mic.isOpen() && target(s.chord);
+  $('#dr-hint').textContent = `${listening ? '' : 'Antippen, sobald er liegt'}${listening || !next ? '' : ' · '}${next ? `dann ${next}` : listening ? 'Ende der Folge' : ''}`;
+  $('#dr-live').textContent = s.chord;
+}
+
+/** Akkord liegt: der nächste, nach dem letzten die nächste Folge. */
+function freeGot() {
+  const f = st.fr;
+  $('#dr-big').classList.add('got');
+  f.wait = true;
+  f.i++;
+  const done = f.i >= f.list.length;
+  setTimeout(() => {
+    if (!st?.running || st.fr !== f) return;
+    if (done) freeChunk(nextChunk(st.idx, st.chunks.length, st.repeat));
+    else freeShow();
+  }, done ? 400 : 250);
+}
+
+/** Antippen bzw. Enter: ohne Mikrofon (oder ohne Griff) „liegt“. */
+function freeTap() {
+  const f = st?.fr;
+  if (!st || st.mode !== 'takt' || !st.free || !st.running || !f || f.wait) return;
+  if (mic.isOpen() && target(f.list[f.i].chord)) return;
+  freeGot();
+}
+
+/** Je Frame: Mikrofon lesen, wie bei „Nur Akkorde“. */
+function freeTick() {
+  const f = st.fr;
+  if (!f || f.wait || !mic.isOpen()) return;
+  const s = f.list[f.i];
+  const aim = target(s.chord);
+  if (!aim) return;
+  const t = audio.now();
+  const smp = mic.sample(t, [aim]);
+  if (!smp?.fresh) return;
+  const onsetAt = t - smp.sinceOnset;
+  // Nur ein neuer Anschlag zählt (der vorige Akkord klingt noch nach).
+  const judging = smp.sinceOnset <= EAR.judge && onsetAt >= f.shownAt - 0.15;
+  const before = f.i > 0 ? f.list[f.i - 1].chord : null;
+  if (judging && smp.is(aim, before && before !== s.chord ? target(before) : null)) {
+    if (++f.okRun >= 2) freeGot();
+    return;
+  }
+  f.okRun = 0;
+  if (judging && smp.chord && smp.chord !== s.chord && smp.chord !== before && smp.chord !== f.heard) {
+    f.heard = smp.chord;
+    $('#dr-hint').textContent = `Ich höre ${sym(smp.chord)} – gesucht ${sym(s.chord)}.`;
+  }
 }

@@ -71,6 +71,11 @@ zählt groß ein), dann 2 Takte zum Klick mitspielen, groß der klingende
 Akkord und „dann …“. Danach der Vorlauf der nächsten. „↻ Wiederholen“ bleibt
 bei derselben, Tempo ±5 gilt ab dem nächsten Vorlauf und wird je Song
 gemerkt. Ohne Mikrofon. Tasten: Leertaste, ←/→, R, +/−.
+Schalter **„Ohne Takt“** (gemerkt): dieselben Folgen ohne Klick und Tempo —
+die Akkorde der Folge der Reihe nach, im Raster markiert; liegt einer
+(Mikrofon, sonst antippen bzw. Enter), kommt der nächste. Nach der Folge die
+nächste bzw. mit „↻ Wiederholen“ dieselbe; ◀/▶ wie im Takt. Nichts wird
+gemessen. Reihenfolge rein: `drill.js chunkSteps`.
 Umschalter **„Nur Akkorde“** (gemerkt): kein Takt, kein Klick, geübt werden
 die Griffwechsel einzeln. Groß der zu greifende Akkord, klein „A → B“;
 liegt er (Mikrofon, sonst antippen bzw. Enter), kommt der nächste. Die
