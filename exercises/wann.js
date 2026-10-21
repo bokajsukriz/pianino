@@ -17,6 +17,7 @@ import { youtubeSource, beatToSec, secToBeat } from '../timeline.js';
 import { phraseDefs, focusPhrase } from '../phrases.js';
 import { scoreTaps, tapSummary, applyWann } from '../tap.js';
 import { stepHits } from '../accomp.js';
+import { tempoText } from '../tempo.js';
 import { createClock } from '../clock.js';
 import { $, field, showScreen, frameLoop, makeDots, setDots, setToggle, modal } from '../ui.js';
 
@@ -142,7 +143,7 @@ export async function runWann(api, item) {
     }
     const lead = leadSec();
     const startSec = () => beatToSec(song, def.fromBeat - bpb) - lead;
-    f('meta').textContent = `${song.bpm} BPM`;
+    f('meta').textContent = tempoText(song.bpm, song.bpm);
     const unPause = api.onPause((p) => (p ? player.pause() : player.play()));
     let k = 0;
     tapNow = () => ({ k, r: secToBeat(song, player.now() - lead) - def.fromBeat });
@@ -185,7 +186,7 @@ export async function runWann(api, item) {
     f('video').hidden = !f('vnote').textContent;
     f('yt').hidden = true;
     const bpm = wannBpm(song);
-    f('meta').textContent = `${bpm} BPM`;
+    f('meta').textContent = tempoText(bpm, song.bpm);
     const ctx = audio.getCtx();
     const countIn = 1;
     const grip = (sym) => voicingFor(song, sym);

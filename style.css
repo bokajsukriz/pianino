@@ -754,7 +754,7 @@ button.band-ev { cursor: pointer; min-height: 30px; font: inherit; font-weight: 
 .dr-controls { display: flex; flex-direction: column; align-items: center; gap: 12px; }
 .dr-controls > p { margin: 0; text-align: center; }
 .dr-row { display: flex; align-items: center; justify-content: center; gap: 16px; flex-wrap: wrap; }
-.dr-row .sp-stepper b { min-width: 44px; }
+.dr-row .sp-stepper b { min-width: 68px; }
 @media (orientation: landscape) and (min-width: 700px) {
   .drillpage { height: 100dvh; }
   .dr-body { flex-direction: row; align-items: center; gap: 24px; }

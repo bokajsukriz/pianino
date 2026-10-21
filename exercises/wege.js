@@ -10,7 +10,7 @@
 import * as audio from '../audio.js';
 import { prettyChord } from '../chordsym.js';
 import { voicingFor, allKeys } from '../voicing.js';
-import { WEGE, wegeStages, blockChords, blockBpm, applyWege, nextLoop, stageSolid } from '../tempo.js';
+import { WEGE, wegeStages, blockChords, blockBpm, applyWege, nextLoop, stageSolid, tempoText } from '../tempo.js';
 import { S, today, getLoop, putLoop, levelUp, askedLater, mayAsk, currentSong } from '../store.js';
 import { field, showScreen, waitChoice, makeDots, setDots, frameLoop, modal, rand, pick } from '../ui.js';
 import { createClock } from '../clock.js';
@@ -143,7 +143,7 @@ export async function runWege(api, item) {
     const def = defs.find((x) => x.id === id);
     const loop = getLoop(id);
     const bpm = blockBpm(loop, d);
-    field(scr, 'bpm').textContent = `${bpm} BPM · Ziel ${WEGE.target}${bpm < loop.bpm ? ' · Aufwärmen' : ''}`;
+    field(scr, 'bpm').textContent = `${tempoText(bpm, song.bpm)} · Ziel ${WEGE.target} BPM${bpm < loop.bpm ? ' · Aufwärmen' : ''}`;
     const ok = await playBlock(api, scr, { def, chords: blockChords(def), bpm, range });
     const updated = applyWege(loop, ok, d);
     await putLoop(updated);

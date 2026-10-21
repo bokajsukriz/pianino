@@ -21,7 +21,7 @@ import {
   tabBlocks, blocksForSections, sectionsFromTabs, marksToSections,
   orderByStart, fitBars, updateSection, tapChordAt, barsTime, barSpan, loopLead,
 } from './leadsheet.js';
-import { drillChunks, cycleBeats, cyclePhase, nextChunk, stepBpm, startBpm, DRILL, SWAP, swapPairs, rateSwap, applySwap, pickSwap, swapQueue, roundOver, weakestSwap, chunkWith, allSolid, chunkSteps } from './drill.js';
+import { drillChunks, cycleBeats, cyclePhase, nextChunk, stepPct, startPct, pctBpm, DRILL, SWAP, swapPairs, rateSwap, applySwap, pickSwap, swapQueue, roundOver, weakestSwap, chunkWith, allSolid, chunkSteps } from './drill.js';
 import { addMark, removeMark, markRange, markAt, nextMarkName, fmtClock, addLoop, updateLoop, removeLoop } from './marks.js';
 import { classifyLine, parseTabText, chordsInText, stripMarkup } from './tabtext.js';
 import {
@@ -29,7 +29,7 @@ import {
   countdownBeats, unlockedCardIds, postponeOverflow,
 } from './leitner.js';
 import {
-  applyWege, blockBpm, newLoop, nextLoop, wegeStages, applyGroove, blockChords, songPairs, grooveWindows, GROOVE_STAGES,
+  applyWege, blockBpm, newLoop, nextLoop, wegeStages, applyGroove, blockChords, songPairs, grooveWindows, GROOVE_STAGES, tempoText,
 } from './tempo.js';
 import { stepHits } from './accomp.js';
 import { buildMix, mixLabel, weekDots } from './mix.js';
@@ -692,8 +692,12 @@ function pureTests() {
   check('17 Ohne Takt: Akkorde der Folge der Reihe nach, mit Zelle',
     eq(chunkSteps(ch[0]), [{ cell: 0, chord: 'Am' }, { cell: 7, chord: 'F' }]) && eq(chunkSteps(ch[2]), [{ cell: 0, chord: 'C' }])
     && eq(chunkSteps({ grid: [{ cells: [{ chord: 'G' }, { chord: null }, { chord: 'G' }, { chord: 'D' }] }] }).map((x) => x.chord), ['G', 'D']));
-  check('17 Weiter, Wiederholen, Tempo ±5 in Grenzen', nextChunk(2, 3) === 0 && nextChunk(1, 3, true) === 1 && nextChunk(0, 0) === -1
-    && stepBpm(77, 1) === 82 && stepBpm(DRILL.min + 2, -1) === DRILL.min && startBpm({ bpm: null }) === DRILL.start && startBpm({ bpm: 90 }, 65) === 65);
+  check('17 Weiter, Wiederholen', nextChunk(2, 3) === 0 && nextChunk(1, 3, true) === 1 && nextChunk(0, 0) === -1);
+  check('17 Tempo in Prozent: ±10 in Grenzen, alter BPM-Wert gerundet, BPM vom Song-Tempo',
+    stepPct(100, 1) === 110 && stepPct(DRILL.minPct, -1) === DRILL.minPct && stepPct(DRILL.maxPct, 1) === DRILL.maxPct && stepPct(85, -1) === 80
+    && startPct({ bpm: 90 }) === 100 && startPct({ bpm: 90 }, 70) === 70 && startPct({ bpm: 90 }, null, 65) === 70 && startPct({ bpm: null }, null, 35) === 50
+    && pctBpm({ bpm: 90 }, 70) === 63 && pctBpm({ bpm: null }, 100) === DRILL.start && pctBpm({ bpm: 200 }, 150) === DRILL.max
+    && tempoText(63, 90) === '70 % (63 BPM)' && tempoText(63, null) === '63 BPM');
 
   /* 17 — Nur Akkorde: echte Wechsel, Bewertung, Kästchen, Auswahl */
   const sp = swapPairs(dr);

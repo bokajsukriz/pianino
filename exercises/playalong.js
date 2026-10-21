@@ -22,7 +22,7 @@ import { voicingFor } from '../voicing.js';
 import { youtubeSource, beatToSec, secToBeat, sectionRange, songEndBeat, barOf } from '../timeline.js';
 import { phraseDefs, focusPhrase } from '../phrases.js';
 import { stepHits } from '../accomp.js';
-import { GROOVE_STAGES } from '../tempo.js';
+import { GROOVE_STAGES, tempoText } from '../tempo.js';
 import { field, showScreen, frameLoop, setToggle } from '../ui.js';
 import { createClock } from '../clock.js';
 
@@ -97,7 +97,7 @@ async function videoMode(c) {
   f('yt').hidden = false;
   f('own').hidden = true;
   f('range-label').textContent = c.range.label;
-  f('meta').textContent = `${song.bpm} BPM`;
+  f('meta').textContent = tempoText(song.bpm, song.bpm);
   f('tip').textContent = 'Das Video gibt den Takt. Wenn du rausfällst: nur den Bass, und bei der nächsten Eins wieder rein.';
   f('count').textContent = 'Video lädt …';
   let player;
@@ -209,7 +209,7 @@ async function ownMode(c) {
       return r.fromBeat + ((from + b - r.fromBeat) % (r.toBeat - r.fromBeat));
     };
     const bpm = bpmNow();
-    f('meta').textContent = `${bpm} BPM`;
+    f('meta').textContent = tempoText(bpm, song.bpm);
     const total = item.bars ? (countIn + item.bars) * bpb * 2 : r.loop ? Infinity : (countIn * bpb + r.toBeat - from) * 2;
     const cl = createClock(ctx, {
       bpm, totalSteps: total, beatsPerBar: bpb,

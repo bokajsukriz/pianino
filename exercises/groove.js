@@ -14,7 +14,7 @@ import { voicingFor } from '../voicing.js';
 import { chordAt } from '../timeline.js';
 import { stepHits } from '../accomp.js';
 import { phraseDefs, focusPhrase } from '../phrases.js';
-import { GROOVE, GROOVE_STAGES, GROOVE_MAX_LEVEL, grooveBpm, applyGroove, grooveWindows } from '../tempo.js';
+import { GROOVE, GROOVE_STAGES, GROOVE_MAX_LEVEL, grooveBpm, applyGroove, grooveWindows, tempoText } from '../tempo.js';
 import { hasMelody, melodyIn } from '../melody.js';
 import { S, saveGroove, levelUp, askedLater, mayAsk, currentSong, phraseStates } from '../store.js';
 import { field, showScreen, waitChoice, frameLoop, modal, pick, setToggle } from '../ui.js';
@@ -166,7 +166,7 @@ export async function runGroove(api, item) {
   do {
     // ANNAHME: je Ausschnitt 2 Blöcke, dann der nächste (wie früher die Loops).
     const win = wins[Math.floor(block / 2) % wins.length];
-    field(scr, 'bpm').textContent = `${state.bpm} BPM${lo === hi ? '' : ` (${lo}–${hi})`}`;
+    field(scr, 'bpm').textContent = `${tempoText(state.bpm, song.bpm)}${lo === hi ? '' : ` · ${lo}–${hi} BPM`}`;
     const ok = await playBlock(api, scr, { song, stage, level, win, bpm: state.bpm, demo: win.id !== prev });
     const out = applyGroove(level, state, ok);
     if (out.bpm < state.bpm) res.down = true;
