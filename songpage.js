@@ -1139,17 +1139,42 @@ function paintFollow() {
   $('#sp-follow').setAttribute('aria-pressed', follows() ? 'true' : 'false');
 }
 
-/** Knoten in den sichtbaren Bereich holen (unter dem stehenden Player). */
+/** ANNAHME: so viele Zeilen unter der aktuellen sollen beim Mitscrollen
+ *  schon zu sehen sein. */
+const FOLLOW_AHEAD = 2;
+
+/** Knoten in den sichtbaren Bereich holen (unter dem stehenden Player),
+ *  vorausschauend: sobald die nächsten FOLLOW_AHEAD Zeilen nicht mehr ganz
+ *  zu sehen sind, rückt die aktuelle nach oben. */
 function followIntoView(node) {
   const r = node.getBoundingClientRect();
   const land = matchMedia(LANDSCAPE).matches;
   const box = land ? $('#sp-main').getBoundingClientRect() : null;
   const top = land ? box.top : 8;
   const bottom = land ? box.bottom : window.innerHeight - ($('#sp-dock').offsetHeight || 0);
-  if (r.top >= top + 4 && r.bottom <= bottom - 4) return;
+  const ahead = aheadBottom(node, r);
+  if (r.top >= top + 4 && Math.max(r.bottom, ahead) <= bottom - 4) return;
   const by = r.top - top - 12;
+  if (Math.abs(by) < 2) return;
   if (land) $('#sp-main').scrollBy({ top: by, behavior: 'smooth' });
   else window.scrollBy({ top: by, behavior: 'smooth' });
+}
+
+/** Unterkante der FOLLOW_AHEAD-ten Taktzeile unter `node` (auch über
+ *  Abschnitte hinweg; eine Zeile = Takte mit gleicher Oberkante), sonst
+ *  die von `node` selbst. */
+function aheadBottom(node, r) {
+  let rows = 0, rowTop = r.top, out = r.bottom;
+  for (const b of $$('#sp-sections .sp-bar')) {
+    if (b === node || !(node.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)) continue;
+    const br = b.getBoundingClientRect();
+    if (br.top <= rowTop + 2) { out = Math.max(out, br.bottom); continue; }
+    if (rows === FOLLOW_AHEAD) break;
+    rows++;
+    rowTop = br.top;
+    out = br.bottom;
+  }
+  return out;
 }
 
 function onKey(e) {

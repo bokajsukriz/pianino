@@ -255,10 +255,11 @@
           <button type="button" class="toggle toggle-sm" id="dr-repeat" aria-pressed="false">↻ Wiederholen</button>
           <button type="button" class="toggle toggle-sm" id="dr-free" aria-pressed="false">Ohne Takt</button>
           <span class="sp-stepper" role="group" aria-label="Tempo">
-            <button type="button" class="sp-round" id="dr-slower" aria-label="Tempo 5 langsamer">−5</button>
-            <b id="dr-bpm">70</b>
-            <button type="button" class="sp-round" id="dr-faster" aria-label="Tempo 5 schneller">+5</button>
+            <button type="button" class="sp-round" id="dr-slower" aria-label="Tempo 10 % langsamer">−</button>
+            <b id="dr-bpm">100 %</b>
+            <button type="button" class="sp-round" id="dr-faster" aria-label="Tempo 10 % schneller">+</button>
           </span>
+          <span class="small muted" id="dr-bpm-abs"></span>
         </div>
         <p class="small muted" id="dr-help-takt">Ein Takt Vorlauf zeigt die nächste Folge und zählt ein, dann 2 Takte zum Klick mitspielen. Tasten: Leertaste, ←/→, R, +/−.</p>
         <p class="small muted" id="dr-help-free" hidden>Ohne Takt: die Akkorde der Folge der Reihe nach – liegt einer (Mikro, sonst antippen oder Enter), kommt der nächste. Nach der Folge die nächste bzw. mit ↻ dieselbe. Tasten: Leertaste, ←/→, R, Enter.</p>

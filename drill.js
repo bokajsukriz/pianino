@@ -15,9 +15,10 @@ import { chordSequence, chordAt } from './timeline.js';
 
 const EPS = 1e-6;
 
-/** ANNAHME: 2 Takte je Folge, 1 Takt Vorlauf, Start bei 70 Schlägen pro
- *  Minute (wenn der Song kein Tempo hat), Tempo in Fünferschritten. */
-export const DRILL = Object.freeze({ size: 2, lead: 1, start: 70, step: 5, min: 30, max: 220 });
+/** ANNAHME: 2 Takte je Folge, 1 Takt Vorlauf, Bezugstempo 70 Schläge pro
+ *  Minute (wenn der Song kein Tempo hat). Geübt wird in Prozent davon, in
+ *  Zehnerschritten von 30 bis 150 %; in BPM nie unter 30 oder über 220. */
+export const DRILL = Object.freeze({ size: 2, lead: 1, start: 70, step: 10, minPct: 30, maxPct: 150, min: 30, max: 220 });
 
 /** Folgen aus den Abschnitten (nur `sectionIds`, wenn angegeben). Gleiche
  *  Folgen (gleiche Länge, gleiche Akkorde auf denselben Schlägen) kommen nur
@@ -90,11 +91,21 @@ export function chunkSteps(chunk) {
  *  (nach der letzten wieder die erste). */
 export const nextChunk = (i, n, repeat = false) => (n ? (repeat ? i : (i + 1) % n) : -1);
 
-/** Tempo um einen Schritt (±5) ändern, in den Grenzen. */
-export const stepBpm = (bpm, dir) => Math.max(DRILL.min, Math.min(DRILL.max, Math.round(bpm) + dir * DRILL.step));
+const clampPct = (p) => Math.max(DRILL.minPct, Math.min(DRILL.maxPct, p));
 
-/** Anfangstempo: zuletzt geübtes, sonst das des Songs, sonst DRILL.start. */
-export const startBpm = (song, saved = null) => saved ?? song.bpm ?? DRILL.start;
+/** Tempo um einen Schritt (±10 %) ändern, in den Grenzen. */
+export const stepPct = (pct, dir) => clampPct(Math.round(pct / DRILL.step) * DRILL.step + dir * DRILL.step);
+
+/** Anfangstempo in Prozent: zuletzt geübtes, sonst aus einem früher
+ *  gemerkten BPM-Wert (auf 10 % gerundet), sonst 100 %. */
+export function startPct(song, saved = null, savedBpm = null) {
+  if (saved != null) return clampPct(saved);
+  if (savedBpm != null) return clampPct(Math.round(savedBpm / (song.bpm ?? DRILL.start) * 100 / DRILL.step) * DRILL.step);
+  return 100;
+}
+
+/** Prozent → Schläge pro Minute (vom Song-Tempo, sonst DRILL.start). */
+export const pctBpm = (song, pct) => Math.max(DRILL.min, Math.min(DRILL.max, Math.round((song.bpm ?? DRILL.start) * pct / 100)));
 
 /* ---------- Nur Akkorde ------------------------------------------------- */
 
