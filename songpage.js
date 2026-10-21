@@ -108,6 +108,7 @@ function wire() {
   $('#sp-fwd').addEventListener('click', () => skip(SKIP));
   $('#sp-rate').addEventListener('change', (e) => setRate(Number(e.target.value)));
   $('#sp-follow').addEventListener('click', () => { S.settings.followScroll = !follows(); saveSettings(); paintFollow(); });
+  $('#sp-repeat').addEventListener('click', toggleRepeat);
   $('#sp-load').addEventListener('click', loadFromInput);
   $('#sp-url').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); loadFromInput(); } });
   wireTrack();
@@ -342,7 +343,6 @@ function togglePlay() {
 
 function play(p) {
   p.play();
-  setTimeout(() => { if (st?.player === p && !p.playing() && !$('#sp-vnote').textContent) $('#sp-vnote').textContent = 'Startet nicht? Einmal direkt aufs Video tippen.'; }, 2500);
 }
 
 function skip(by) {
@@ -460,6 +460,13 @@ function whyNoRange(id) {
   const tm = sectionTimes(song(), dur()).find((x) => x.id === id);
   if (tm?.start == null) return `Für „${sec?.name}“ fehlt die Startzeit: im Video an den Anfang spulen, dann ⋯ → „Start hier“.`;
   return `Für „${sec?.name}“ fehlt das Ende: Tempo setzen (Zahnrad oben) oder beim nächsten Abschnitt „Start hier“.`;
+}
+
+/** ↻ neben „Scroll“: läuft ein Loop, aus; sonst den letzten wieder an. */
+function toggleRepeat() {
+  if (!st?.loop) return;
+  if (st.loopOn) { st.loopOn = false; paintSections(); paintTransport(); return; }
+  startLoop(st.loop.sec, st.loop.bars);
 }
 
 /** Abschnitt als Loop (↻ an der Karte). Noch einmal: Loop aus. */
@@ -1065,6 +1072,10 @@ function paintTransport() {
   }
   sel.value = String(st.rate);
   sel.disabled = !p;
+  const rep = $('#sp-repeat');
+  rep.setAttribute('aria-pressed', st.loopOn ? 'true' : 'false');
+  rep.disabled = !p || !st.loop?.sec;
+  rep.title = st.loop?.sec ? `Loop: ${st.loop.name || ''}` : 'Noch kein Loop (↻ an einem Abschnitt)';
   for (const b of $$('#sp-sections [data-loop]')) {
     const on = st.loopOn && st.loop?.sec === b.dataset.loop;
     // Im Vorlauf (Takt vor dem Loop) zählt der Knopf die Schläge herunter.
