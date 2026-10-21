@@ -75,6 +75,17 @@ export function chordAtCell(cells, i) {
   return null;
 }
 
+/** „Ohne Takt“: die Akkorde der Folge der Reihe nach, ohne Zeit. Ein
+ *  Akkord, der direkt noch einmal kommt, zählt nur einmal.
+ *  → [{ cell (Index in der Folge), chord }] */
+export function chunkSteps(chunk) {
+  const out = [];
+  chunk.grid.flatMap((b) => b.cells).forEach((c, cell) => {
+    if (c.chord && c.chord !== out[out.length - 1]?.chord) out.push({ cell, chord: c.chord });
+  });
+  return out;
+}
+
 /** Welche Folge kommt danach? Mit `repeat` dieselbe, sonst die nächste
  *  (nach der letzten wieder die erste). */
 export const nextChunk = (i, n, repeat = false) => (n ? (repeat ? i : (i + 1) % n) : -1);
