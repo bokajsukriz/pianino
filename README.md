@@ -31,7 +31,8 @@ erlaubt; das Video hat dann Ränder oben und unten), daneben die Steuerung
 (Zeitleiste zum Ziehen, große Play/Pause-Taste, ±5 s, Geschwindigkeit
 0,5 / 0,75 / 1 als Auswahlmenü, daneben „Scroll“: automatisches Mitscrollen
 an/aus: die aktuelle Zeile bleibt etwa in der Mitte, die Ansicht gleitet
-gleichmäßig mit; nach eigenem Scrollen hält sie 4 s inne), darüber alle Akkorde des Songs: Antippen
+gleichmäßig mit; nach eigenem Scrollen hält sie 4 s inne), daneben ↻: läuft
+ein Loop, schaltet es ihn aus, sonst den letzten wieder an, darüber alle Akkorde des Songs: Antippen
 spielt den Akkord, Halten öffnet ein kleines Blatt mit der Klaviatur (Tasten
 antippen = an/aus). Im Querformat steht die Leiste links, das Leadsheet
 rechts. Das Leadsheet (`leadsheet.js`): jeder Abschnitt eine Karte
