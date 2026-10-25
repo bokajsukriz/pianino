@@ -1187,7 +1187,7 @@ function onKey(e) {
   if (e.key === 'Escape' && st.sheet) { e.preventDefault(); closeSheet(); return; }
   if (e.key === 'Escape' && st.settings) { e.preventDefault(); toggleSettings(false); return; }
   if (e.key === 'Escape' && videosOpen()) { e.preventDefault(); toggleVideos(false); return; }
-  if (e.target.closest?.('input, textarea, select, #sp-videos')) return;
+  if (e.target.closest?.('input, textarea, select, #sp-videos, #sp-vid-rec')) return;
   if (e.key === ' ') { e.preventDefault(); togglePlay(); }
   else if (e.key === 'ArrowLeft') { e.preventDefault(); skip(-SKIP); }
   else if (e.key === 'ArrowRight') { e.preventDefault(); skip(SKIP); }
