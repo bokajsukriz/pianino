@@ -4,8 +4,10 @@
    Android nehmen AAC auf). Umgewandelt wird mit Mediabunny (vendor/mediabunny/,
    MPL-2.0) über WebCodecs, also mit dem Hardware-Encoder des Geräts —
    meist schneller als Echtzeit. Die Bibliothek wird erst beim ersten Video geladen.
-   Kann der Browser das Video so nicht lesen (z. B. HDR vom iPhone), wird es
-   stumm abgespielt und mit MediaRecorder neu aufgenommen (Echtzeit).
+   Ohne WebCodecs oder wenn es das Video nicht lesen kann (z. B. HDR,
+   Firefox auf Android) rechnet ffmpeg.wasm (vendor/ffmpeg/, eigener Cache im
+   Service Worker, erst bei Bedarf geladen); als Letztes wird es stumm
+   abgespielt und mit MediaRecorder neu aufgenommen (Echtzeit).
    Klappt beides nicht, bleibt das Original, mit Grund.
    shrinkPlan ist rein (Tests in Node). */
 
@@ -44,50 +46,102 @@ const DISCARD = {
 const fmtMB = (n) => `${Math.round(n / 1e6)} MB`;
 
 /** Kann dieser Browser überhaupt umwandeln (WebCodecs oder Neuaufnahme)? */
-export const canShrink = () => hasCodecs() || canRerecord();
+export const canShrink = () => hasCodecs() || hasWasm() || canRerecord();
+const hasWasm = () => typeof WebAssembly === 'object' && typeof Worker === 'function';
 const hasCodecs = () => typeof VideoEncoder === 'function' && typeof VideoDecoder === 'function';
 const canRerecord = () => typeof MediaRecorder === 'function' && typeof HTMLCanvasElement !== 'undefined'
   && typeof HTMLCanvasElement.prototype.captureStream === 'function';
 
 class Skip extends Error {} // nicht verkleinern, Grund in message
 
-/** Video verkleinern. onProgress(0…1, wie) — wie: 'schnell' (WebCodecs) oder
- *  'echtzeit' (Neuaufnahme). ctx: laufender AudioContext für den Ton der
- *  Neuaufnahme, host: Element, in dem sie sichtbar läuft. → { result, cancel }; result ist ein Promise auf
- *  { blob, reason, how }: blob der kleinere Blob oder null (dann das
- *  Original nehmen), reason warum nicht. */
+/** Video verkleinern, der Reihe nach: WebCodecs (schnell, Hardware) →
+ *  ffmpeg.wasm (ohne WebCodecs, z. B. Firefox auf Android; rechnet auf dem
+ *  Prozessor, dauert bei 4K länger als das Video) → Neuaufnahme übers Canvas
+ *  (Echtzeit). onProgress(0…1, wie) — wie: 'schnell', 'ffmpeg' oder
+ *  'echtzeit'. ctx: laufender AudioContext für den Ton der Neuaufnahme,
+ *  host: Element, in dem sie sichtbar läuft. → { result, cancel }; result
+ *  ist ein Promise auf { blob, reason, how }: blob der kleinere Blob oder
+ *  null (dann das Original nehmen), reason warum nicht. */
 export function shrinkVideo(file, onProgress = () => {}, { ctx = null, host = null } = {}) {
-  const job = { canceled: false, conv: null, stop: null };
+  const job = { canceled: false, conv: null, stop: null, ff: null };
+  const steps = [
+    ['schnell', hasCodecs, 'kein WebCodecs', () => viaCodecs(file, onProgress, job)],
+    ['ffmpeg', hasWasm, 'kein WebAssembly', () => viaFfmpeg(file, onProgress, job)],
+    ['echtzeit', canRerecord, 'keine Neuaufnahme möglich', () => viaRecorder(file, onProgress, job, ctx, host)],
+  ];
   const result = (async () => {
-    let why = '';
-    if (hasCodecs()) {
+    const why = [];
+    for (const [how, can, no, run] of steps) {
+      if (job.canceled) return { blob: null, reason: 'abgebrochen' };
+      if (!can()) { why.push(no); continue; }
       try {
-        const out = await viaCodecs(file, onProgress, job);
-        if (out) return done(out, 'schnell');
+        const out = await run();
+        if (out.size >= file.size * 0.9) return { blob: null, reason: 'wäre nicht kleiner', how };
+        return { blob: out, reason: '', how };
       } catch (e) {
         if (job.canceled) return { blob: null, reason: 'abgebrochen' };
-        why = e instanceof Skip ? e.message : String(e?.message || e);
-        logError('vidshrink:codecs', `${why} (${file.type || '?'}, ${fmtMB(file.size)})`);
+        const w = e instanceof Skip ? e.message : String(e?.message || e);
+        logError(`vidshrink:${how}`, `${w} (${file.type || '?'}, ${fmtMB(file.size)})`);
+        why.push(`${STEP_NAME[how]}: ${w}`);
       }
-    } else why = 'kein WebCodecs';
-    if (job.canceled) return { blob: null, reason: 'abgebrochen' };
-    if (!canRerecord()) return { blob: null, reason: why || 'Browser kann nicht umwandeln' };
-    try {
-      const out = await viaRecorder(file, onProgress, job, ctx, host);
-      return done(out, 'echtzeit');
-    } catch (e) {
-      if (job.canceled) return { blob: null, reason: 'abgebrochen' };
-      const w2 = e instanceof Skip ? e.message : String(e?.message || e);
-      logError('vidshrink:recorder', `${w2} (${file.type || '?'})`);
-      return { blob: null, reason: why ? `${why}; Neuaufnahme: ${w2}` : w2 };
     }
+    return { blob: null, reason: why.join('; ') || 'Browser kann nicht umwandeln' };
   })();
-  function done(out, how) {
-    if (out.size >= file.size * 0.9) return { blob: null, reason: 'wäre nicht kleiner', how };
-    return { blob: out, reason: '', how };
-  }
-  const cancel = () => { job.canceled = true; job.conv?.cancel().catch(() => {}); job.stop?.(); };
+  const cancel = () => {
+    job.canceled = true;
+    job.conv?.cancel().catch(() => {});
+    try { job.ff?.terminate(); } catch { /* schon aus */ }
+    job.stop?.();
+  };
   return { result, cancel };
+}
+
+const STEP_NAME = { schnell: 'WebCodecs', ffmpeg: 'ffmpeg', echtzeit: 'Neuaufnahme' };
+
+/** ffmpeg.wasm (vendor/ffmpeg/, im eigenen Worker): kürzere Seite 720,
+ *  10 Bilder/s, H.264, Ton AAC 96 kbit/s. Größe und Länge liest vorher
+ *  Mediabunny (reines JavaScript, geht auch ohne WebCodecs). → Blob */
+async function viaFfmpeg(file, onProgress, job) {
+  let plan = null, dur = 0;
+  try {
+    const mb = await import('./vendor/mediabunny/mediabunny.min.mjs');
+    const input = new mb.Input({ source: new mb.BlobSource(file), formats: mb.ALL_FORMATS });
+    const v = await input.getPrimaryVideoTrack();
+    if (v) plan = shrinkPlan(v.displayWidth, v.displayHeight, 0);
+    dur = await input.computeDuration();
+  } catch { /* dann ohne Prozent und mit Standard-Datenrate */ }
+  const { FFmpeg } = await import('./vendor/ffmpeg/index.js');
+  const ff = new FFmpeg();
+  job.ff = ff;
+  try {
+    const base = new URL('./vendor/ffmpeg/core/', import.meta.url).href;
+    onProgress(0, 'ffmpeg');
+    await ff.load({ coreURL: `${base}ffmpeg-core.js`, wasmURL: `${base}ffmpeg-core.wasm` });
+    if (job.canceled) throw new Skip('abgebrochen');
+    ff.on('log', ({ message }) => {
+      const m = / time=(\d+):(\d+):([\d.]+)/.exec(message);
+      if (m && dur > 0) onProgress(Math.min(1, (m[1] * 3600 + m[2] * 60 + Number(m[3])) / dur), 'ffmpeg');
+    });
+    const ext = (/\.[a-z0-9]{2,4}$/i.exec(file.name || '') || ['.mp4'])[0];
+    const input = new File([file], `in${ext}`, { type: file.type });
+    await ff.createDir('/in');
+    await ff.mount('WORKERFS', { files: [input] }, '/in');
+    const ret = await ff.exec([
+      '-i', `/in/${input.name}`, '-map', '0:v:0', '-map', '0:a:0?',
+      // kürzere Seite höchstens 720 (nie hochrechnen), 10 Bilder/s
+      '-vf', "fps=10,scale='if(gte(iw,ih),-2,min(720,iw))':'if(gte(iw,ih),min(720,ih),-2)'",
+      '-c:v', 'libx264', '-preset', 'ultrafast', '-b:v', String(plan?.bitrate || 600000), '-pix_fmt', 'yuv420p',
+      '-c:a', 'aac', '-b:a', '96k', '-movflags', '+faststart', '/out.mp4',
+    ]);
+    if (job.canceled) throw new Skip('abgebrochen');
+    if (ret !== 0) throw new Skip(`Fehler ${ret}`);
+    const out = await ff.readFile('/out.mp4');
+    if (!out?.length) throw new Skip('leeres Ergebnis');
+    return new Blob([out], { type: 'video/mp4' });
+  } finally {
+    try { ff.terminate(); } catch { /* schon aus */ }
+    job.ff = null;
+  }
 }
 
 /** Schnell: mit Mediabunny über WebCodecs neu kodieren. → Blob (wirft Skip) */
