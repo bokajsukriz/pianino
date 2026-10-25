@@ -1,5 +1,5 @@
 /* vidshrink.js — Videos aus dem Unterricht beim Speichern verkleinern:
-   kürzere Seite höchstens 720 px, höchstens 30 Bilder/s, H.264 mit einer
+   kürzere Seite höchstens 720 px, höchstens 10 Bilder/s, H.264 mit einer
    Datenrate nach Bildgröße; der Ton wird übernommen, wie er ist (iPhone und
    Android nehmen AAC auf). Umgewandelt wird mit Mediabunny (vendor/mediabunny/,
    MPL-2.0) über WebCodecs, also mit dem Hardware-Encoder des Geräts —
@@ -9,9 +9,14 @@
 import { logError } from './log.js';
 
 const SHORT = 720;          // kürzere Seite höchstens
-const MAX_FPS = 30;
-const RATE_720P = 1_500_000; // bit/s bei 1280 × 720
-const MIN_RATE = 400_000;
+// ANNAHME: Es geht vor allem ums Hören und ein bisschen Sehen — 10 Bilder/s
+// reichen, um Hände und Griffe zu erkennen (5 ruckelt bei schnellen Wechseln).
+const MAX_FPS = 10;
+const RATE_720P = 600_000;   // bit/s bei 1280 × 720 und 10 Bildern/s
+const MIN_RATE = 200_000;
+/** Stand der Verkleinerung; ältere Videos (kleinere Zahl oder true) lassen
+ *  sich mit „Verkleinern“ noch einmal verkleinern. */
+export const SHRINK_V = 2;
 
 const even = (n) => Math.max(2, Math.round(n / 2) * 2);
 
@@ -20,9 +25,9 @@ const even = (n) => Math.max(2, Math.round(n / 2) * 2);
 export function shrinkPlan(w, h, fps = 0) {
   const k = Math.min(1, SHORT / Math.max(1, Math.min(w, h)));
   const width = even(w * k), height = even(h * k);
-  const frameRate = fps > MAX_FPS + 2 ? MAX_FPS : null;
+  const frameRate = !fps || fps > MAX_FPS + 1 ? MAX_FPS : null;
   // ANNAHME: Für Klavier-Aufnahmen (ruhige Kamera, Hände im Bild) reichen
-  // 1,5 Mbit/s bei 720p; kleinere Bilder anteilig weniger.
+  // 0,6 Mbit/s bei 720p und 10 Bildern/s; kleinere Bilder anteilig weniger.
   const bitrate = Math.round(Math.max(MIN_RATE, Math.min(RATE_720P, RATE_720P * (width * height) / (1280 * 720))));
   return { width, height, frameRate, bitrate };
 }

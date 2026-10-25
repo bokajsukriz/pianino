@@ -48,11 +48,12 @@ auf, je eines mit kurzem Text („Strophe“, „Rhythmus“, „Refrain“ …)
 „+ Video“ nimmt eine Datei vom Gerät (auf dem Handy auch direkt aufnehmen),
 danach den Text. Beim Speichern wird es verkleinert (`vidshrink.js` mit
 Mediabunny über WebCodecs, also dem Hardware-Encoder: kürzere Seite 720 px,
-höchstens 30 Bilder/s, H.264 mit 1,5 Mbit/s, Ton unverändert; aus etwa
-60 MB je Minute bei 1080p werden etwa 12 MB). Das geht meist schneller als
+höchstens 10 Bilder/s – es geht vor allem ums Hören –, H.264 mit
+0,6 Mbit/s, Ton unverändert; aus etwa 60 MB je Minute bei 1080p werden
+etwa 6 MB, davon gut 1 MB Ton). Das geht meist schneller als
 Echtzeit, die App muss dabei offen bleiben; „Original nehmen“ bricht ab
 und speichert unverändert, ebenso, wenn der Browser es nicht kann oder es
-nicht kleiner würde. Ältere Videos verkleinert „Verkleinern“ am Video
+nicht kleiner würde. Ältere Videos (auch die schon mit 30 Bildern/s verkleinerten) verkleinert „Verkleinern“ am Video
 nachträglich. Antippen spielt es in der Liste ab (0,5 / 0,75 / 1,
 ↻ Wiederholen), ✎ benennt um, × löscht. Startet es, pausiert YouTube und
 umgekehrt. Die Videos liegen nur auf dem Gerät (IndexedDB,

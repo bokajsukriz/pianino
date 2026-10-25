@@ -11,7 +11,7 @@
 
 import { listVideos, putVideo, deleteVideo } from './store.js';
 import { fmtClock } from './marks.js';
-import { shrinkVideo, canShrink } from './vidshrink.js';
+import { shrinkVideo, canShrink, SHRINK_V } from './vidshrink.js';
 import { $, modal, ask } from './ui.js';
 
 const RATES = [0.5, 0.75, 1];
@@ -97,7 +97,8 @@ export function toggleVideos(open = !vs?.open) {
 
 function stopCurrent() {
   if (!vs) return;
-  $('#sp-videos video')?.pause();
+  const v = $('#sp-videos video');
+  if (v) { v.pause(); v.removeAttribute('src'); v.load(); }
   if (vs.url) URL.revokeObjectURL(vs.url);
   vs.url = null;
   vs.current = null;
@@ -163,7 +164,7 @@ function paintPlayer(rec) {
   loop.setAttribute('aria-pressed', vs.loop ? 'true' : 'false');
   const row = el('div', 'sp-set-row');
   row.append(el('b', 'sp-vid-now', rec.label), rates, loop);
-  if (!rec.shrunk && !rec.noShrink && canShrink() && rec.size > 8e6) {
+  if (Number(rec.shrunk || 0) < SHRINK_V && !rec.noShrink && canShrink() && rec.size > 4e6) {
     const sh = button('btn btn-secondary btn-sm', 'Verkleinern', () => shrinkSaved(rec), `„${rec.label}“ verkleinern (${fmtSize(rec.size)})`);
     sh.disabled = !!vs.busy;
     row.append(sh);
@@ -221,7 +222,7 @@ function probeDuration(blob) {
   return new Promise((resolve) => {
     const v = document.createElement('video');
     const url = URL.createObjectURL(blob);
-    const done = (d) => { clearTimeout(t); URL.revokeObjectURL(url); v.removeAttribute('src'); resolve(d); };
+    const done = (d) => { clearTimeout(t); v.onerror = null; v.removeAttribute('src'); v.load(); setTimeout(() => URL.revokeObjectURL(url), 2000); resolve(d); };
     const t = setTimeout(() => done(0), 4000);
     v.preload = 'metadata';
     v.onloadedmetadata = () => done(Number.isFinite(v.duration) ? Math.round(v.duration * 10) / 10 : 0);
@@ -277,7 +278,7 @@ async function addVideo(file) {
   const id = `video:${mine.songId}:${Date.now().toString(36)}${Math.floor(performance.now() % 1e4).toString(36)}`;
   const rec = {
     id, songId: mine.songId, label: label || file.name.replace(/\.[^.]+$/, '') || 'Video',
-    name: file.name, type: blob.type || file.type, size: blob.size, origSize: file.size, shrunk: !!small,
+    name: file.name, type: blob.type || file.type, size: blob.size, origSize: file.size, shrunk: small ? SHRINK_V : 0,
     durationSec: await probeDuration(blob), added: new Date().toISOString(), blob,
   };
   const ok = await saveChecked(rec, mine);
@@ -306,7 +307,7 @@ async function shrinkSaved(rec) {
     return;
   }
   const before = rec.size;
-  const next = { ...rec, blob: small, type: small.type, size: small.size, origSize: rec.origSize || before, shrunk: true };
+  const next = { ...rec, blob: small, type: small.type, size: small.size, origSize: rec.origSize || before, shrunk: SHRINK_V };
   const ok = await saveChecked(next, mine);
   if (vs !== mine) return;
   if (ok) Object.assign(rec, next);
