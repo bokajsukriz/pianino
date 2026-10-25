@@ -63,8 +63,10 @@ muss dabei offen bleiben; „Original nehmen“ bricht ab und speichert
 unverändert, ebenso, wenn nichts davon geht oder es nicht kleiner würde —
 dann steht der Grund am Video („Nicht verkleinert: …“) und im
 Fehlerprotokoll. Ältere Videos (auch die schon mit 30 Bildern/s verkleinerten) verkleinert „Verkleinern“ am Video
-nachträglich. **„● Aufnehmen“** nimmt direkt in der App auf (`vidrec.js`):
-Vorschau, Start/Stopp, Kamera wechseln; gleich klein (720p, 15 Bilder/s,
+nachträglich. **„● Aufnehmen“** nimmt direkt in der App auf (`vidrec.js`),
+im Vollbild wie die Kamera-App (großer roter Auslöser, ✕ abbrechen, ⟲ Kamera
+wechseln, oben Zeit und Größe; einzige Stelle, die den pausierten Player
+überdeckt); gleich klein (720p, 15 Bilder/s,
 0,8 Mbit/s, Ton 128 kbit/s ohne Echo- und Rauschfilter, etwa 7 MB je
 Minute), nichts wird danach umgewandelt; Firefox nimmt WebM auf (mit
 Mediabunny umgepackt, damit Länge und Spulen stimmen). Danach wie beim
@@ -94,6 +96,21 @@ Vorschlag). Neue Tabs lassen sich in der Oberfläche nicht mehr einfügen, auch
 keine Schriftgröße mehr einstellen; A–B-Loops, gespeicherte Loops und die
 PDF-Ansicht gibt es ebenfalls nicht mehr (vorhandene Daten bleiben
 unberührt). Tasten: Leertaste, ←/→, Esc.
+
+**Voicings** (`voicepage.js`, rein: `shapes.js`): auf der Songs-Seite unter
+„Übungen“. Eine Griff-Form aus dem Unterricht — bisher 3 – 1 – 5 – 8, von
+unten Terz, Grundton, Quinte, Oktave (in C: E3 C4 G4 C5) — durch eine
+Progression aus fünf Akkorden (I–vi–IV–V–I, I–V–vi–IV–I, vi–IV–I–V–vi,
+I–vi–ii–V–I) in C, G, F, D, B♭, A, E♭. Die Lagen sind so gewählt, dass die
+Hände am wenigsten wandern (auch zurück zum ersten Akkord). Aufteilung links
+2 · rechts 2 oder links 1 · rechts 3, Hilfe Tasten / Töne / nur Akkord,
+„Griff zeigen“ (G) für 2,5 s. Ohne Takt: liegt der Akkord (Mikrofon, sonst
+antippen), kommt der nächste; eine ganz gehörte Runde zählt als sauber, nach
+zwei sauberen schlägt die Seite die nächste Tonart vor
+(`settings.voicingEx`). Es hört immer der eigene Erkenner, alle vier Töne in
+genau der Lage (`shapes.js shapeTarget`, `HEAR_SHAPE`); essentia hört nur
+Tonnamen und erkannte die Form in der Simulation nur zu 57 %. Nicht hörbar:
+eine fehlende Oktave, meist eine fehlende Quinte, die Hände.
 
 **Folgen üben** (`drillpage.js`, rein: `drill.js`): von der Liedseite (Symbol
 ganz vorn in der Akkordzeile für den ganzen Song, ⋯ an der Karte für einen
@@ -265,6 +282,8 @@ Liedseite (`marks`) Abschnitte mit Startzeit (je 8 Takte, `startSec`).
 | `songwizard.js` | Assistent für neue Songs (Video, Teile und Tempo, Akkordwechsel, Griffe) |
 | `drill.js` | REIN: 2-Takt-Folgen aus den Abschnitten, Vorlauf, Weiter/Wiederholen, Tempo |
 | `drillpage.js` | Folgen üben: Klick (clock.js), Anzeige, Wiederholen, Tempo ±10 % |
+| `shapes.js` | REIN: Übung Voicings — Griff-Form (3158) durch Progressionen, Lagen, Tonarten |
+| `voicepage.js` | Übung Voicings: Ansage, Akkord für Akkord, Hilfe-Stufen, Mikrofon |
 | `leadsheet.js` | REIN: Abschnitte als Taktbereiche, Raster, Zeiten im Video, Tabs je Abschnitt |
 | `marks.js` | REIN: Uhrzeit-Anzeige, Loop-Helfer (nicht mehr in der Oberfläche), alte Sekunden-Marken nur noch für Migration 3 |
 | `tabtext.js` | REIN: eingefügten Tab-Text in Akkordzeilen, Überschriften, Text zerlegen |

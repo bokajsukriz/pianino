@@ -131,15 +131,17 @@ function trackOnset(t) {
  *  want: Ziele (voicing.js hearTarget: { name, rh, lh, pcs }), die gerade in
  *  Frage kommen (essentia prüft nur diese).
  *  → null (kein Mikrofon, gerade weggehört, noch nichts da) oder
- *  { is(target, prevTarget, { exact }) → bool, chord, sinceOnset, fresh }
+ *  { is(target, prevTarget, { exact, tune }) → bool, chord, sinceOnset, fresh }
  *  is: liegt der Akkord — in jeder engen Lage seiner rechten Hand, mit exact
  *  nur in der Lage des Griffs (eigen; essentia hört ohnehin nur Tonnamen)?
+ *  tune: Einstellungen für hear.js (z. B. shapes.js HEAR_SHAPE), nur eigen.
+ *  ear: Art zu hören für diesen Aufruf statt der Einstellung (EARS).
  *  chord: stattdessen gehörter Akkord des Songs (nur essentia, sonst '').
  *  sinceOnset: s seit dem letzten Anschlag, gemessen beim Lesen des
  *  Fensters. fresh: neu seit dem letzten Aufruf. */
-export function sample(t, want = []) {
+export function sample(t, want = [], { ear = null } = {}) {
   if (!analyser || t < quietUntil) return null;
-  const mode = earMode();
+  const mode = EARS.includes(ear) ? ear : earMode();
   if (mode !== 'eigen' || diagnose) ensureEar();
   if (!busy && (!asked || t - asked >= EVERY)) {
     asked = t;
@@ -161,8 +163,8 @@ export function sample(t, want = []) {
       prevSpec = now;
       const mem = since;
       // Erkannt wird der Akkord in jeder engen Lage; exact: nur die Lage des Griffs.
-      eigenIs = (tgt, prevTgt, { exact = false } = {}) => !!tgt
-        && (exact ? checkChord : checkChordAny)(now, mem, tgt, { prev: prevTgt || null }).ok;
+      eigenIs = (tgt, prevTgt, { exact = false, tune = null } = {}) => !!tgt
+        && (exact ? checkChord : checkChordAny)(now, mem, tgt, { ...tune, prev: prevTgt || null }).ok;
       if (diagnose) d.eigen = Object.fromEntries(pool.map((x) => [x.name, eigenIs(x)]));
       if (mode === 'essentia') eigenIs = null;
     }
