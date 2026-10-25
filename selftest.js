@@ -766,14 +766,14 @@ function pureTests() {
   check('19 Voicings: Progression in Tonarten, Schreibweise nach Tonart',
     eq(progressionChords('p1', 'C'), ['C', 'Am', 'F', 'G', 'C']) && eq(progressionChords('p4', 'Bb'), ['Bb', 'Gm', 'Cm', 'F', 'Bb'])
     && eq(progressionChords('p3', 'A'), ['F#m', 'D', 'A', 'E', 'F#m']) && nextKey('Eb') === 'C', JSON.stringify(progressionChords('p4', 'Bb')));
-  check('19 Voicings: C in C ist E3 C4 G4 C5 (links E3 C4); Hände wandern ≤ 5 Halbtöne je Ton; Runde schließt',
+  check('19 Voicings: C in C ist E3 C4 G4 C5 (links E3 C4); Hände wandern ≤ eine Sexte je Ton; Runde schließt',
     eq(vxAll[0], [52, 60, 67, 72]) && eq(vxC[0].grip.lh, [52, 60]) && eq(vxC[0].grip.rh, [67, 72]) && eq(vxAll[4], vxAll[0])
-    && vxAll.every((k, i) => i === 0 || k.every((m, j) => Math.abs(m - vxAll[i - 1][j]) <= 5)), JSON.stringify(vxAll));
+    && vxAll.every((k, i) => i === 0 || k.every((m, j) => Math.abs(m - vxAll[i - 1][j]) <= 9)), JSON.stringify(vxAll));
   const vxEvery = PROGRESSIONS.flatMap((p) => KEYS.map((k) => shapeRound(progressionChords(p.id, k), '3158', { split: 1 })));
-  check('19 Voicings: jede Progression in jeder Tonart spielbar, Bass G2–H3, Spanne je Hand ≤ Oktave + Terz, Ziel = gespielte Töne',
-    vxEvery.every((r) => r && r.every((x) => x.grip.lh.length === 1 && x.grip.lh[0] >= 43 && x.grip.lh[0] <= 59
+  check('19 Voicings: jede Progression in jeder Tonart spielbar, Bass C3–H3, Spanne je Hand ≤ Oktave + Terz, Ziel = alle gespielten Töne',
+    vxEvery.every((r) => r && r.every((x) => x.grip.lh.length === 1 && x.grip.lh[0] >= 48 && x.grip.lh[0] <= 59
       && x.grip.rh[x.grip.rh.length - 1] - x.grip.rh[0] <= 16))
-    && eq(shapeTarget(vxC[1]).pcs, [0, 4, 9]) && eq(shapeTarget(vxC[1]).lh, vxC[1].grip.lh), '');
+    && eq(shapeTarget(vxC[1]).pcs, [0, 4, 9]) && eq(shapeTarget(vxC[1]).rh, vxAll[1]) && !shapeTarget(vxC[1]).lh.length, '');
   return T;
 }
 

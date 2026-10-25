@@ -13,7 +13,7 @@ import * as mic from './mic.js';
 import { S, saveSettings } from './store.js';
 import {
   SHAPES, SPLITS, PROGRESSIONS, KEYS, progressionChords, shapeRound, shapeTarget,
-  roundKey, CLEAN_FOR_NEXT, nextKey,
+  roundKey, CLEAN_FOR_NEXT, nextKey, HEAR_SHAPE,
 } from './shapes.js';
 import { prettyChord } from './chordsym.js';
 import { pitchClassName } from './chords.js';
@@ -309,7 +309,8 @@ function tick() {
   const judging = smp.sinceOnset <= EAR.judge && onsetAt >= st.shownAt - 0.15;
   const before = st.round[(st.i + st.round.length - 1) % st.round.length];
   const prevAim = before.symbol !== step.symbol ? shapeTarget(before) : null;
-  if (judging && smp.is(aim, prevAim)) {
+  // Alle vier Töne geprüft, in genau dieser Lage (shapes.js shapeTarget).
+  if (judging && smp.is(aim, prevAim, { exact: true, tune: HEAR_SHAPE })) {
     if (++st.okRun >= 2) got(true);
     return;
   }

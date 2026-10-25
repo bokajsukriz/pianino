@@ -48,6 +48,16 @@ export const HEAR = Object.freeze({
   settle: 0.45,     // s nach dem Anschlag: ab hier zählt der Spitzenpegel (FFT-Fenster + Rand)
   foreignLo: 62, foreignHi: 86,
   voiceLo: 50,      // tiefster Ton der Lagen, die checkChordAny prüft
+  // Tiefster Ton der rechten Hand unter lowBass (MIDI; 0 = aus): da, wenn er
+  // höchstens lowPresence dB unter dem lautesten liegt, ohne Nachbar-Prüfung;
+  // er zählt nicht für weakest und den Fremdton-Bereich, sein 9. und 10.
+  // Teilton sind erlaubt. Für Ziele mit dem Bass in der „rechten Hand“
+  // (Übung Voicings, shapes.js HEAR_SHAPE: 60 / 30): das Handy-Mikro dämpft
+  // ihn, im Bass streut das Spektrum in die Nachbar-Halbtöne, und sein
+  // 9. Teilton (H2 → C♯6) sähe fremd aus. Simulation 3158 (1360 Szenen):
+  // erkannt 75 → 92 %, Fehlgriffe kaum mehr (Grundstellung 2,5 → 3,8 %);
+  // ab 36 dB ginge Grundstellung zu 19–60 % durch.
+  lowBass: 0, lowPresence: 30,
 });
 
 const SILENT = -200;
@@ -146,6 +156,9 @@ export function checkChord(levels, since, chord, { prev = null, lo = HEAR.lo, ..
   const rh = chord.rh;
   const bass = bassNotes(chord);
   const allowed = harmonics([...rh, ...bass]);
+  const low = P.lowBass && rh.length > 1 && rh[0] < P.lowBass ? rh[0] : null;
+  if (low !== null) for (const k of [9, 10]) allowed.add(Math.round(low + 12 * Math.log2(k)));
+  const upper = low !== null ? rh.slice(1) : rh;
   const ringing = prev ? harmonics([...prev.rh, ...bassNotes(prev)]) : new Set();
   const floor = median(Array.from({ length: 36 }, (_, i) => L(55 + i)));
   const ref = Math.max(...rh.map(L));
@@ -157,17 +170,17 @@ export function checkChord(levels, since, chord, { prev = null, lo = HEAR.lo, ..
   // daneben mit, muss so ein Ton deshalb laut sein.
   const fromBass = new Set(bass.flatMap((b) => [5, 7].map((k) => Math.round(b + 12 * Math.log2(k)))));
   const rival = (m) => fromBass.has(m) && nb(m) >= ref - P.presence;
-  const present = rh.filter((m) => L(m) >= ref - (rival(m) ? P.thirdOfBass : P.presence)
-    && L(m) - nb(m) >= P.neighbour);
+  const present = rh.filter((m) => (m === low ? L(m) >= ref - P.lowPresence
+    : L(m) >= ref - (rival(m) ? P.thirdOfBass : P.presence) && L(m) - nb(m) >= P.neighbour));
   const missing = rh.filter((m) => !present.includes(m));
-  const weakest = Math.min(...rh.map(L));
+  const weakest = Math.min(...upper.map(L));
   // Spitzenpegel: derselbe Abstand wie jetzt, aber gegen den lautesten
   // Akkordton im Spitzenpegel — ein abgeklungener falscher Ton bleibt fremd.
   const peak = since?.peak;
   const peakRef = peak ? Math.max(...rh.map((m) => peak[m - lo])) : 0;
   const foreign = [];
   // Fremdtöne im Bereich rund um die Akkordtöne (für tiefe Lagen erweitert).
-  const fLo = Math.min(P.foreignLo, Math.min(...rh) - 5), fHi = Math.max(P.foreignHi, Math.max(...rh) + 8);
+  const fLo = Math.min(P.foreignLo, Math.min(...upper) - 5), fHi = Math.max(P.foreignHi, Math.max(...rh) + 8);
   for (let m = fLo; m <= fHi; m++) {
     if (allowed.has(m)) continue;
     if (ringing.has(m) && !(since && since.rise[m - lo] >= P.rise)) continue;
