@@ -53,10 +53,10 @@ class Skip extends Error {} // nicht verkleinern, Grund in message
 
 /** Video verkleinern. onProgress(0…1, wie) — wie: 'schnell' (WebCodecs) oder
  *  'echtzeit' (Neuaufnahme). ctx: laufender AudioContext für den Ton der
- *  Neuaufnahme. → { result, cancel }; result ist ein Promise auf
+ *  Neuaufnahme, host: Element, in dem sie sichtbar läuft. → { result, cancel }; result ist ein Promise auf
  *  { blob, reason, how }: blob der kleinere Blob oder null (dann das
  *  Original nehmen), reason warum nicht. */
-export function shrinkVideo(file, onProgress = () => {}, { ctx = null } = {}) {
+export function shrinkVideo(file, onProgress = () => {}, { ctx = null, host = null } = {}) {
   const job = { canceled: false, conv: null, stop: null };
   const result = (async () => {
     let why = '';
@@ -73,7 +73,7 @@ export function shrinkVideo(file, onProgress = () => {}, { ctx = null } = {}) {
     if (job.canceled) return { blob: null, reason: 'abgebrochen' };
     if (!canRerecord()) return { blob: null, reason: why || 'Browser kann nicht umwandeln' };
     try {
-      const out = await viaRecorder(file, onProgress, job, ctx);
+      const out = await viaRecorder(file, onProgress, job, ctx, host);
       return done(out, 'echtzeit');
     } catch (e) {
       if (job.canceled) return { blob: null, reason: 'abgebrochen' };
@@ -96,7 +96,13 @@ async function viaCodecs(file, onProgress, job) {
   const input = new mb.Input({ source: new mb.BlobSource(file), formats: mb.ALL_FORMATS });
   const video = await input.getPrimaryVideoTrack();
   if (!video) throw new Skip('keine Videospur');
-  if (!(await video.canDecode())) throw new Skip(`Video (${video.codec || '?'}) lässt sich hier nicht lesen`);
+  if (!(await video.canDecode())) {
+    let info = video.codec || '?';
+    try { info = (await video.getCodecParameterString()) || info; } catch { /* nur Anzeige */ }
+    let hdr = false;
+    try { hdr = await video.hasHighDynamicRange(); } catch { /* nur Anzeige */ }
+    throw new Skip(`Video (${info}${hdr ? ', HDR' : ''}) lässt sich hier nicht lesen`);
+  }
   // iPhones legen neben dem Stereo-Ton weitere Spuren ab (3D-Ton …): die
   // erste lesbare nehmen, AAC bevorzugt; die übrigen weglassen.
   const audios = await input.getAudioTracks();
@@ -137,30 +143,66 @@ const once = (el, ok, bad, ms) => new Promise((resolve, reject) => {
   el.addEventListener(bad, no);
 });
 
+/** Während der Neuaufnahme Video und Ergebnis nebeneinander sichtbar in
+ *  host (iOS gibt aus unsichtbaren Videos oft keine Bilder heraus, und man
+ *  sieht, was aufgenommen wird). */
+function workBox(host, v, canvas) {
+  const box = document.createElement('div');
+  box.className = 'vid-work';
+  box.setAttribute('aria-hidden', 'true');
+  const fig = (el, text) => {
+    const f = document.createElement('figure');
+    const c = document.createElement('figcaption');
+    c.textContent = text;
+    f.append(el, c);
+    return f;
+  };
+  box.append(fig(v, 'Original'), fig(canvas, 'Neuaufnahme'));
+  (host || document.body).append(box);
+  if (host) host.hidden = false;
+  return { remove() { box.remove(); if (host && !host.children.length) host.hidden = true; } };
+}
+
+/** Ist das Bild (praktisch) schwarz? Stichprobe auf 16 × 9 Punkten. */
+function isBlack(probe, pg, source) {
+  pg.drawImage(source, 0, 0, probe.width, probe.height);
+  const d = pg.getImageData(0, 0, probe.width, probe.height).data;
+  let max = 0;
+  for (let k = 0; k < d.length; k += 4) max = Math.max(max, d[k], d[k + 1], d[k + 2]);
+  return max < 12;
+}
+
 /** Langsam, aber für alles, was der Browser abspielen kann: das Video stumm
  *  abspielen, verkleinert auf ein Canvas zeichnen und mit MediaRecorder neu
  *  aufnehmen. Der Ton kommt aus decodeAudioData und läuft über ctx mit
  *  (stumm geschaltete Videos geben keinen Ton ab, ungestumm abspielen
- *  verlangt ein Tippen). Dauert so lange wie das Video. → Blob */
-async function viaRecorder(file, onProgress, job, ctx) {
+ *  verlangt ein Tippen). Dauert so lange wie das Video. Bleibt das Bild
+ *  schwarz (Safari mit HDR-Videos), Abbruch statt eines schwarzen Videos.
+ *  → Blob */
+async function viaRecorder(file, onProgress, job, ctx, host) {
   const url = URL.createObjectURL(file);
   const v = document.createElement('video');
+  const canvas = document.createElement('canvas');
   const tracks = [];
-  let src = null;
+  let src = null, box = null;
   try {
     v.muted = true;
     v.playsInline = true;
     v.setAttribute('playsinline', '');
     v.preload = 'auto';
+    box = workBox(host, v, canvas);
     v.src = url;
     await once(v, 'loadeddata', 'error', 15000);
     const dur = v.duration;
     if (!(dur > 0) || !v.videoWidth) throw new Skip('Länge oder Größe unbekannt');
     const plan = shrinkPlan(v.videoWidth, v.videoHeight, 0);
-    const canvas = document.createElement('canvas');
     canvas.width = plan.width;
     canvas.height = plan.height;
     const g = canvas.getContext('2d');
+    const probe = document.createElement('canvas');
+    probe.width = 16;
+    probe.height = 9;
+    const pg = probe.getContext('2d', { willReadFrequently: true });
     const stream = canvas.captureStream(plan.frameRate || 10);
     tracks.push(...stream.getTracks());
     let buf = null;
@@ -182,25 +224,43 @@ async function viaRecorder(file, onProgress, job, ctx) {
     const chunks = [];
     rec.ondataavailable = (e) => { if (e.data?.size) chunks.push(e.data); };
     const stopped = new Promise((resolve) => { rec.onstop = resolve; });
-    let raf = 0;
-    const draw = () => {
-      g.drawImage(v, 0, 0, plan.width, plan.height);
-      onProgress(Math.min(1, v.currentTime / dur), 'echtzeit');
-      raf = requestAnimationFrame(draw);
-    };
-    const ended = new Promise((resolve) => {
-      v.addEventListener('ended', resolve, { once: true });
-      job.stop = resolve;
+    let stop = () => {};
+    const ended = new Promise((resolve, reject) => {
+      v.addEventListener('ended', () => resolve(), { once: true });
+      job.stop = () => resolve();
+      stop = reject;
     });
+    // Schwarz-Prüfung: ab 0,5 s im Video jede Sekunde, bis einmal Bild kam.
+    let seen = false, blackChecks = 0, nextCheck = 0.5;
+    const check = () => {
+      if (seen || v.currentTime < nextCheck) return;
+      nextCheck = v.currentTime + 1;
+      if (!isBlack(probe, pg, canvas)) { seen = true; return; }
+      if (++blackChecks >= 3 || v.currentTime > dur - 0.3) stop(new Skip('Bild bleibt schwarz (vermutlich ein HDR-Video)'));
+    };
+    let raf = 0, vfc = 0;
+    const paint = () => {
+      g.drawImage(v, 0, 0, plan.width, plan.height);
+      check();
+      onProgress(Math.min(1, v.currentTime / dur), 'echtzeit');
+    };
+    const loop = v.requestVideoFrameCallback
+      ? () => { paint(); vfc = v.requestVideoFrameCallback(loop); }
+      : () => { paint(); raf = requestAnimationFrame(loop); };
     await v.play();
     rec.start(1000);
     src.start(ctx.currentTime, v.currentTime);
-    draw();
-    await ended;
-    cancelAnimationFrame(raf);
-    rec.stop();
-    await stopped;
+    loop();
+    try {
+      await ended;
+    } finally {
+      cancelAnimationFrame(raf);
+      if (vfc) v.cancelVideoFrameCallback?.(vfc);
+      if (rec.state !== 'inactive') rec.stop();
+      await stopped;
+    }
     if (job.canceled) throw new Skip('abgebrochen');
+    if (!seen) throw new Skip('Bild bleibt schwarz (vermutlich ein HDR-Video)');
     return new Blob(chunks, { type: type.split(';')[0] });
   } finally {
     try { src?.stop(); } catch { /* schon aus */ }
@@ -208,6 +268,7 @@ async function viaRecorder(file, onProgress, job, ctx) {
     v.pause();
     v.removeAttribute('src');
     v.load();
+    box?.remove();
     setTimeout(() => URL.revokeObjectURL(url), 2000);
   }
 }
