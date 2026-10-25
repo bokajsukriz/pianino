@@ -2,7 +2,7 @@
    Zahnrad ein Video-Knopf; er klappt eine Liste auf (wie die Einstellungen,
    über dem Leadsheet, überdeckt den Player nicht): je Video ein kurzer Text
    („Strophe“, „Rhythmus“ …), antippen spielt es dort ab, mit Tempo
-   0,5 / 0,75 / 1 und Wiederholen. „+ Video“ nimmt eine Datei vom Gerät (auf
+   0,5 / 0,75 / 1 und in Schleife (am Ende wieder von vorn). „+ Video“ nimmt eine Datei vom Gerät (auf
    dem Handy auch direkt aufnehmen). Gespeichert als eigener Datensatz je
    Video in IndexedDB (store.js listVideos), nur auf diesem Gerät, nicht im
    Export. Beim Hinzufügen wird es verkleinert (vidshrink.js, 720p); ältere
@@ -13,6 +13,7 @@ import { listVideos, putVideo, deleteVideo } from './store.js';
 import { fmtClock } from './marks.js';
 import { shrinkVideo, canShrink, SHRINK_V } from './vidshrink.js';
 import { $, modal, ask } from './ui.js';
+import * as audio from './audio.js';
 
 const RATES = [0.5, 0.75, 1];
 
@@ -156,12 +157,13 @@ function paintPlayer(rec) {
     b.setAttribute('aria-pressed', r === vs.rate ? 'true' : 'false');
     rates.append(b);
   }
-  const loop = button('btn btn-secondary btn-sm', '↻ Wiederholen', () => {
+  const loop = button('btn btn-secondary btn-sm', '↻ Schleife', () => {
     vs.loop = !vs.loop;
     v.loop = vs.loop;
     loop.setAttribute('aria-pressed', vs.loop ? 'true' : 'false');
   });
   loop.setAttribute('aria-pressed', vs.loop ? 'true' : 'false');
+  loop.title = 'An: am Ende fängt das Video wieder von vorn an';
   const row = el('div', 'sp-set-row');
   row.append(el('b', 'sp-vid-now', rec.label), rates, loop);
   if (Number(rec.shrunk || 0) < SHRINK_V && !rec.noShrink && canShrink() && rec.size > 4e6) {
@@ -182,6 +184,7 @@ function paintList() {
     pick.setAttribute('aria-current', vs.current === rec.id ? 'true' : 'false');
     const info = [fmtDate(rec.added), rec.durationSec ? fmtClock(rec.durationSec) : '', rec.size ? fmtSize(rec.size) : ''].filter(Boolean).join(' · ');
     pick.append(el('span', 'sp-vid-label', rec.label), el('span', 'small muted', info));
+    if (!rec.shrunk && rec.shrinkNote) pick.append(el('span', 'small muted', `Nicht verkleinert: ${rec.shrinkNote}`));
     li.append(
       pick,
       button('btn btn-ghost btn-sm', '✎', () => rename(rec), `„${rec.label}“ umbenennen`),
@@ -231,21 +234,21 @@ function probeDuration(blob) {
   });
 }
 
-/** Verkleinern mit Fortschritt im Fuß der Liste. → kleinerer Blob oder null */
+/** Verkleinern mit Fortschritt im Fuß der Liste. → { blob, reason } */
 async function shrinkWithProgress(file, mine) {
-  if (!canShrink()) return null;
+  if (!canShrink()) return { blob: null, reason: 'Browser kann nicht umwandeln' };
   let lock = null;
   try { lock = await navigator.wakeLock?.request('screen'); } catch { /* geht auch ohne */ }
-  const job = shrinkVideo(file, (p) => {
+  const job = shrinkVideo(file, (p, how) => {
     if (vs !== mine) return;
-    vs.busy = `Verkleinert … ${Math.round(p * 100)} % – App bitte offen lassen`;
+    vs.busy = `Verkleinert${how === 'echtzeit' ? ' (so lang wie das Video)' : ''} … ${Math.round(p * 100)} % – App bitte offen lassen`;
     const n = $('#sp-vid-busy');
     if (n) n.textContent = vs.busy;
-  });
+  }, { ctx: audio.isRunning() ? audio.getCtx() : null });
   mine.cancel = job.cancel;
   mine.busy = 'Verkleinert …';
   paint();
-  const out = await job.blob;
+  const out = await job.result;
   mine.cancel = null;
   lock?.release().catch(() => {});
   return out;
@@ -290,8 +293,10 @@ async function addVideo(file) {
   }
   const label = await askWithPreview(file);
   if (label == null || vs !== mine) return;
+  // Noch im Tippen auf „Speichern“: Ton freigeben (für die Neuaufnahme).
+  await audio.unlock();
   try { await navigator.storage?.persist?.(); } catch { /* nur eine Bitte */ }
-  const small = await shrinkWithProgress(file, mine);
+  const { blob: small, reason } = await shrinkWithProgress(file, mine);
   if (vs !== mine) return;
   const blob = small || file;
   vs.busy = 'Speichert …';
@@ -299,7 +304,7 @@ async function addVideo(file) {
   const id = `video:${mine.songId}:${Date.now().toString(36)}${Math.floor(performance.now() % 1e4).toString(36)}`;
   const rec = {
     id, songId: mine.songId, label: label || file.name.replace(/\.[^.]+$/, '') || 'Video',
-    name: file.name, type: blob.type || file.type, size: blob.size, origSize: file.size, shrunk: small ? SHRINK_V : 0,
+    name: file.name, type: blob.type || file.type, size: blob.size, origSize: file.size, shrunk: small ? SHRINK_V : 0, shrinkNote: small ? '' : (reason === 'abgebrochen' ? 'Original behalten' : reason),
     durationSec: await probeDuration(blob), added: new Date().toISOString(), blob,
   };
   const ok = await saveChecked(rec, mine);
@@ -310,25 +315,28 @@ async function addVideo(file) {
     paintButton();
   }
   paint();
-  if (ok) flash(small ? `Verkleinert: ${fmtSize(file.size)} → ${fmtSize(small.size)}` : `Gespeichert (${fmtSize(file.size)}, nicht verkleinert)`);
+  if (ok) flash(small ? `Verkleinert: ${fmtSize(file.size)} → ${fmtSize(small.size)}` : `Gespeichert (${fmtSize(file.size)}), nicht verkleinert: ${reason}`);
 }
 
 /** Schon gespeichertes Video nachträglich verkleinern. */
 async function shrinkSaved(rec) {
   if (!vs || vs.busy) return;
   const mine = vs;
+  const unlocked = audio.unlock(); // im Tippen: Ton freigeben (für die Neuaufnahme)
   if (vs.current === rec.id) { stopCurrent(); }
-  const small = await shrinkWithProgress(rec.blob, mine);
+  await unlocked;
+  const { blob: small, reason } = await shrinkWithProgress(rec.blob, mine);
   if (vs !== mine) return;
   vs.busy = '';
   if (!small) {
     rec.noShrink = true; // nur für diese Sitzung, der Knopf verschwindet
+    if (reason !== 'abgebrochen') { rec.shrinkNote = reason; await putVideo(rec); }
     paint();
-    flash('Nicht verkleinert – das Video bleibt, wie es ist.');
+    flash(`Nicht verkleinert: ${reason}`);
     return;
   }
   const before = rec.size;
-  const next = { ...rec, blob: small, type: small.type, size: small.size, origSize: rec.origSize || before, shrunk: SHRINK_V };
+  const next = { ...rec, blob: small, type: small.type, size: small.size, origSize: rec.origSize || before, shrunk: SHRINK_V, shrinkNote: '' };
   const ok = await saveChecked(next, mine);
   if (vs !== mine) return;
   if (ok) Object.assign(rec, next);
@@ -341,7 +349,7 @@ function flash(text) {
   if (!vs?.open) return;
   const n = el('span', 'small muted', text);
   $('#sp-videos .sp-set-actions')?.append(n);
-  setTimeout(() => n.remove(), 6000);
+  setTimeout(() => n.remove(), 12000);
 }
 
 async function rename(rec) {

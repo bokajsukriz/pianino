@@ -50,12 +50,16 @@ danach den Text – darüber läuft das Video schon zum Anschauen, damit man wei
 Mediabunny über WebCodecs, also dem Hardware-Encoder: kürzere Seite 720 px,
 höchstens 10 Bilder/s – es geht vor allem ums Hören –, H.264 mit
 0,6 Mbit/s, Ton unverändert; aus etwa 60 MB je Minute bei 1080p werden
-etwa 6 MB, davon gut 1 MB Ton). Das geht meist schneller als
-Echtzeit, die App muss dabei offen bleiben; „Original nehmen“ bricht ab
-und speichert unverändert, ebenso, wenn der Browser es nicht kann oder es
-nicht kleiner würde. Ältere Videos (auch die schon mit 30 Bildern/s verkleinerten) verkleinert „Verkleinern“ am Video
+etwa 6 MB, davon gut 1 MB Ton). Von mehreren Tonspuren (iPhone: Stereo
+und 3D-Ton) nimmt es die AAC-Spur. Das geht meist schneller als Echtzeit.
+Kann der Browser das Video so nicht lesen (z. B. HDR vom iPhone), spielt
+die App es stumm ab und nimmt es verkleinert neu auf (MediaRecorder, Ton
+über `decodeAudioData`) — das dauert so lange wie das Video. Die App muss
+dabei offen bleiben; „Original nehmen“ bricht ab und speichert unverändert,
+ebenso, wenn beides nicht geht oder es nicht kleiner würde — dann steht
+der Grund am Video („Nicht verkleinert: …“) und im Fehlerprotokoll. Ältere Videos (auch die schon mit 30 Bildern/s verkleinerten) verkleinert „Verkleinern“ am Video
 nachträglich. Antippen spielt es in der Liste ab (0,5 / 0,75 / 1,
-↻ Wiederholen), ✎ benennt um, × löscht. Startet es, pausiert YouTube und
+↻ Schleife: am Ende wieder von vorn), ✎ benennt um, × löscht. Startet es, pausiert YouTube und
 umgekehrt. Die Videos liegen nur auf dem Gerät (IndexedDB,
 `video:<songId>:<id>`), kommen nicht in den Export und gehen mit dem Song.
 „+ Abschnitt“ steht hinter dem letzten Abschnitt,
