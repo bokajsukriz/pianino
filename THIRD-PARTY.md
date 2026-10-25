@@ -48,6 +48,19 @@ Kopfkommentar angepasst, Namespace `window.ChorPiano` beibehalten.
 | Geladen | nur in `ear-worker.js` (eigener Worker, weil Embind `new Function` braucht und die CSP der Seite das verbietet), erst wenn Mikrofon und Schalter „essentia“ an sind |
 | Namensnennung in der App | Startscreen → „Über“ → „Lizenzen und Dank“ |
 
+## Videos verkleinern: Mediabunny
+
+| Feld | Wert |
+|---|---|
+| Komponente | Mediabunny 1.62.1 (Medien lesen, umwandeln, schreiben über WebCodecs) |
+| Urheber | Vanilagy und Mitwirkende |
+| Quelle | npm-Paket `mediabunny@1.62.1`, https://mediabunny.dev/ |
+| Dateien | `vendor/mediabunny/mediabunny.min.mjs` (aus `dist/bundles/`, SHA-256 `b365395e7cd4b130553a1203fc23c52c035aedf6d1e07d6fedb4663745b5c790`, ≈ 0,7 MB) |
+| Lizenz | Mozilla Public License 2.0 (Volltext `vendor/mediabunny/LICENSE-MPL-2.0.txt`) |
+| Verändert | nein |
+| Geladen | nur in `vidshrink.js` per `import()`, erst wenn ein Video hinzugefügt oder verkleinert wird. Startet für Zeitgeber eigene Worker aus `blob:`-Adressen, daher `worker-src 'self' blob:` in der CSP |
+| Namensnennung in der App | Startscreen → „Über“ → „Lizenzen und Dank“ |
+
 ## Klick und Melodiestimme
 
 Synthetisch erzeugt (Web Audio), keine Samples.
