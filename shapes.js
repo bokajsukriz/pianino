@@ -22,30 +22,50 @@ export const BASS_LO = 48, BASS_HI = 59;
 /** Erster Akkord: Basston möglichst nah an E3. */
 const BASS_START = 52;
 
-/** Die Formen der Übung. split = so viele Töne (von unten) spielt links.
- *  ANNAHME: Aufteilung 2 + 2 (links Terz und Grundton) als Voreinstellung;
- *  1 + 3 wählbar. Das Mikrofon hört die Aufteilung nicht, nur die Töne. */
+/** Die Formen der Übung. Links spielt die App die tiefsten `split` Töne
+ *  (Voreinstellung 2: Terz und Grundton); das Mikrofon hört die Hände nicht. */
 export const SHAPES = Object.freeze([
   Object.freeze({ id: '3158', name: '3 – 1 – 5 – 8', text: 'Terz unten, darüber Grundton, Quinte, Oktave' }),
 ]);
-export const SPLITS = Object.freeze([2, 1]);
 
 /** Progressionen aus fünf Akkorden: Stufen als [Halbtöne über der Tonika, Typ].
- *  ANNAHME: gängige Pop-Folgen, alle zurück auf den Anfang. */
+ *  ANNAHME: gängige Pop-Folgen. */
 export const PROGRESSIONS = Object.freeze([
   { id: 'p1', roman: 'I – vi – IV – V – I', steps: [[0, ''], [9, 'm'], [5, ''], [7, ''], [0, '']] },
   { id: 'p2', roman: 'I – V – vi – IV – I', steps: [[0, ''], [7, ''], [9, 'm'], [5, ''], [0, '']] },
   { id: 'p3', roman: 'vi – IV – I – V – vi', steps: [[9, 'm'], [5, ''], [0, ''], [7, ''], [9, 'm']] },
   { id: 'p4', roman: 'I – vi – ii – V – I', steps: [[0, ''], [9, 'm'], [2, 'm'], [7, ''], [0, '']] },
+  { id: 'p5', roman: 'I – iii – vi – IV – I', steps: [[0, ''], [4, 'm'], [9, 'm'], [5, ''], [0, '']] },
+  { id: 'p6', roman: 'vi – ii – V – I – vi', steps: [[9, 'm'], [2, 'm'], [7, ''], [0, ''], [9, 'm']] },
 ].map((p) => Object.freeze({ ...p, steps: Object.freeze(p.steps.map((s) => Object.freeze(s))) })));
 
-/** Tonarten in Übe-Reihenfolge: erst wenige schwarze Tasten, dann die
- *  gängigen Gesangstonarten. ANNAHME (Rat der Klavierpädagogik). */
-export const KEYS = Object.freeze(['C', 'G', 'F', 'D', 'Bb', 'A', 'Eb']);
-const KEY_PC = Object.freeze({ C: 0, G: 7, F: 5, D: 2, Bb: 10, A: 9, Eb: 3 });
+/** Alle Tonarten der Übung. */
+export const KEYS = Object.freeze(['C', 'G', 'F', 'D', 'Bb', 'A', 'Eb', 'E', 'Ab']);
+const KEY_PC = Object.freeze({ C: 0, G: 7, F: 5, D: 2, Bb: 10, A: 9, Eb: 3, E: 4, Ab: 8 });
 const SHARP = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 const FLAT = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
-const FLAT_KEYS = new Set(['F', 'Bb', 'Eb']);
+const FLAT_KEYS = new Set(['F', 'Bb', 'Eb', 'Ab']);
+
+/** Stufen: welche Progressionen und Tonarten in Frage kommen.
+ *  ANNAHME (Rat der Klavierpädagogik): leicht = die zwei häufigsten
+ *  Pop-Folgen in Tonarten mit höchstens einem Vorzeichen; mittel = dazu
+ *  Moll-Start und ii, bis zwei Vorzeichen; schwer = die weniger gewohnten
+ *  Folgen (iii, Quintfall ab vi) und alle Tonarten bis vier Vorzeichen. */
+export const LEVELS = Object.freeze({
+  1: Object.freeze({ progs: Object.freeze(['p1', 'p2']), keys: Object.freeze(['C', 'G', 'F']) }),
+  2: Object.freeze({ progs: Object.freeze(['p1', 'p2', 'p3', 'p4']), keys: Object.freeze(['C', 'G', 'F', 'D', 'Bb']) }),
+  3: Object.freeze({ progs: Object.freeze(['p3', 'p4', 'p5', 'p6']), keys: KEYS }),
+});
+
+/** Zufällige Runde einer Stufe → { prog, key }; nach Möglichkeit nicht
+ *  dieselbe wie `last`. rand: () => [0, 1). */
+export function pickRound(level, rand, last = null) {
+  const lv = LEVELS[level] || LEVELS[1];
+  const all = lv.progs.flatMap((prog) => lv.keys.map((key) => ({ prog, key })));
+  const pool = all.filter((x) => !last || x.prog !== last.prog || x.key !== last.key);
+  const list = pool.length ? pool : all;
+  return list[Math.min(list.length - 1, Math.floor(rand() * list.length))];
+}
 
 const pcOf = (x) => ((x % 12) + 12) % 12;
 
@@ -144,26 +164,9 @@ export function shapeRound(chords, shape, { split = 2 } = {}) {
 }
 
 /** Ziel für den Erkenner ({ name, rh, lh, pcs } wie voicing.js hearTarget):
- *  alle Töne als „rechte Hand“, also alle geprüft — mit hearTarget wäre der
- *  Bass nur erlaubt, und Grundstellung statt Terz unten ginge durch.
- *  Prüfen mit checkChord (exakt) und HEAR_SHAPE. Simulation (1360 Szenen,
- *  docs/archiv/mikro-sim/, eigener Erkenner): richtig erkannt 92 %, als ok
- *  durchgelassen: Grundstellung 4 %, Terz fehlt 5 %, Dur↔Moll 2,5 %,
- *  Nachbarakkord 0 %. Nicht hörbar: fehlende Oktave (2. Teilton des
- *  Grundtons), meist auch fehlende Quinte — und welche Hand was spielt. */
+ *  alle Töne der Form aufsteigend in rh, für hear.js checkTones (mic.js
+ *  `loose`) — durchlässig, es zählen vor allem falsche Töne. */
 export function shapeTarget(step) {
   const all = [...step.grip.lh, ...step.grip.rh].sort((a, b) => a - b);
   return { name: step.symbol, rh: all, lh: [], pcs: [...new Set(all.map(pcOf))].sort((a, b) => a - b) };
 }
-
-/** Einstellungen für hear.js checkChord zu shapeTarget: der tiefste Ton
- *  (unter C4) ist schon da, wenn er höchstens 30 dB unter dem lautesten liegt
- *  (Handy-Hochpass, Streuung im Bass), siehe HEAR.lowBass. */
-export const HEAR_SHAPE = Object.freeze({ lowBass: 60, lowPresence: 30 });
-
-/** Kennung für den Übe-Stand: 'p1:C'. */
-export const roundKey = (progId, key) => `${progId}:${key}`;
-/** Saubere Durchgänge, bis die nächste Tonart vorgeschlagen wird. */
-export const CLEAN_FOR_NEXT = 2;
-/** Nächste Tonart in KEYS (nach der letzten wieder C). */
-export const nextKey = (key) => KEYS[(KEYS.indexOf(key) + 1) % KEYS.length];

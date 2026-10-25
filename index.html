@@ -286,21 +286,15 @@
     <header class="sp-head">
       <button type="button" class="icon-btn" id="vx-back" aria-label="Zurück zu den Songs"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22"><path d="M15 5 8 12l7 7" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
       <div class="sp-titles">
-        <h1 class="sp-title">Voicings</h1>
-        <span class="sp-artist" id="vx-shape"></span>
+        <h1 class="sp-title" id="vx-title">Voicing</h1>
       </div>
-      <span class="dr-count" id="vx-count" title="Saubere Runden in dieser Tonart"></span>
     </header>
     <div class="dr-body">
       <div class="dr-stage vx-stage">
-        <p class="vx-say" id="vx-say"></p>
         <div class="vx-seq" id="vx-seq" aria-hidden="true"></div>
         <div class="dr-big" id="vx-big" aria-hidden="true"></div>
+        <p class="vx-notes" id="vx-notes"></p>
         <p class="dr-hint" id="vx-hint"></p>
-        <div class="vx-degrees" id="vx-degrees"></div>
-        <button type="button" class="toggle toggle-sm dr-peek" id="vx-peek" hidden>Griff zeigen</button>
-        <div class="dr-kb" id="vx-kb"></div>
-        <button type="button" class="btn dr-transfer" id="vx-nextkey" hidden></button>
         <span class="visually-hidden" id="vx-live" aria-live="polite"></span>
       </div>
       <div class="dr-controls">
@@ -309,13 +303,17 @@
           <button type="button" class="sp-play" id="vx-play" aria-label="Start">
             <svg aria-hidden="true" viewBox="0 0 24 24" width="36" height="36"><path id="vx-play-icon" d="M8 5l11 7-11 7z"/></svg>
           </button>
-          <button type="button" class="toggle toggle-sm" id="vx-mic" aria-pressed="false">Mikro</button>
+          <button type="button" class="sp-round vx-mic" id="vx-mic" aria-label="Mikrofon" aria-pressed="false"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22"><rect x="9" y="3" width="6" height="11" rx="3" fill="currentColor"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
         </div>
-        <div class="vx-group" id="vx-progs" role="group" aria-label="Progression"></div>
-        <div class="dr-row vx-keys" id="vx-keys" role="group" aria-label="Tonart"></div>
-        <div class="dr-row" id="vx-splits" role="group" aria-label="Aufteilung auf die Hände"></div>
-        <div class="dr-row" id="vx-helps" role="group" aria-label="Hilfe"></div>
-        <p class="small muted">Akkord für Akkord ohne Takt: liegt er (Mikro, sonst antippen oder Enter), kommt der nächste, nach dem fünften wieder der erste. Eine Runde, die das Mikro ganz gehört hat, zählt als sauber; nach zwei sauberen kommt die nächste Tonart dran. Es hört immer der eigene Erkenner, alle vier Töne in genau dieser Lage – eine fehlende Oktave oder Quinte und welche Hand was spielt, hört das Mikro nicht. Tasten: Leertaste, Enter, G (Griff zeigen), A (anhören).</p>
+        <div class="dr-row vx-bottom">
+          <button type="button" class="toggle toggle-sm" id="vx-other">Andere Folge</button>
+          <span class="vx-levels" id="vx-levels" role="group" aria-label="Stufe">
+            <span class="small muted">Stufe</span>
+            <button type="button" class="toggle toggle-sm" data-level="1" aria-pressed="true" title="Leicht">1</button>
+            <button type="button" class="toggle toggle-sm" data-level="2" aria-pressed="false" title="Mittel">2</button>
+            <button type="button" class="toggle toggle-sm" data-level="3" aria-pressed="false" title="Schwer">3</button>
+          </span>
+        </div>
       </div>
     </div>
   </section>
