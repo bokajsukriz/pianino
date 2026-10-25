@@ -21,6 +21,7 @@ import {
   tabBlocks, blocksForSections, sectionsFromTabs, marksToSections,
   orderByStart, fitBars, updateSection, tapChordAt, barsTime, barSpan, loopLead,
 } from './leadsheet.js';
+import { parseShape, shapePcs, progressionChords, shapeRound, shapeTarget, nextKey, PROGRESSIONS, KEYS } from './shapes.js';
 import { drillChunks, cycleBeats, cyclePhase, nextChunk, stepPct, startPct, pctBpm, DRILL, SWAP, swapPairs, rateSwap, applySwap, pickSwap, swapQueue, roundOver, weakestSwap, chunkWith, allSolid, chunkSteps } from './drill.js';
 import { addMark, removeMark, markRange, markAt, nextMarkName, fmtClock, addLoop, updateLoop, removeLoop } from './marks.js';
 import { classifyLine, parseTabText, chordsInText, stripMarkup } from './tabtext.js';
@@ -754,6 +755,25 @@ function pureTests() {
   check('18 Verkleinern: kleine Videos nicht hochrechnen, Datenrate anteilig (mind. 0,2 Mbit/s), ≤ 10 Bilder/s bleiben',
     spKlein.width === 640 && spKlein.height === 360 && spKlein.frameRate === 10 && spKlein.bitrate === 200000
     && shrinkPlan(640, 360, 8).frameRate === null && shrinkPlan(1081, 1921).width % 2 === 0, JSON.stringify(spKlein));
+
+  /* 19 — shapes.js (Übung Voicings) */
+  const vxC = shapeRound(progressionChords('p1', 'C'), '3158', { split: 2 });
+  const vxAll = vxC.map((x) => [...x.grip.lh, ...x.grip.rh]);
+  check('19 Voicings: 3158 liest sich als Terz, Grundton, Quinte, Oktave; Moll mit kleiner Terz; Unsinn → null',
+    eq(parseShape('3158'), [3, 1, 5, 8]) && parseShape('3150') === null && parseShape('33') === null
+    && eq(shapePcs('C', '3158'), [4, 0, 7, 0]) && eq(shapePcs('Am', '3158'), [0, 9, 4, 9]) && eq(shapePcs('Bdim', '3158'), [2, 11, 5, 11]),
+    JSON.stringify(shapePcs('Am', '3158')));
+  check('19 Voicings: Progression in Tonarten, Schreibweise nach Tonart',
+    eq(progressionChords('p1', 'C'), ['C', 'Am', 'F', 'G', 'C']) && eq(progressionChords('p4', 'Bb'), ['Bb', 'Gm', 'Cm', 'F', 'Bb'])
+    && eq(progressionChords('p3', 'A'), ['F#m', 'D', 'A', 'E', 'F#m']) && nextKey('Eb') === 'C', JSON.stringify(progressionChords('p4', 'Bb')));
+  check('19 Voicings: C in C ist E3 C4 G4 C5 (links E3 C4); Hände wandern ≤ 5 Halbtöne je Ton; Runde schließt',
+    eq(vxAll[0], [52, 60, 67, 72]) && eq(vxC[0].grip.lh, [52, 60]) && eq(vxC[0].grip.rh, [67, 72]) && eq(vxAll[4], vxAll[0])
+    && vxAll.every((k, i) => i === 0 || k.every((m, j) => Math.abs(m - vxAll[i - 1][j]) <= 5)), JSON.stringify(vxAll));
+  const vxEvery = PROGRESSIONS.flatMap((p) => KEYS.map((k) => shapeRound(progressionChords(p.id, k), '3158', { split: 1 })));
+  check('19 Voicings: jede Progression in jeder Tonart spielbar, Bass G2–H3, Spanne je Hand ≤ Oktave + Terz, Ziel = gespielte Töne',
+    vxEvery.every((r) => r && r.every((x) => x.grip.lh.length === 1 && x.grip.lh[0] >= 43 && x.grip.lh[0] <= 59
+      && x.grip.rh[x.grip.rh.length - 1] - x.grip.rh[0] <= 16))
+    && eq(shapeTarget(vxC[1]).pcs, [0, 4, 9]) && eq(shapeTarget(vxC[1]).lh, vxC[1].grip.lh), '');
   return T;
 }
 

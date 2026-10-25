@@ -97,6 +97,18 @@ keine Schriftgröße mehr einstellen; A–B-Loops, gespeicherte Loops und die
 PDF-Ansicht gibt es ebenfalls nicht mehr (vorhandene Daten bleiben
 unberührt). Tasten: Leertaste, ←/→, Esc.
 
+**Voicings** (`voicepage.js`, rein: `shapes.js`): auf der Songs-Seite unter
+„Übungen“. Eine Griff-Form aus dem Unterricht — bisher 3 – 1 – 5 – 8, von
+unten Terz, Grundton, Quinte, Oktave (in C: E3 C4 G4 C5) — durch eine
+Progression aus fünf Akkorden (I–vi–IV–V–I, I–V–vi–IV–I, vi–IV–I–V–vi,
+I–vi–ii–V–I) in C, G, F, D, B♭, A, E♭. Die Lagen sind so gewählt, dass die
+Hände am wenigsten wandern (auch zurück zum ersten Akkord). Aufteilung links
+2 · rechts 2 oder links 1 · rechts 3, Hilfe Tasten / Töne / nur Akkord,
+„Griff zeigen“ (G) für 2,5 s. Ohne Takt: liegt der Akkord (Mikrofon, sonst
+antippen), kommt der nächste; eine ganz gehörte Runde zählt als sauber, nach
+zwei sauberen schlägt die Seite die nächste Tonart vor
+(`settings.voicingEx`). Das Mikrofon hört die Töne, nicht die Hände.
+
 **Folgen üben** (`drillpage.js`, rein: `drill.js`): von der Liedseite (Symbol
 ganz vorn in der Akkordzeile für den ganzen Song, ⋯ an der Karte für einen
 Abschnitt). Die
@@ -267,6 +279,8 @@ Liedseite (`marks`) Abschnitte mit Startzeit (je 8 Takte, `startSec`).
 | `songwizard.js` | Assistent für neue Songs (Video, Teile und Tempo, Akkordwechsel, Griffe) |
 | `drill.js` | REIN: 2-Takt-Folgen aus den Abschnitten, Vorlauf, Weiter/Wiederholen, Tempo |
 | `drillpage.js` | Folgen üben: Klick (clock.js), Anzeige, Wiederholen, Tempo ±10 % |
+| `shapes.js` | REIN: Übung Voicings — Griff-Form (3158) durch Progressionen, Lagen, Tonarten |
+| `voicepage.js` | Übung Voicings: Ansage, Akkord für Akkord, Hilfe-Stufen, Mikrofon |
 | `leadsheet.js` | REIN: Abschnitte als Taktbereiche, Raster, Zeiten im Video, Tabs je Abschnitt |
 | `marks.js` | REIN: Uhrzeit-Anzeige, Loop-Helfer (nicht mehr in der Oberfläche), alte Sekunden-Marken nur noch für Migration 3 |
 | `tabtext.js` | REIN: eingefügten Tab-Text in Akkordzeilen, Überschriften, Text zerlegen |

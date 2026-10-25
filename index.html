@@ -111,6 +111,11 @@
         <button type="button" id="songs-new" class="btn btn-primary">Neuer Song</button>
         <button type="button" id="songs-import" class="btn btn-secondary">Importieren</button>
       </div>
+      <h2 class="h2 songs-ex-head">Übungen</h2>
+      <button type="button" id="songs-voicings" class="card song-item">
+        <span class="song-item-title">Voicings</span>
+        <span class="small muted">Eine Griff-Form wie 3 – 1 – 5 – 8 durch fünf Akkorde</span>
+      </button>
       <button type="button" id="songs-practice" class="btn btn-secondary btn-wide">Üben: Geführt, Akkorde, Groove …</button>
       <button type="button" id="songs-about" class="link-btn">Über und Einstellungen</button>
     </div>
@@ -272,6 +277,45 @@
         <p class="small muted" id="dr-help-takt">Ein Takt Vorlauf zeigt die nächste Folge und zählt ein, dann 2 Takte zum Klick mitspielen. Tasten: Leertaste, ←/→, R, +/−.</p>
         <p class="small muted" id="dr-help-free" hidden>Ohne Takt: die Akkorde der Folge der Reihe nach – liegt einer (Mikro, sonst antippen oder Enter), kommt der nächste. Nach der Folge die nächste bzw. mit ↻ dieselbe. Tasten: Leertaste, ←/→, R, Enter.</p>
         <p class="small muted" id="dr-help-swap" hidden>Ohne Takt: erst den kleinen Akkord, dann den großen greifen – gemessen wird der Wechsel. Ohne Pedal, Blick aufs Display. Ohne Mikro antippen (oder Enter), sobald er liegt. „Griff zeigen“ (G) deckt die Tasten auf. ▶ überspringt. Danach wieder im Takt.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Voicings: eine Griff-Form durch eine Progression (voicepage.js) -->
+  <section id="s-voicings" class="screen drillpage" data-screen="voicings" hidden>
+    <header class="sp-head">
+      <button type="button" class="icon-btn" id="vx-back" aria-label="Zurück zu den Songs"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22"><path d="M15 5 8 12l7 7" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <div class="sp-titles">
+        <h1 class="sp-title">Voicings</h1>
+        <span class="sp-artist" id="vx-shape"></span>
+      </div>
+      <span class="dr-count" id="vx-count" title="Saubere Runden in dieser Tonart"></span>
+    </header>
+    <div class="dr-body">
+      <div class="dr-stage vx-stage">
+        <p class="vx-say" id="vx-say"></p>
+        <div class="vx-seq" id="vx-seq" aria-hidden="true"></div>
+        <div class="dr-big" id="vx-big" aria-hidden="true"></div>
+        <p class="dr-hint" id="vx-hint"></p>
+        <div class="vx-degrees" id="vx-degrees"></div>
+        <button type="button" class="toggle toggle-sm dr-peek" id="vx-peek" hidden>Griff zeigen</button>
+        <div class="dr-kb" id="vx-kb"></div>
+        <button type="button" class="btn dr-transfer" id="vx-nextkey" hidden></button>
+        <span class="visually-hidden" id="vx-live" aria-live="polite"></span>
+      </div>
+      <div class="dr-controls">
+        <div class="sp-transport">
+          <button type="button" class="sp-round" id="vx-listen" aria-label="Griff anhören">♪</button>
+          <button type="button" class="sp-play" id="vx-play" aria-label="Start">
+            <svg aria-hidden="true" viewBox="0 0 24 24" width="36" height="36"><path id="vx-play-icon" d="M8 5l11 7-11 7z"/></svg>
+          </button>
+          <button type="button" class="toggle toggle-sm" id="vx-mic" aria-pressed="false">Mikro</button>
+        </div>
+        <div class="vx-group" id="vx-progs" role="group" aria-label="Progression"></div>
+        <div class="dr-row vx-keys" id="vx-keys" role="group" aria-label="Tonart"></div>
+        <div class="dr-row" id="vx-splits" role="group" aria-label="Aufteilung auf die Hände"></div>
+        <div class="dr-row" id="vx-helps" role="group" aria-label="Hilfe"></div>
+        <p class="small muted">Akkord für Akkord ohne Takt: liegt er (Mikro, sonst antippen oder Enter), kommt der nächste, nach dem fünften wieder der erste. Eine Runde, die das Mikro ganz gehört hat, zählt als sauber; nach zwei sauberen kommt die nächste Tonart dran. Das Mikro hört die Töne, nicht welche Hand sie spielt. Tasten: Leertaste, Enter, G (Griff zeigen), A (anhören).</p>
       </div>
     </div>
   </section>
