@@ -135,12 +135,13 @@ function trackOnset(t) {
  *  is: liegt der Akkord — in jeder engen Lage seiner rechten Hand, mit exact
  *  nur in der Lage des Griffs (eigen; essentia hört ohnehin nur Tonnamen)?
  *  tune: Einstellungen für hear.js (z. B. shapes.js HEAR_SHAPE), nur eigen.
+ *  ear: Art zu hören für diesen Aufruf statt der Einstellung (EARS).
  *  chord: stattdessen gehörter Akkord des Songs (nur essentia, sonst '').
  *  sinceOnset: s seit dem letzten Anschlag, gemessen beim Lesen des
  *  Fensters. fresh: neu seit dem letzten Aufruf. */
-export function sample(t, want = []) {
+export function sample(t, want = [], { ear = null } = {}) {
   if (!analyser || t < quietUntil) return null;
-  const mode = earMode();
+  const mode = EARS.includes(ear) ? ear : earMode();
   if (mode !== 'eigen' || diagnose) ensureEar();
   if (!busy && (!asked || t - asked >= EVERY)) {
     asked = t;

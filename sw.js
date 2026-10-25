@@ -12,7 +12,7 @@
    Anfragen an andere Herkünfte (YouTube) bearbeitet er nicht: kein Cache,
    kein Abfangen. */
 
-const SW_VERSION = 'v54';
+const SW_VERSION = 'v55';
 const CACHE = `pianino-shell-${SW_VERSION}`;
 const SAMPLES_CACHE = 'pianino-samples-v3';
 // ffmpeg.wasm (≈ 31 MB) nicht in der Shell: erst beim ersten Gebrauch geladen,

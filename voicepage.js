@@ -5,7 +5,8 @@
    fünften beginnt die Runde von vorn. Hilfe in drei Stufen (Tasten / Töne /
    nur Akkord), „Griff zeigen“ (G) deckt die Tasten kurz auf, ohne dass es
    zählt. Hört das Mikrofon eine ganze Runde, zählt sie als sauber; nach
-   CLEAN_FOR_NEXT sauberen schlägt die Seite die nächste Tonart vor.
+   CLEAN_FOR_NEXT sauberen schlägt die Seite die nächste Tonart vor. Es hört
+   immer der eigene Erkenner (hear.js), alle vier Töne in genau der Lage.
    Gemerkt in settings.voicingEx. Regeln und Lagen rein in shapes.js. */
 
 import * as audio from './audio.js';
@@ -72,7 +73,7 @@ function wire() {
 /** Übung öffnen; onBack: zurück zur Songs-Seite. */
 export function openVoicings(onBack) {
   wire();
-  st = { onBack, ...prefs(), round: null, i: 0, running: false, shownAt: 0, okRun: 0, wait: false, clean: true, heard: '', peekUntil: 0, stop: null };
+  st = { onBack, ...prefs(), round: null, i: 0, running: false, shownAt: 0, okRun: 0, wait: false, clean: true, peekUntil: 0, stop: null };
   build();
   showScreen('voicings');
   paintChoices();
@@ -164,7 +165,6 @@ function show(i) {
   st.i = i;
   st.shownAt = audio.now();
   st.okRun = 0;
-  st.heard = '';
   st.wait = false;
   st.peekUntil = 0;
   const step = st.round[i];
@@ -303,7 +303,10 @@ function tick() {
   const step = st.round[st.i];
   const aim = shapeTarget(step);
   const t = audio.now();
-  const smp = mic.sample(t, [aim]);
+  // Immer der eigene Erkenner: essentia hört nur Tonnamen, keine Lage, und
+  // erkannte den richtigen Griff in der Simulation nur zu 57 % (Bass unter
+  // E♭3: 26 %). Die Einstellung „Hören mit“ gilt hier deshalb nicht.
+  const smp = mic.sample(t, [aim], { ear: 'eigen' });
   if (!smp?.fresh) return;
   const onsetAt = t - smp.sinceOnset;
   const judging = smp.sinceOnset <= EAR.judge && onsetAt >= st.shownAt - 0.15;
@@ -315,10 +318,6 @@ function tick() {
     return;
   }
   st.okRun = 0;
-  if (judging && smp.chord && smp.chord !== step.symbol && smp.chord !== before.symbol && smp.chord !== st.heard) {
-    st.heard = smp.chord;
-    $('#vx-hint').textContent = `Ich höre ${prettyChord(smp.chord)} – gesucht ${prettyChord(step.symbol)}.`;
-  }
 }
 
 /** Griff des aktuellen Akkords vorspielen (das Mikrofon hört so lange weg). */
