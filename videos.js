@@ -260,6 +260,27 @@ async function saveChecked(rec, mine) {
   return ok;
 }
 
+/** Name erfragen, darüber das Video zum Anschauen (erst sehen, worum es
+ *  geht). Die Tastatur geht erst auf, wenn man ins Feld tippt. */
+async function askWithPreview(file) {
+  const v = $('#modal-video');
+  const url = URL.createObjectURL(file);
+  v.onerror = () => { v.hidden = true; }; // Format kann der Browser nicht zeigen: nur fragen
+  v.src = url;
+  v.hidden = false;
+  const p = ask('Video hinzufügen', 'Erst anschauen, dann kurz, worum es geht:', { placeholder: 'z. B. Strophe, Rhythmus, Refrain, besondere Stelle', ok: 'Speichern' });
+  $('#modal-input').blur();
+  v.play().catch(() => {}); // ohne Erlaubnis: ▶ am Video
+  const label = await p;
+  v.onerror = null;
+  v.pause();
+  v.removeAttribute('src');
+  v.load();
+  v.hidden = true;
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  return label;
+}
+
 async function addVideo(file) {
   if (!vs || vs.busy) return;
   const mine = vs;
@@ -267,7 +288,7 @@ async function addVideo(file) {
     await modal('Kein Video', 'Diese Datei ist kein Video.', [{ label: 'OK', value: '', primary: true }]);
     return;
   }
-  const label = await ask('Video hinzufügen', 'Kurz, worum es geht:', { placeholder: 'z. B. Strophe, Rhythmus, Refrain, besondere Stelle', ok: 'Speichern' });
+  const label = await askWithPreview(file);
   if (label == null || vs !== mine) return;
   try { await navigator.storage?.persist?.(); } catch { /* nur eine Bitte */ }
   const small = await shrinkWithProgress(file, mine);
