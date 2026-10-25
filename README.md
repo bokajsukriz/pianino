@@ -100,17 +100,17 @@ unberührt). Tasten: Leertaste, ←/→, Esc.
 **Voicings** (`voicepage.js`, rein: `shapes.js`): auf der Songs-Seite unter
 „Übungen“. Eine Griff-Form aus dem Unterricht — bisher 3 – 1 – 5 – 8, von
 unten Terz, Grundton, Quinte, Oktave (in C: E3 C4 G4 C5) — durch eine
-Progression aus fünf Akkorden (I–vi–IV–V–I, I–V–vi–IV–I, vi–IV–I–V–vi,
-I–vi–ii–V–I) in C, G, F, D, B♭, A, E♭. Die Lagen sind so gewählt, dass die
-Hände am wenigsten wandern (auch zurück zum ersten Akkord). Aufteilung links
-2 · rechts 2 oder links 1 · rechts 3, Hilfe Tasten / Töne / nur Akkord,
-„Griff zeigen“ (G) für 2,5 s. Ohne Takt: liegt der Akkord (Mikrofon, sonst
-antippen), kommt der nächste; eine ganz gehörte Runde zählt als sauber, nach
-zwei sauberen schlägt die Seite die nächste Tonart vor
-(`settings.voicingEx`). Es hört immer der eigene Erkenner, alle vier Töne in
-genau der Lage (`shapes.js shapeTarget`, `HEAR_SHAPE`); essentia hört nur
-Tonnamen und erkannte die Form in der Simulation nur zu 57 %. Nicht hörbar:
-eine fehlende Oktave, meist eine fehlende Quinte, die Hände.
+Progression aus fünf Akkorden. Progression und Tonart zieht die Seite
+zufällig aus der Stufe (1 leicht, 2 mittel, 3 schwer; `shapes.js LEVELS`),
+beim Öffnen und mit „Andere Folge“ (N). Oben die Folge mit dem aktuellen
+Akkord, groß der Akkord und seine Töne von unten; darunter Anhören, Start,
+Mikro. Die Lagen sind so gewählt, dass die Hände am wenigsten wandern.
+Ohne Takt: liegt der Akkord (Mikrofon, sonst antippen), kommt der nächste.
+Es hört immer der eigene Erkenner, durchlässig (`hear.js checkTones`): es
+zählen vor allem falsche Töne; die Form darf auch eine Oktave tiefer oder
+höher liegen, Lage und Vollständigkeit werden kaum geprüft. essentia hört
+nur Tonnamen und erkannte die Form in der Simulation nur zu 57 %. Gemerkt
+wird die Stufe (`settings.voicingEx`).
 
 **Folgen üben** (`drillpage.js`, rein: `drill.js`): von der Liedseite (Symbol
 ganz vorn in der Akkordzeile für den ganzen Song, ⋯ an der Karte für einen
@@ -282,8 +282,8 @@ Liedseite (`marks`) Abschnitte mit Startzeit (je 8 Takte, `startSec`).
 | `songwizard.js` | Assistent für neue Songs (Video, Teile und Tempo, Akkordwechsel, Griffe) |
 | `drill.js` | REIN: 2-Takt-Folgen aus den Abschnitten, Vorlauf, Weiter/Wiederholen, Tempo |
 | `drillpage.js` | Folgen üben: Klick (clock.js), Anzeige, Wiederholen, Tempo ±10 % |
-| `shapes.js` | REIN: Übung Voicings — Griff-Form (3158) durch Progressionen, Lagen, Tonarten |
-| `voicepage.js` | Übung Voicings: Ansage, Akkord für Akkord, Hilfe-Stufen, Mikrofon |
+| `shapes.js` | REIN: Übung Voicings — Griff-Form (3158) durch Progressionen, Lagen, Stufen, Zufallsrunde |
+| `voicepage.js` | Übung Voicings: Folge, Akkord für Akkord, Stufe, Mikrofon |
 | `leadsheet.js` | REIN: Abschnitte als Taktbereiche, Raster, Zeiten im Video, Tabs je Abschnitt |
 | `marks.js` | REIN: Uhrzeit-Anzeige, Loop-Helfer (nicht mehr in der Oberfläche), alte Sekunden-Marken nur noch für Migration 3 |
 | `tabtext.js` | REIN: eingefügten Tab-Text in Akkordzeilen, Überschriften, Text zerlegen |
@@ -300,7 +300,7 @@ Liedseite (`marks`) Abschnitte mit Startzeit (je 8 Takte, `startSec`).
 | `exercises/*.js` | Geführt, Wann, Play-Along, Akkord-Blitz, Kurze Wege, Groove; Griff-Editor (`griffe.js`), Transkribieren (`transcribe.js`) |
 | `mic.js` | Mikrofon, Anschlag erkennen, Erkenner wählen |
 | `mictest.js` | Mikrofon-Test (Pegel, Töne, Urteile) |
-| `hear.js` | REIN: eigener Erkenner |
+| `hear.js` | REIN: eigener Erkenner (`checkTones`: durchlässig, für Voicings) |
 | `ear.js`, `ear-worker.js` | Erkenner mit essentia.js (Worker) |
 | `vendor/essentia/` | essentia.js 0.1.3 (AGPL-3.0) |
 | `videos.js` | Videos aus dem Unterricht (Liste, Abspielen, Hinzufügen) |
