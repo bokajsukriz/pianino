@@ -807,6 +807,10 @@ button.band-ev { cursor: pointer; min-height: 30px; font: inherit; font-weight: 
   display: flex; flex-direction: column; gap: 10px;
 }
 .overlay-card .muted { color: #6b5f86; }
+.overlay-card { max-height: calc(100dvh - 32px); overflow-y: auto; }
+/* Vorschau beim Hinzufügen eines Videos (videos.js), über dem Namensfeld. */
+.modal-video { width: 100%; max-height: 45dvh; border-radius: 12px; background: #000; }
+.modal-video[hidden] { display: none; }
 .overlay-card .btn-secondary { background: #fff1e2; border-color: #f1ddd0; color: #241b3d; }
 
 @media (prefers-reduced-motion: reduce) {
