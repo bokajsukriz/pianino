@@ -107,7 +107,10 @@ Hände am wenigsten wandern (auch zurück zum ersten Akkord). Aufteilung links
 „Griff zeigen“ (G) für 2,5 s. Ohne Takt: liegt der Akkord (Mikrofon, sonst
 antippen), kommt der nächste; eine ganz gehörte Runde zählt als sauber, nach
 zwei sauberen schlägt die Seite die nächste Tonart vor
-(`settings.voicingEx`). Das Mikrofon hört die Töne, nicht die Hände.
+(`settings.voicingEx`). Es hört immer der eigene Erkenner, alle vier Töne in
+genau der Lage (`shapes.js shapeTarget`, `HEAR_SHAPE`); essentia hört nur
+Tonnamen und erkannte die Form in der Simulation nur zu 57 %. Nicht hörbar:
+eine fehlende Oktave, meist eine fehlende Quinte, die Hände.
 
 **Folgen üben** (`drillpage.js`, rein: `drill.js`): von der Liedseite (Symbol
 ganz vorn in der Akkordzeile für den ganzen Song, ⋯ an der Karte für einen
