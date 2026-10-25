@@ -63,8 +63,10 @@ muss dabei offen bleiben; „Original nehmen“ bricht ab und speichert
 unverändert, ebenso, wenn nichts davon geht oder es nicht kleiner würde —
 dann steht der Grund am Video („Nicht verkleinert: …“) und im
 Fehlerprotokoll. Ältere Videos (auch die schon mit 30 Bildern/s verkleinerten) verkleinert „Verkleinern“ am Video
-nachträglich. **„● Aufnehmen“** nimmt direkt in der App auf (`vidrec.js`):
-Vorschau, Start/Stopp, Kamera wechseln; gleich klein (720p, 15 Bilder/s,
+nachträglich. **„● Aufnehmen“** nimmt direkt in der App auf (`vidrec.js`),
+im Vollbild wie die Kamera-App (großer roter Auslöser, ✕ abbrechen, ⟲ Kamera
+wechseln, oben Zeit und Größe; einzige Stelle, die den pausierten Player
+überdeckt); gleich klein (720p, 15 Bilder/s,
 0,8 Mbit/s, Ton 128 kbit/s ohne Echo- und Rauschfilter, etwa 7 MB je
 Minute), nichts wird danach umgewandelt; Firefox nimmt WebM auf (mit
 Mediabunny umgepackt, damit Länge und Spulen stimmen). Danach wie beim

@@ -80,7 +80,8 @@ und vorgezogenen Wechsel im Tempo-Modus (Test 5, `OfflineAudioContext`) und eine
   https://s.ytimg.com` und `frame-src` für YouTube, sonst nur die eigene
   Herkunft. `sw.js` fasst fremde Herkünfte nicht an. Der Player bleibt immer
   sichtbar (mindestens 200 × 200, auf der Liedseite genau das, in der Leiste unten bzw. links; sonst im Querformat 356 × 200) und wird nie
-  überdeckt. Ohne Netz muss alles außer Video-Play-Along und Editor laufen.
+  überdeckt. Einzige Ausnahme (ausdrücklich gewünscht): der Videorekorder
+  (`vidrec.js`) läuft im Vollbild; YouTube ist dabei pausiert. Ohne Netz muss alles außer Video-Play-Along und Editor laufen.
 - Fremde Bibliotheken bisher: Mediabunny in `vendor/mediabunny/` (MPL-2.0,
   Videos verkleinern und umpacken, `vidshrink.js`, `vidrec.js`), ffmpeg.wasm
   in `vendor/ffmpeg/` (MIT, Kern GPL-2.0-or-later, ≈ 31 MB; Videos
