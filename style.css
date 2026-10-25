@@ -503,7 +503,7 @@ button.band-ev { cursor: pointer; min-height: 30px; font: inherit; font-weight: 
 }
 
 /* Songliste (Startpunkt) */
-.song-list .song-item { width: 100%; text-align: left; display: flex; flex-direction: column; gap: 2px; cursor: pointer; font: inherit; color: var(--text); min-height: 56px; }
+.song-list .song-item, #songs-voicings { width: 100%; text-align: left; display: flex; flex-direction: column; gap: 2px; cursor: pointer; font: inherit; color: var(--text); min-height: 56px; }
 .song-item-title { font-size: 19px; font-weight: 800; }
 #modal-buttons { flex-wrap: wrap; }
 #modal-buttons > .btn { flex: 1 1 40%; }
@@ -797,6 +797,22 @@ button.band-ev { cursor: pointer; min-height: 30px; font: inherit; font-weight: 
 .dr-controls > p { margin: 0; text-align: center; }
 .dr-row { display: flex; align-items: center; justify-content: center; gap: 16px; flex-wrap: wrap; }
 .dr-row .sp-stepper b { min-width: 68px; }
+.songs-ex-head { margin: 14px 0 -2px; }
+.vx-say { margin: 4px 0 0; text-align: center; font-size: 16px; font-weight: 700; min-height: 1.4em; }
+.vx-seq { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; font-weight: 750; color: var(--muted); }
+.vx-seq-chord.done { opacity: .5; }
+.vx-seq-chord.cur { color: var(--accent-text); text-decoration: underline; text-underline-offset: 4px; }
+.vx-degrees { display: flex; justify-content: center; gap: 24px; flex-wrap: wrap; }
+.vx-hand { display: inline-flex; align-items: baseline; gap: 10px; }
+.vx-hand > small { color: var(--muted); font-weight: 650; }
+.vx-note { display: inline-flex; flex-direction: column; align-items: center; min-width: 28px; }
+.vx-note b { font-size: 22px; }
+.vx-note span { font-size: 14px; color: var(--muted); font-weight: 650; }
+.vx-group { display: flex; flex-direction: column; gap: 6px; width: 100%; max-width: 420px; }
+.vx-group .toggle { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.vx-group .toggle small { font-weight: 600; opacity: .8; }
+.vx-keys { gap: 6px; }
+.vx-keys .toggle { min-width: 44px; }
 @media (orientation: landscape) and (min-width: 700px) {
   .drillpage { height: 100dvh; }
   .dr-body { flex-direction: row; align-items: center; gap: 24px; }

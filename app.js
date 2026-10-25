@@ -12,6 +12,7 @@ import { initSongs, showSongs as paintSongs, songFacts, exportOne, removeSong } 
 import { initSongPage, openSongPage } from './songpage.js';
 import { openGriffe } from './exercises/griffe.js';
 import { openTranscribe } from './exercises/transcribe.js';
+import { openVoicings } from './voicepage.js';
 import { $, $$, showScreen, setToggle, onScreen, screenName, modal, ask } from './ui.js';
 import { supported as micSupported, EARS, earMode } from './mic.js';
 import { openMicTest, closeMicTest } from './mictest.js';
@@ -258,7 +259,7 @@ function wire() {
   $('#go-tr').addEventListener('click', () => toTranscribe(currentSong()?.id, showStart));
   $('#go-transcribe').addEventListener('click', () => toTranscribe(currentSong()?.id, showStart));
   for (const b of $$('[data-home]')) b.addEventListener('click', showStart);
-  initSongs({ open: toSongPage, practice: showStart });
+  initSongs({ open: toSongPage, practice: showStart, voicings: () => openVoicings(showSongs) });
   initSongPage({
     action: songAction,
     // Assistent, Schritt „Griffe“: Editor für den Akkord, danach zurück in den Assistenten.
@@ -353,6 +354,7 @@ function onBack() {
   if (name === 'griffe') { guard(); $('#gr-back').click(); return; }
   if (name === 'sheet') { guard(); $('#sheet-back').click(); return; }
   if (name === 'tr') { guard(); $('#tr-back').click(); return; }
+  if (name === 'voicings') { guard(); $('#vx-back').click(); return; }
   if (name === 'import' || name === 'start') { showSongs(); return; }
   if (name === 'song') { guard(); $('#sp-back').click(); return; }
   showStart();

@@ -10,15 +10,16 @@ import { prettyChord } from './chordsym.js';
 import { $, showScreen, modal, ask } from './ui.js';
 import { logError } from './log.js';
 
-let hooks = { open: () => {}, practice: () => {} };
+let hooks = { open: () => {}, practice: () => {}, voicings: () => {} };
 let pending = null; // geprüfter Song im Import
 
-/** Verdrahten. h: { open(id) Liedseite, practice() Übungen } */
+/** Verdrahten. h: { open(id) Liedseite, practice() Übungen, voicings() Übung Voicings } */
 export function initSongs(h) {
   hooks = { ...hooks, ...h };
   $('#songs-import').addEventListener('click', openImport);
   $('#songs-new').addEventListener('click', createSong);
   $('#songs-practice').addEventListener('click', () => hooks.practice());
+  $('#songs-voicings').addEventListener('click', () => hooks.voicings());
   $('#imp-back').addEventListener('click', showSongs);
   $('#imp-file').addEventListener('change', async (e) => {
     const f = e.target.files?.[0];
