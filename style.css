@@ -807,6 +807,7 @@ button.band-ev { cursor: pointer; min-height: 30px; font: inherit; font-weight: 
 .vx-mic:disabled { opacity: .45; cursor: default; }
 .vx-mic svg { display: block; margin: auto; }
 .vx-bottom { gap: 12px; }
+.vx-what { font-weight: 650; }
 .vx-levels { display: inline-flex; align-items: center; gap: 6px; }
 .vx-levels .toggle { min-width: 44px; }
 @media (orientation: landscape) and (min-width: 700px) {
