@@ -57,6 +57,10 @@ export const LEVELS = Object.freeze({
   3: Object.freeze({ progs: Object.freeze(['p3', 'p4', 'p5', 'p6']), keys: KEYS }),
 });
 
+/** Tonname einer Taste in der Schreibweise der Tonart: (70, 'Bb') → 'Bb',
+ *  (70, 'D') → 'A#'. */
+export const spellNote = (midi, key) => (FLAT_KEYS.has(key) ? FLAT : SHARP)[pcOf(midi)];
+
 /** Zufällige Runde einer Stufe → { prog, key }; nach Möglichkeit nicht
  *  dieselbe wie `last`. rand: () => [0, 1). */
 export function pickRound(level, rand, last = null) {
