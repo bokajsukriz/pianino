@@ -538,6 +538,13 @@ button.band-ev { cursor: pointer; min-height: 30px; font: inherit; font-weight: 
 .sp-vid-pick[aria-current="true"] { border-color: var(--accent-text); background: var(--from); }
 .sp-vid-label { font-weight: 750; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sp-danger-text { color: #b3261e; }
+/* Neuaufnahme beim Verkleinern (vidshrink.js): unter der Videoliste,
+   Original und Ergebnis nebeneinander. */
+.sp-vid-work[hidden] { display: none; }
+.vid-work { display: flex; gap: 8px; margin: 0 0 8px; }
+.vid-work figure { flex: 1; min-width: 0; margin: 0; display: flex; flex-direction: column; gap: 2px; }
+.vid-work figcaption { font-size: 12px; font-weight: 750; color: var(--muted); }
+.vid-work video, .vid-work canvas { width: 100%; height: auto; max-height: 22dvh; object-fit: contain; border-radius: 8px; background: #000; }
 .sp-set-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .sp-set-row .sp-lab { margin: 0; min-width: 3.4em; }
 .sp-set-row .sp-round { width: 38px; height: 38px; }
@@ -737,7 +744,7 @@ button.band-ev { cursor: pointer; min-height: 30px; font: inherit; font-weight: 
   .sp-sec { grid-column: 2; grid-row: 1; }
   .sp-tabs { grid-column: 2; grid-row: 2; min-height: 0; overflow-y: auto; }
   /* Einstellungen und Videos rechts neben der Leiste, nicht darunter. */
-  .sp-settings { margin-left: calc(366px + var(--pad-x) + 16px); }
+  .sp-settings, .sp-vid-work { margin-left: calc(366px + var(--pad-x) + 16px); }
   .sp-sheet { right: 0; border-radius: 22px 0 0 0; padding-top: 8px; }
   .sp-sheet > p { margin: 2px 0 4px; }
   .sp-big { min-height: 42px; font-size: 16px; }
