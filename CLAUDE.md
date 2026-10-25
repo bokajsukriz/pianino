@@ -82,7 +82,11 @@ und vorgezogenen Wechsel im Tempo-Modus (Test 5, `OfflineAudioContext`) und eine
   sichtbar (mindestens 200 × 200, auf der Liedseite genau das, in der Leiste unten bzw. links; sonst im Querformat 356 × 200) und wird nie
   überdeckt. Ohne Netz muss alles außer Video-Play-Along und Editor laufen.
 - Fremde Bibliotheken bisher: Mediabunny in `vendor/mediabunny/` (MPL-2.0,
-  Videos verkleinern, nur `vidshrink.js`) und essentia.js in
+  Videos verkleinern und umpacken, `vidshrink.js`, `vidrec.js`), ffmpeg.wasm
+  in `vendor/ffmpeg/` (MIT, Kern GPL-2.0-or-later, ≈ 31 MB; Videos
+  verkleinern ohne WebCodecs, z. B. Firefox auf Android) — **nicht** in
+  `SHELL`, sondern im eigenen Cache `FFMPEG_CACHE` in `sw.js`, beim ersten
+  Gebrauch gefüllt; ändern sich Dateien dort, `FFMPEG_CACHE` erhöhen — und essentia.js in
   `vendor/essentia/` (AGPL-3.0, ausdrücklich gewünscht), nur im Worker
   `ear-worker.js` — dort, weil
   Embind `new Function` braucht und die CSP der Seite das verbietet. Nicht
