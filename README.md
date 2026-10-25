@@ -52,9 +52,11 @@ höchstens 10 Bilder/s – es geht vor allem ums Hören –, H.264 mit
 0,6 Mbit/s, Ton unverändert; aus etwa 60 MB je Minute bei 1080p werden
 etwa 6 MB, davon gut 1 MB Ton). Von mehreren Tonspuren (iPhone: Stereo
 und 3D-Ton) nimmt es die AAC-Spur. Das geht meist schneller als Echtzeit.
-Kann der Browser das Video so nicht lesen (z. B. HDR vom iPhone), spielt
+Kann der Browser das Video so nicht lesen (z. B. 10-Bit-HDR/HEVC von iPhone oder Android), spielt
 die App es stumm ab und nimmt es verkleinert neu auf (MediaRecorder, Ton
-über `decodeAudioData`) — das dauert so lange wie das Video. Die App muss
+über `decodeAudioData`; Original und Neuaufnahme sind dabei unter der Liste
+zu sehen) — das dauert so lange wie das Video. Bleibt das Bild dabei
+schwarz (manche Browser zeichnen HDR-Videos nicht), bricht sie ab. Die App muss
 dabei offen bleiben; „Original nehmen“ bricht ab und speichert unverändert,
 ebenso, wenn beides nicht geht oder es nicht kleiner würde — dann steht
 der Grund am Video („Nicht verkleinert: …“) und im Fehlerprotokoll. Ältere Videos (auch die schon mit 30 Bildern/s verkleinerten) verkleinert „Verkleinern“ am Video

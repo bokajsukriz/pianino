@@ -244,7 +244,7 @@ async function shrinkWithProgress(file, mine) {
     vs.busy = `Verkleinert${how === 'echtzeit' ? ' (so lang wie das Video)' : ''} … ${Math.round(p * 100)} % – App bitte offen lassen`;
     const n = $('#sp-vid-busy');
     if (n) n.textContent = vs.busy;
-  }, { ctx: audio.isRunning() ? audio.getCtx() : null });
+  }, { ctx: audio.isRunning() ? audio.getCtx() : null, host: $('#sp-vid-work') });
   mine.cancel = job.cancel;
   mine.busy = 'Verkleinert …';
   paint();
