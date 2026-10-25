@@ -1,8 +1,10 @@
 /* vidrec.js — Videorekorder auf der Liedseite: direkt in der App aufnehmen,
    gleich klein (720p, 15 Bilder/s, 0,8 Mbit/s, Ton 128 kbit/s ohne
    Echo-/Rauschfilter — es geht um Musik). Nichts muss danach umgewandelt
-   werden. Kamera und Vorschau laufen in host (unter der Videoliste, nie über
-   dem Player). Firefox nimmt WebM auf, Chrome und Safari MP4. WebM aus
+   werden. Der Rekorder läuft im Vollbild wie eine Kamera-App (schwarz,
+   Vorschau über den ganzen Bildschirm, großer Auslöser unten) — die einzige
+   Stelle, die den YouTube-Player überdeckt; der ist dabei pausiert.
+   Firefox nimmt WebM auf, Chrome und Safari MP4. WebM aus
    MediaRecorder hat keine Länge und lässt sich schlecht spulen: einmal mit
    Mediabunny umpacken (ohne neu zu kodieren). */
 
@@ -45,18 +47,26 @@ export function openRecorder(host, { onStart = () => {} } = {}) {
   preview.setAttribute('playsinline', '');
   preview.autoplay = true;
   const status = el('span', 'small muted', 'Kamera wird geöffnet …');
-  const start = button('btn btn-primary btn-sm', '● Aufnahme starten', () => begin());
-  const stop = button('btn btn-primary btn-sm', '■ Stopp', () => end());
-  const flip = button('btn btn-secondary btn-sm', '⟲ Kamera', () => { facing = facing === 'environment' ? 'user' : 'environment'; openCam(); });
-  const cancel = button('btn btn-ghost btn-sm', 'Abbrechen', () => quit(null));
-  stop.hidden = true;
+  // Auslöser: rund, rot; während der Aufnahme ein Quadrat (Stopp).
+  const start = button('vid-rec-shutter', '', () => (rec ? end() : begin()));
+  start.setAttribute('aria-label', 'Aufnahme starten');
+  const flip = button('vid-rec-side', '⟲', () => { facing = facing === 'environment' ? 'user' : 'environment'; openCam(); });
+  flip.setAttribute('aria-label', 'Kamera wechseln');
+  const cancel = button('vid-rec-side', '✕', () => quit(null));
+  cancel.setAttribute('aria-label', 'Abbrechen');
   start.disabled = true;
-  const row = el('div', 'sp-set-actions');
-  row.append(start, stop, flip, cancel, status);
+  const top = el('div', 'vid-rec-top');
+  top.append(status);
+  const bar = el('div', 'vid-rec-bar');
+  bar.append(cancel, start, flip);
   const box = el('div', 'vid-rec');
-  box.append(preview, row);
+  box.setAttribute('role', 'dialog');
+  box.setAttribute('aria-label', 'Video aufnehmen');
+  box.append(preview, top, bar);
   host.replaceChildren(box);
   host.hidden = false;
+  // Echtes Vollbild (Browserleisten weg), wo erlaubt — im Tippen auf „Aufnehmen“.
+  box.requestFullscreen?.({ navigationUI: 'hide' }).catch(() => {});
 
   function release() {
     for (const t of stream?.getTracks() || []) t.stop();
@@ -104,10 +114,10 @@ export function openRecorder(host, { onStart = () => {} } = {}) {
     onStart();
     try { lock = await navigator.wakeLock?.request('screen'); } catch { /* geht auch ohne */ }
     t0 = performance.now();
-    start.hidden = true;
     flip.hidden = true;
     cancel.hidden = true;
-    stop.hidden = false;
+    start.classList.add('on');
+    start.setAttribute('aria-label', 'Aufnahme beenden');
     const tick = () => { status.textContent = `● ${fmtClock((performance.now() - t0) / 1000)} · ${sizeText(size)}`; };
     tick();
     timer = setInterval(tick, 500); // nur Anzeige, kein Audio-Timing
@@ -121,6 +131,7 @@ export function openRecorder(host, { onStart = () => {} } = {}) {
     await stopped;
     const type = (r.mimeType || chunks[0]?.type || 'video/webm').split(';')[0];
     const blob = new Blob(chunks, { type });
+    start.disabled = true;
     status.textContent = 'Fertig …';
     quit(await fixWebm(blob));
   }
@@ -132,6 +143,7 @@ export function openRecorder(host, { onStart = () => {} } = {}) {
     if (rec && rec.state !== 'inactive') { rec.onstop = null; rec.stop(); }
     rec = null;
     release();
+    if (document.fullscreenElement === box) document.exitFullscreen?.().catch(() => {});
     box.remove();
     host.hidden = true;
     finish(result);
