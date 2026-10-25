@@ -1,9 +1,18 @@
 # Pianino — Hinweise für Claude Code
 
 Kleine private Übe-App fürs Klavier (Begleiten von Gesang). Statische PWA,
-**kein Build-Schritt**: kein Bundler, kein `package.json`, keine
-npm-Abhängigkeiten, kein Framework. Plain HTML, CSS und JavaScript als
-ES-Module. Architektur und Dateiübersicht: `README.md`.
+**kein Build-Schritt**: kein Bundler, kein `package.json`, kein Framework.
+Plain HTML, CSS und JavaScript als ES-Module. Architektur und Dateiübersicht:
+`README.md`.
+
+**Fremde Bibliotheken sind erlaubt.** Die App ist privat, nur für eine
+Person — eine passende Bibliothek ist hier kein Problem und meist besser als
+viel eigener Code. Bedingungen: fertige Datei (ES-Modul) nach `vendor/<name>/`
+kopieren, mit Lizenztext, Eintrag in `THIRD-PARTY.md` (Version, SHA-256) und
+unter „Lizenzen und Dank“ in `index.html`, in `SHELL` aufnehmen (offline) und
+möglichst erst bei Bedarf per `import()` laden. Zur Laufzeit wird nichts
+von fremden Servern geladen (siehe unten). Lieber eine kleine, gepflegte
+Bibliothek als eine große.
 
 ## Failsafe: SW_VERSION bumpen
 
@@ -72,8 +81,10 @@ und vorgezogenen Wechsel im Tempo-Modus (Test 5, `OfflineAudioContext`) und eine
   Herkunft. `sw.js` fasst fremde Herkünfte nicht an. Der Player bleibt immer
   sichtbar (mindestens 200 × 200, auf der Liedseite genau das, in der Leiste unten bzw. links; sonst im Querformat 356 × 200) und wird nie
   überdeckt. Ohne Netz muss alles außer Video-Play-Along und Editor laufen.
-- Einzige fremde Bibliothek: essentia.js in `vendor/essentia/` (AGPL-3.0,
-  ausdrücklich gewünscht), nur im Worker `ear-worker.js` — dort, weil
+- Fremde Bibliotheken bisher: Mediabunny in `vendor/mediabunny/` (MPL-2.0,
+  Videos verkleinern, nur `vidshrink.js`) und essentia.js in
+  `vendor/essentia/` (AGPL-3.0, ausdrücklich gewünscht), nur im Worker
+  `ear-worker.js` — dort, weil
   Embind `new Function` braucht und die CSP der Seite das verbietet. Nicht
   in die Seite holen und die CSP nicht um `unsafe-eval` erweitern.
 - Mikrofon-Erkenner: Änderungen an `hear.js` oder `ear-worker.js` gegen die

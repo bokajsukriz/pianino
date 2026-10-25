@@ -32,6 +32,7 @@ import {
   applyWege, blockBpm, newLoop, nextLoop, wegeStages, applyGroove, blockChords, songPairs, grooveWindows, GROOVE_STAGES, tempoText,
 } from './tempo.js';
 import { stepHits } from './accomp.js';
+import { shrinkPlan } from './vidshrink.js';
 import { buildMix, mixLabel, weekDots } from './mix.js';
 import { semitoneLevels, followOnset, checkChord, checkChordAny, voicings, peakNotes } from './hear.js';
 import {
@@ -745,6 +746,14 @@ function pureTests() {
 
   check('14 Migration 2: zweiter Lauf ändert nichts', m2.steps[0].put.length === 0 && m2.steps[0].del.length === 0 && eq(m2.records, m1.records));
   }
+
+  /* 18 — vidshrink.js */
+  const sp4k = shrinkPlan(3840, 2160, 60), spHoch = shrinkPlan(1080, 1920, 30), spKlein = shrinkPlan(640, 360, 0);
+  check('18 Verkleinern: kürzere Seite 720, gerade Maße, auf 10 Bilder/s, 0,6 Mbit/s bei 720p',
+    eq(sp4k, { width: 1280, height: 720, frameRate: 10, bitrate: 600000 }) && eq(spHoch, { width: 720, height: 1280, frameRate: 10, bitrate: 600000 }), JSON.stringify([sp4k, spHoch]));
+  check('18 Verkleinern: kleine Videos nicht hochrechnen, Datenrate anteilig (mind. 0,2 Mbit/s), ≤ 10 Bilder/s bleiben',
+    spKlein.width === 640 && spKlein.height === 360 && spKlein.frameRate === 10 && spKlein.bitrate === 200000
+    && shrinkPlan(640, 360, 8).frameRate === null && shrinkPlan(1081, 1921).width % 2 === 0, JSON.stringify(spKlein));
   return T;
 }
 
