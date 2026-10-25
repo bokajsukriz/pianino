@@ -524,6 +524,20 @@ button.band-ev { cursor: pointer; min-height: 30px; font: inherit; font-weight: 
 #sp-more[aria-expanded="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 .sp-settings { border: 2px solid var(--line); border-radius: 14px; background: var(--surface); padding: 8px 10px; margin: 4px 0 8px; display: flex; flex-direction: column; gap: 8px; max-height: 60dvh; overflow-y: auto; }
 .sp-settings[hidden] { display: none; }
+/* Videos aus dem Unterricht: Knopf links neben dem Zahnrad, Liste wie die Einstellungen. */
+.sp-vids { position: relative; }
+#sp-vids[aria-expanded="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.sp-vids-n { position: absolute; top: -6px; right: -6px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 99px; background: var(--accent); color: var(--accent-ink); font-size: 11px; font-weight: 800; line-height: 18px; text-align: center; }
+.sp-vids-n[hidden] { display: none; }
+.sp-vid-player { display: flex; flex-direction: column; gap: 6px; }
+.sp-vid-player video { width: 100%; max-height: 40dvh; border-radius: 10px; background: #000; }
+.sp-vid-now { font-size: 16px; margin-right: auto; }
+.sp-vid-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.sp-vid-item { display: flex; align-items: center; gap: 4px; }
+.sp-vid-pick { flex: 1; min-width: 0; min-height: 44px; text-align: left; display: flex; flex-direction: column; gap: 1px; padding: 6px 10px; border-radius: 10px; border: 2px solid var(--line); background: var(--surface); color: var(--text); font: inherit; cursor: pointer; }
+.sp-vid-pick[aria-current="true"] { border-color: var(--accent-text); background: var(--from); }
+.sp-vid-label { font-weight: 750; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sp-danger-text { color: #b3261e; }
 .sp-set-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .sp-set-row .sp-lab { margin: 0; min-width: 3.4em; }
 .sp-set-row .sp-round { width: 38px; height: 38px; }
@@ -722,6 +736,8 @@ button.band-ev { cursor: pointer; min-height: 30px; font: inherit; font-weight: 
   .sp-body { flex: 1; min-height: 0; display: grid; grid-template-columns: calc(366px + var(--pad-x)) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); gap: 8px 16px; }
   .sp-sec { grid-column: 2; grid-row: 1; }
   .sp-tabs { grid-column: 2; grid-row: 2; min-height: 0; overflow-y: auto; }
+  /* Einstellungen und Videos rechts neben der Leiste, nicht darunter. */
+  .sp-settings { margin-left: calc(366px + var(--pad-x) + 16px); }
   .sp-sheet { right: 0; border-radius: 22px 0 0 0; padding-top: 8px; }
   .sp-sheet > p { margin: 2px 0 4px; }
   .sp-big { min-height: 42px; font-size: 16px; }
