@@ -749,10 +749,11 @@ function pureTests() {
 
   /* 18 — vidshrink.js */
   const sp4k = shrinkPlan(3840, 2160, 60), spHoch = shrinkPlan(1080, 1920, 30), spKlein = shrinkPlan(640, 360, 0);
-  check('18 Verkleinern: kürzere Seite 720, gerade Maße, 60 → 30 Bilder/s, 1,5 Mbit/s bei 720p',
-    eq(sp4k, { width: 1280, height: 720, frameRate: 30, bitrate: 1500000 }) && eq(spHoch, { width: 720, height: 1280, frameRate: null, bitrate: 1500000 }), JSON.stringify([sp4k, spHoch]));
-  check('18 Verkleinern: kleine Videos nicht hochrechnen, Datenrate anteilig (mind. 0,4 Mbit/s)',
-    spKlein.width === 640 && spKlein.height === 360 && spKlein.bitrate === 400000 && shrinkPlan(1081, 1921).width % 2 === 0, JSON.stringify(spKlein));
+  check('18 Verkleinern: kürzere Seite 720, gerade Maße, auf 10 Bilder/s, 0,6 Mbit/s bei 720p',
+    eq(sp4k, { width: 1280, height: 720, frameRate: 10, bitrate: 600000 }) && eq(spHoch, { width: 720, height: 1280, frameRate: 10, bitrate: 600000 }), JSON.stringify([sp4k, spHoch]));
+  check('18 Verkleinern: kleine Videos nicht hochrechnen, Datenrate anteilig (mind. 0,2 Mbit/s), ≤ 10 Bilder/s bleiben',
+    spKlein.width === 640 && spKlein.height === 360 && spKlein.frameRate === 10 && spKlein.bitrate === 200000
+    && shrinkPlan(640, 360, 8).frameRate === null && shrinkPlan(1081, 1921).width % 2 === 0, JSON.stringify(spKlein));
   return T;
 }
 
