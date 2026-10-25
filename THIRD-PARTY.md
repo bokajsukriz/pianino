@@ -61,6 +61,19 @@ Kopfkommentar angepasst, Namespace `window.ChorPiano` beibehalten.
 | Geladen | nur in `vidshrink.js` per `import()`, erst wenn ein Video hinzugefügt oder verkleinert wird. Startet für Zeitgeber eigene Worker aus `blob:`-Adressen, daher `worker-src 'self' blob:` in der CSP |
 | Namensnennung in der App | Startscreen → „Über“ → „Lizenzen und Dank“ |
 
+## Videos verkleinern ohne WebCodecs: ffmpeg.wasm
+
+| Feld | Wert |
+|---|---|
+| Komponente | ffmpeg.wasm 0.12.15 (`@ffmpeg/ffmpeg`) mit Kern 0.12.10 (`@ffmpeg/core`, FFmpeg mit libx264 als WebAssembly, ein Thread) |
+| Urheber | Jerome Wu und Mitwirkende; FFmpeg-Projekt; x264-Projekt |
+| Quelle | npm-Pakete `@ffmpeg/ffmpeg@0.12.15`, `@ffmpeg/core@0.12.10`, https://github.com/ffmpegwasm/ffmpeg.wasm |
+| Dateien | `vendor/ffmpeg/*.js` (aus `dist/esm/`), `vendor/ffmpeg/core/ffmpeg-core.js` (SHA-256 `67a48f11645f85439f3fde4f2119042c16b374b910206b7a7a24f342e28dcae3`), `vendor/ffmpeg/core/ffmpeg-core.wasm` (SHA-256 `9f57947a5bd530d8f00c5b3f2cb2a3492faa7e5d823315342d6a8656d0a6b7b7`, ≈ 31 MB) |
+| Lizenz | Wrapper: MIT (`vendor/ffmpeg/LICENSE-MIT.txt`); Kern: GNU General Public License 2.0 oder später, weil mit libx264 gebaut (`vendor/ffmpeg/core/LICENSE-GPL-2.0.txt`). Quelltext: https://github.com/ffmpegwasm/ffmpeg.wasm, https://ffmpeg.org, https://code.videolan.org/videolan/x264 |
+| Verändert | nein |
+| Geladen | nur in `vidshrink.js` per `import()`, wenn WebCodecs fehlt oder das Video nicht lesen kann; läuft im eigenen Worker. Nicht in der Shell, eigener Cache `FFMPEG_CACHE` im Service Worker |
+| Namensnennung in der App | Startscreen → „Über“ → „Lizenzen und Dank“ |
+
 ## Klick und Melodiestimme
 
 Synthetisch erzeugt (Web Audio), keine Samples.

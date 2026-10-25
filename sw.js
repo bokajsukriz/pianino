@@ -4,6 +4,7 @@
    SW_VERSION erhöhen (siehe CLAUDE.md) — sonst bekommt niemand das Update.
    Klaviersamples: eigener Cache, beim ersten Gebrauch gefüllt, nicht an
    SW_VERSION gebunden. Ändern sich Dateien in samples/, SAMPLES_CACHE erhöhen.
+   Ebenso ffmpeg.wasm (vendor/ffmpeg/, FFMPEG_CACHE).
    IndexedDB liest er nur an einer Stelle: ./pdf/<songId> liefert das PDF der
    Liedseite (Datensatz pdf:<songId>) als eigene Antwort ohne die CSP der
    Seite — als blob: geöffnet erbte es die CSP, und der PDF-Viewer des
@@ -11,9 +12,12 @@
    Anfragen an andere Herkünfte (YouTube) bearbeitet er nicht: kein Cache,
    kein Abfangen. */
 
-const SW_VERSION = 'v50';
+const SW_VERSION = 'v51';
 const CACHE = `pianino-shell-${SW_VERSION}`;
 const SAMPLES_CACHE = 'pianino-samples-v3';
+// ffmpeg.wasm (≈ 31 MB) nicht in der Shell: erst beim ersten Gebrauch geladen,
+// dann offline da. Ändern sich Dateien in vendor/ffmpeg/, FFMPEG_CACHE erhöhen.
+const FFMPEG_CACHE = 'pianino-ffmpeg-v1';
 
 const SHELL = [
   './',
@@ -61,6 +65,7 @@ const SHELL = [
   './ui.js',
   './videos.js',
   './vidshrink.js',
+  './vidrec.js',
   './voicing.js',
   './yt.js',
   './exercises/blitz.js',
@@ -93,7 +98,7 @@ self.addEventListener('install', (e) => {
 self.addEventListener('activate', (e) => {
   e.waitUntil((async () => {
     for (const key of await caches.keys()) {
-      if (key.startsWith('pianino-') && key !== CACHE && key !== SAMPLES_CACHE) await caches.delete(key);
+      if (key.startsWith('pianino-') && ![CACHE, SAMPLES_CACHE, FFMPEG_CACHE].includes(key)) await caches.delete(key);
     }
     await self.clients.claim();
   })());
@@ -135,9 +140,11 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  if (url.pathname.includes('/samples/')) {
+  const own = url.pathname.includes('/samples/') ? SAMPLES_CACHE
+    : url.pathname.includes('/vendor/ffmpeg/') ? FFMPEG_CACHE : null;
+  if (own) {
     e.respondWith((async () => {
-      const cache = await caches.open(SAMPLES_CACHE);
+      const cache = await caches.open(own);
       const hit = await cache.match(req);
       if (hit) return hit;
       const res = await fetch(req);

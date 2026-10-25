@@ -7,9 +7,14 @@
    Video in IndexedDB (store.js listVideos), nur auf diesem Gerät, nicht im
    Export. Beim Hinzufügen wird es verkleinert (vidshrink.js, 720p); ältere
    Videos lassen sich nachträglich verkleinern („Verkleinern“ am Video).
+   „● Aufnehmen“ nimmt direkt in der App auf (vidrec.js), gleich klein.
+   „⤓ Aufs Handy“ lädt ein Video herunter (Ordner Download, den die
+   Galerie zeigt); auf Wunsch geschieht das nach jeder Aufnahme von selbst
+   (settings.videoToDevice).
    Spielt ein Unterrichtsvideo, pausiert YouTube und umgekehrt. */
 
-import { listVideos, putVideo, deleteVideo } from './store.js';
+import { S, saveSettings, listVideos, putVideo, deleteVideo } from './store.js';
+import { openRecorder, canRecord } from './vidrec.js';
 import { fmtClock } from './marks.js';
 import { shrinkVideo, canShrink, SHRINK_V } from './vidshrink.js';
 import { $, modal, ask } from './ui.js';
@@ -17,7 +22,7 @@ import * as audio from './audio.js';
 
 const RATES = [0.5, 0.75, 1];
 
-let vs = null; // { songId, list, open, current, url, rate, loop, busy, cancel }
+let vs = null; // { songId, list, open, current, url, rate, loop, busy, cancel, recorder }
 let hooks = { onOpen: () => {}, onPlay: () => {} };
 let wired = false;
 
@@ -73,6 +78,7 @@ export async function openVideos(songId) {
 export function closeVideos() {
   if (!vs) return;
   vs.cancel?.();
+  vs.recorder?.close();
   if (vs.open) toggleVideos(false);
   vs = null;
 }
@@ -165,7 +171,8 @@ function paintPlayer(rec) {
   loop.setAttribute('aria-pressed', vs.loop ? 'true' : 'false');
   loop.title = 'An: am Ende fängt das Video wieder von vorn an';
   const row = el('div', 'sp-set-row');
-  row.append(el('b', 'sp-vid-now', rec.label), rates, loop);
+  row.append(el('b', 'sp-vid-now', rec.label), rates, loop,
+    button('btn btn-secondary btn-sm', '⤓ Aufs Handy', () => toDevice(rec), `„${rec.label}“ aufs Handy herunterladen`));
   if (Number(rec.shrunk || 0) < SHRINK_V && !rec.noShrink && canShrink() && rec.size > 4e6) {
     const sh = button('btn btn-secondary btn-sm', 'Verkleinern', () => shrinkSaved(rec), `„${rec.label}“ verkleinern (${fmtSize(rec.size)})`);
     sh.disabled = !!vs.busy;
@@ -206,9 +213,19 @@ function paint() {
     parts.push(el('p', 'small muted', 'Noch keine Videos. Nimm im Unterricht eine Stelle auf und füge sie hier mit einem kurzen Text hinzu – z. B. „Strophe“, „Rhythmus“ oder „Refrain“.'));
   }
   const add = button('btn btn-secondary btn-sm', '+ Video', () => $('#sp-vid-file').click());
-  add.disabled = !!vs.busy;
+  add.disabled = !!vs.busy || !!vs.recorder;
   const foot = el('div', 'sp-set-actions');
-  foot.append(add);
+  if (canRecord()) {
+    const recBtn = button('btn btn-primary btn-sm', '● Aufnehmen', () => record());
+    recBtn.disabled = !!vs.busy || !!vs.recorder;
+    const keep = el('label', 'small sp-vid-keep');
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = !!S.settings.videoToDevice;
+    cb.addEventListener('change', () => { S.settings.videoToDevice = cb.checked; saveSettings(); });
+    keep.append(cb, ' Aufnahmen auch aufs Handy');
+    foot.append(recBtn, add, keep);
+  } else foot.append(add);
   if (vs.busy) {
     const note = el('span', 'small muted', vs.busy);
     note.id = 'sp-vid-busy';
@@ -218,6 +235,66 @@ function paint() {
   parts.push(foot);
   host.replaceChildren(...parts);
   paintList();
+}
+
+/** Direkt in der App aufnehmen (vidrec.js), danach benennen wie beim
+ *  Hinzufügen; ist schon klein, wird nicht verkleinert. */
+async function record() {
+  if (!vs || vs.busy || vs.recorder) return;
+  const mine = vs;
+  stopCurrent();
+  mine.recorder = openRecorder($('#sp-vid-rec'), { onStart: () => hooks.onPlay() });
+  paint();
+  const blob = await mine.recorder.done;
+  mine.recorder = null;
+  if (vs !== mine) return;
+  paint();
+  if (!blob?.size) return;
+  const day = new Date().toISOString().slice(0, 10);
+  const ext = blob.type.includes('mp4') ? 'mp4' : 'webm';
+  const file = new File([blob], `Aufnahme ${day}.${ext}`, { type: blob.type });
+  let label = await askWithPreview(file);
+  if (vs !== mine) return;
+  if (label == null) {
+    const a = await modal('Aufnahme verwerfen?', 'Ohne Namen wird sie als „Aufnahme“ gespeichert.', [
+      { label: 'Verwerfen', value: 'drop' }, { label: 'Behalten', value: 'keep', primary: true },
+    ]);
+    if (a === 'drop' || vs !== mine) return;
+    label = '';
+  }
+  vs.busy = 'Speichert …';
+  paint();
+  const rec = {
+    id: newId(mine.songId), songId: mine.songId, label: label || 'Aufnahme',
+    name: file.name, type: file.type, size: file.size, origSize: file.size, shrunk: SHRINK_V, recorded: true,
+    durationSec: await probeDuration(file), added: new Date().toISOString(), blob: file,
+  };
+  const ok = await saveChecked(rec, mine);
+  if (vs !== mine) return;
+  vs.busy = '';
+  if (ok) { vs.list.push(rec); paintButton(); }
+  paint();
+  if (!ok) return;
+  flash(`Gespeichert (${fmtSize(file.size)})`);
+  if (S.settings.videoToDevice) toDevice(rec);
+}
+
+const newId = (songId) => `video:${songId}:${Date.now().toString(36)}${Math.floor(performance.now() % 1e4).toString(36)}`;
+
+/** Video aufs Handy laden: als Download (landet im Ordner Download, den die
+ *  Galerie-Apps auf Android anzeigen). */
+function toDevice(rec) {
+  const ext = (rec.type || '').includes('webm') ? 'webm' : (rec.type || '').includes('quicktime') ? 'mov' : 'mp4';
+  const day = String(rec.added || '').slice(0, 10);
+  const safe = `${rec.label || 'Video'}`.replace(/[\\/:*?"<>|]+/g, ' ').trim().slice(0, 60);
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(rec.blob);
+  a.download = `Pianino ${safe} ${day}.${ext}`;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+  flash('Aufs Handy geladen (Ordner „Download“)');
 }
 
 /** Länge aus den Metadaten (nur zur Anzeige). → Sekunden oder 0 */
@@ -241,7 +318,10 @@ async function shrinkWithProgress(file, mine) {
   try { lock = await navigator.wakeLock?.request('screen'); } catch { /* geht auch ohne */ }
   const job = shrinkVideo(file, (p, how) => {
     if (vs !== mine) return;
-    vs.busy = `Verkleinert${how === 'echtzeit' ? ' (so lang wie das Video)' : ''} … ${Math.round(p * 100)} % – App bitte offen lassen`;
+    const pct = Math.round(p * 100);
+    vs.busy = how === 'ffmpeg' && !pct
+      ? 'Lädt den Umwandler (beim ersten Mal 31 MB) … – App bitte offen lassen'
+      : `Verkleinert${how === 'echtzeit' ? ' (so lang wie das Video)' : how === 'ffmpeg' ? ' (ohne Hardware, dauert)' : ''} … ${pct} % – App bitte offen lassen`;
     const n = $('#sp-vid-busy');
     if (n) n.textContent = vs.busy;
   }, { ctx: audio.isRunning() ? audio.getCtx() : null, host: $('#sp-vid-work') });
@@ -301,7 +381,7 @@ async function addVideo(file) {
   const blob = small || file;
   vs.busy = 'Speichert …';
   paint();
-  const id = `video:${mine.songId}:${Date.now().toString(36)}${Math.floor(performance.now() % 1e4).toString(36)}`;
+  const id = newId(mine.songId);
   const rec = {
     id, songId: mine.songId, label: label || file.name.replace(/\.[^.]+$/, '') || 'Video',
     name: file.name, type: blob.type || file.type, size: blob.size, origSize: file.size, shrunk: small ? SHRINK_V : 0, shrinkNote: small ? '' : (reason === 'abgebrochen' ? 'Original behalten' : reason),

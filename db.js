@@ -3,7 +3,7 @@
 
    Datensätze:
      settings          { plan, onboarded, click, melody, melodyLow, mic, ear,
-                         currentSong, leadMs, ytMic }
+                         currentSong, leadMs, ytMic, videoToDevice }
      progress          { levels: { blitz, wege, groove }, lastPlayed: {…},
                          lastExercise, asked: { blitz, wege, groove } }
      card:<Akkord-id>  Leitner-Karte (leitner.js)

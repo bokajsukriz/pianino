@@ -52,15 +52,26 @@ höchstens 10 Bilder/s – es geht vor allem ums Hören –, H.264 mit
 0,6 Mbit/s, Ton unverändert; aus etwa 60 MB je Minute bei 1080p werden
 etwa 6 MB, davon gut 1 MB Ton). Von mehreren Tonspuren (iPhone: Stereo
 und 3D-Ton) nimmt es die AAC-Spur. Das geht meist schneller als Echtzeit.
-Kann der Browser das Video so nicht lesen (z. B. 10-Bit-HDR/HEVC von iPhone oder Android), spielt
-die App es stumm ab und nimmt es verkleinert neu auf (MediaRecorder, Ton
-über `decodeAudioData`; Original und Neuaufnahme sind dabei unter der Liste
-zu sehen) — das dauert so lange wie das Video. Bleibt das Bild dabei
-schwarz (manche Browser zeichnen HDR-Videos nicht), bricht sie ab. Die App muss
-dabei offen bleiben; „Original nehmen“ bricht ab und speichert unverändert,
-ebenso, wenn beides nicht geht oder es nicht kleiner würde — dann steht
-der Grund am Video („Nicht verkleinert: …“) und im Fehlerprotokoll. Ältere Videos (auch die schon mit 30 Bildern/s verkleinerten) verkleinert „Verkleinern“ am Video
-nachträglich. Antippen spielt es in der Liste ab (0,5 / 0,75 / 1,
+Ohne WebCodecs (Firefox auf Android) oder wenn es das Video so nicht lesen
+kann (10-Bit-HDR/HEVC), rechnet ffmpeg.wasm (`vendor/ffmpeg/`, beim ersten
+Mal ≈ 31 MB, danach offline im eigenen Cache) auf dem Prozessor: 16 s 4K-HEVC
+dauern auf einem Rechnerkern etwa eine Minute, auf dem Handy länger. Als
+Letztes spielt die App es stumm ab und nimmt es verkleinert neu auf
+(MediaRecorder, Ton über `decodeAudioData`; Original und Neuaufnahme sind
+dabei unter der Liste zu sehen; bleibt das Bild schwarz, Abbruch). Die App
+muss dabei offen bleiben; „Original nehmen“ bricht ab und speichert
+unverändert, ebenso, wenn nichts davon geht oder es nicht kleiner würde —
+dann steht der Grund am Video („Nicht verkleinert: …“) und im
+Fehlerprotokoll. Ältere Videos (auch die schon mit 30 Bildern/s verkleinerten) verkleinert „Verkleinern“ am Video
+nachträglich. **„● Aufnehmen“** nimmt direkt in der App auf (`vidrec.js`):
+Vorschau, Start/Stopp, Kamera wechseln; gleich klein (720p, 15 Bilder/s,
+0,8 Mbit/s, Ton 128 kbit/s ohne Echo- und Rauschfilter, etwa 7 MB je
+Minute), nichts wird danach umgewandelt; Firefox nimmt WebM auf (mit
+Mediabunny umgepackt, damit Länge und Spulen stimmen). Danach wie beim
+Hinzufügen anschauen und benennen. „⤓ Aufs Handy“ am Video lädt es
+herunter (Ordner „Download“, den die Galerie zeigt; ins Fotoalbum direkt
+kann eine Web-App nicht schreiben); mit dem Haken „Aufnahmen auch aufs
+Handy“ geschieht das nach jeder Aufnahme von selbst. Antippen spielt es in der Liste ab (0,5 / 0,75 / 1,
 ↻ Schleife: am Ende wieder von vorn), ✎ benennt um, × löscht. Startet es, pausiert YouTube und
 umgekehrt. Die Videos liegen nur auf dem Gerät (IndexedDB,
 `video:<songId>:<id>`), kommen nicht in den Export und gehen mit dem Song.
@@ -276,6 +287,8 @@ Liedseite (`marks`) Abschnitte mit Startzeit (je 8 Takte, `startSec`).
 | `videos.js` | Videos aus dem Unterricht (Liste, Abspielen, Hinzufügen) |
 | `vidshrink.js` | Videos verkleinern; `shrinkPlan` REIN |
 | `vendor/mediabunny/` | Mediabunny 1.62.1 (MPL-2.0) |
+| `vidrec.js` | Videorekorder in der App |
+| `vendor/ffmpeg/` | ffmpeg.wasm 0.12.15, Kern 0.12.10 (MIT bzw. GPL-2.0-or-later) |
 | `songdata.js` | REIN: Song-JSON prüfen, normalisieren, exportieren, bearbeiten |
 | `chordsym.js` | REIN: Akkordsymbole lesen, Namen aus Tasten |
 | `voicing.js` | REIN: Griffe, Standardlage, `voicingDiff` |
@@ -317,5 +330,5 @@ Audio-Smoke-Test: in der Konsole
 
 Klaviersamples: Salamander Grand Piano (Alexander Holm), CC BY 3.0.
 Schrift: Bricolage Grotesque, SIL OFL 1.1. Akkorderkennung (wahlweise):
-essentia.js, AGPL-3.0. Videos verkleinern: Mediabunny, MPL-2.0. Details in `THIRD-PARTY.md`, in der
+essentia.js, AGPL-3.0. Videos verkleinern: Mediabunny, MPL-2.0, und ffmpeg.wasm, MIT bzw. GPL-2.0-or-later. Details in `THIRD-PARTY.md`, in der
 App unter „Über“.
