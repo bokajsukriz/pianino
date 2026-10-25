@@ -46,7 +46,7 @@ Exportieren, Löschen. Links neben dem Zahnrad der **Video-Knopf**
 (`videos.js`, Zahl = Anzahl der Videos): klappt die Videos aus dem Unterricht
 auf, je eines mit kurzem Text („Strophe“, „Rhythmus“, „Refrain“ …).
 „+ Video“ nimmt eine Datei vom Gerät (auf dem Handy auch direkt aufnehmen),
-danach den Text. Beim Speichern wird es verkleinert (`vidshrink.js` mit
+danach den Text – darüber läuft das Video schon zum Anschauen, damit man weiß, worum es geht. Beim Speichern wird es verkleinert (`vidshrink.js` mit
 Mediabunny über WebCodecs, also dem Hardware-Encoder: kürzere Seite 720 px,
 höchstens 10 Bilder/s – es geht vor allem ums Hören –, H.264 mit
 0,6 Mbit/s, Ton unverändert; aus etwa 60 MB je Minute bei 1080p werden
