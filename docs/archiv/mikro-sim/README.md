@@ -18,3 +18,5 @@ Vorakkords mit/ohne Pedal. Python 3 mit numpy, ffmpeg, Node.
    (`--use-file-for-fake-audio-capture`, Server auf Port 8765).
 
 Messwerte stehen in den Kopfkommentaren von `hear.js` und `ear-worker.js`.
+6. Übung Voicings (Form 3158, `hear.js checkTones`): `for k in C G F D Bb; do python3 gen358.py $k 3; done`,
+   dann `node eval358.mjs C G F D Bb` (exakte Lage gegen durchlässig, auch eine Oktave tiefer/höher).

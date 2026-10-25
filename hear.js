@@ -52,12 +52,13 @@ export const HEAR = Object.freeze({
   // höchstens lowPresence dB unter dem lautesten liegt, ohne Nachbar-Prüfung;
   // er zählt nicht für weakest und den Fremdton-Bereich, sein 9. und 10.
   // Teilton sind erlaubt. Für Ziele mit dem Bass in der „rechten Hand“
-  // (Übung Voicings, shapes.js HEAR_SHAPE: 60 / 30): das Handy-Mikro dämpft
+  // (checkTones, Übung Voicings: 60 / 30): das Handy-Mikro dämpft
   // ihn, im Bass streut das Spektrum in die Nachbar-Halbtöne, und sein
   // 9. Teilton (H2 → C♯6) sähe fremd aus. Simulation 3158 (1360 Szenen):
   // erkannt 75 → 92 %, Fehlgriffe kaum mehr (Grundstellung 2,5 → 3,8 %);
   // ab 36 dB ginge Grundstellung zu 19–60 % durch.
   lowBass: 0, lowPresence: 30,
+  alsoAllowed: null, // Töne, die nie fremd sind (checkTones: Obertöne eines tiefen Basses)
 });
 
 const SILENT = -200;
@@ -156,6 +157,7 @@ export function checkChord(levels, since, chord, { prev = null, lo = HEAR.lo, ..
   const rh = chord.rh;
   const bass = bassNotes(chord);
   const allowed = harmonics([...rh, ...bass]);
+  for (const m of P.alsoAllowed || []) allowed.add(m);
   const low = P.lowBass && rh.length > 1 && rh[0] < P.lowBass ? rh[0] : null;
   if (low !== null) for (const k of [9, 10]) allowed.add(Math.round(low + 12 * Math.log2(k)));
   const upper = low !== null ? rh.slice(1) : rh;
@@ -239,3 +241,52 @@ export function checkChordAny(levels, since, chord, { prev = null, voiceLo = HEA
   return best;
 }
 
+
+/** Durchlässig, für die Übung Voicings (shapes.js): Es geht vor allem um
+ *  falsche Töne, nicht um Lage und Vollständigkeit. chord: { rh: Tasten der
+ *  Form, aufsteigend, lh: [], pcs }, prev ebenso (oder null).
+ *  Ja, wenn
+ *   1. die Form in genau dieser Lage, eine Oktave tiefer oder höher liegt
+ *      (checkChord, tiefster Ton wie lowBass 60 / lowPresence 30), oder
+ *   2. mindestens `minPcs` Tonstufen des Akkords klingen (irgendeine Oktave)
+ *      und nichts Fremdes. Ein tiefer Basston (unter D3), dessen Oktave,
+ *      Doppeloktave und Duodezime klingen, darf seine Obertöne bis zum
+ *      12. haben (das Handy-Mikro hört ihn selbst kaum, die Obertöne schon;
+ *      die hohen liegen beim Klavier etwas zu hoch), dazu die Halbtöne neben
+ *      ihm und seiner Oktave (im Bass streut das Spektrum).
+ *  Nachklang: der Vorakkord in seiner Lage und eine Oktave darüber/darunter.
+ *  Simulation (1600 Szenen, docs/archiv/mikro-sim/, Form 3158, Bass C3–H3):
+ *  erkannt in Lage 98,8 %, eine Oktave höher 97,5 %, tiefer 76–79 % (exakt
+ *  allein: 98,3 / 0 / 10–16 %). Durchgelassen: Nachbarakkord 0 %, falsche
+ *  Terz 3,8 %, Ton daneben 19 %, Zusatzton 23 %; Grundstellung, fehlende
+ *  Töne gehen meist durch — gewollt.
+ *  → { ok, loud, foreign: [midi] } */
+export function checkTones(levels, since, chord, { prev = null, lo = HEAR.lo, minPcs = 3, ...tune } = {}) {
+  const P = { ...HEAR, ...tune };
+  const oct = (keys) => [...keys.map((m) => m - 12), ...keys, ...keys.map((m) => m + 12)];
+  const prevAll = prev ? { rh: oct(prev.rh), lh: [] } : null;
+  for (const d of [0, -12, 12]) {
+    const r = checkChord(levels, since, { rh: chord.rh.map((m) => m + d), lh: [] },
+      { ...tune, lo, prev: prevAll, lowBass: 60, lowPresence: 30 });
+    if (r.ok) return { ok: true, loud: true, foreign: [] };
+  }
+  const L = (m) => levels[m - lo] ?? SILENT;
+  const pcs = new Set(chord.pcs);
+  const isChord = (m) => pcs.has(((m % 12) + 12) % 12);
+  const span = [];
+  for (let m = 43; m <= 88; m++) if (isChord(m)) span.push(m);
+  const ref = Math.max(...span.map(L));
+  const nb = (m) => Math.max(SILENT, ...[m - 1, m + 1].filter((q) => !isChord(q)).map(L));
+  const heard = span.filter((m) => L(m) >= ref - P.presence && L(m) - nb(m) >= P.neighbour);
+  if (!heard.length) return { ok: false, loud: false, foreign: [] };
+  const strong = (m) => L(m) >= ref - P.presence;
+  const alsoAllowed = new Set();
+  for (let b = 28; b <= 50; b++) {
+    if (!isChord(b) || !heard.includes(b + 12) || !strong(b + 24) || !strong(b + 19)) continue;
+    for (let k = 2; k <= 12; k++) alsoAllowed.add(Math.round(b + 12 * Math.log2(k)));
+    for (const m of [b + 1, b + 11, b + 13]) alsoAllowed.add(m);
+  }
+  const r = checkChord(levels, since, { rh: heard, lh: [] }, { ...tune, lo, prev: prevAll, lowBass: 60, alsoAllowed });
+  const got = new Set(heard.map((m) => m % 12));
+  return { ok: r.loud && !r.foreign.length && got.size >= minPcs, loud: r.loud, foreign: r.foreign };
+}

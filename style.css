@@ -798,21 +798,17 @@ button.band-ev { cursor: pointer; min-height: 30px; font: inherit; font-weight: 
 .dr-row { display: flex; align-items: center; justify-content: center; gap: 16px; flex-wrap: wrap; }
 .dr-row .sp-stepper b { min-width: 68px; }
 .songs-ex-head { margin: 14px 0 -2px; }
-.vx-say { margin: 4px 0 0; text-align: center; font-size: 16px; font-weight: 700; min-height: 1.4em; }
-.vx-seq { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; font-weight: 750; color: var(--muted); }
+.vx-stage { gap: 10px; }
+.vx-seq { display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; margin-top: 8px; font-size: 20px; font-weight: 750; color: var(--muted); }
 .vx-seq-chord.done { opacity: .5; }
-.vx-seq-chord.cur { color: var(--accent-text); text-decoration: underline; text-underline-offset: 4px; }
-.vx-degrees { display: flex; justify-content: center; gap: 24px; flex-wrap: wrap; }
-.vx-hand { display: inline-flex; align-items: baseline; gap: 10px; }
-.vx-hand > small { color: var(--muted); font-weight: 650; }
-.vx-note { display: inline-flex; flex-direction: column; align-items: center; min-width: 28px; }
-.vx-note b { font-size: 22px; }
-.vx-note span { font-size: 14px; color: var(--muted); font-weight: 650; }
-.vx-group { display: flex; flex-direction: column; gap: 6px; width: 100%; max-width: 420px; }
-.vx-group .toggle { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.vx-group .toggle small { font-weight: 600; opacity: .8; }
-.vx-keys { gap: 6px; }
-.vx-keys .toggle { min-width: 44px; }
+.vx-seq-chord.cur { color: var(--accent-text); text-decoration: underline; text-decoration-thickness: 3px; text-underline-offset: 6px; }
+.vx-notes { margin: 0; text-align: center; font-size: 17px; font-weight: 700; color: var(--muted); letter-spacing: .02em; }
+.vx-mic[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.vx-mic:disabled { opacity: .45; cursor: default; }
+.vx-mic svg { display: block; margin: auto; }
+.vx-bottom { gap: 12px; }
+.vx-levels { display: inline-flex; align-items: center; gap: 6px; }
+.vx-levels .toggle { min-width: 44px; }
 @media (orientation: landscape) and (min-width: 700px) {
   .drillpage { height: 100dvh; }
   .dr-body { flex-direction: row; align-items: center; gap: 24px; }
