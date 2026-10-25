@@ -33,6 +33,7 @@ import {
 import { drillChunks } from './drill.js';
 import { openDrill } from './drillpage.js';
 import { initWizard, startWizard, stopWizard, paintWizard } from './songwizard.js';
+import { initVideos, openVideos, closeVideos, toggleVideos, videosOpen, pauseLesson } from './videos.js';
 import { $, $$, showScreen, screenName, modal, ask, frameLoop, onLongPress } from './ui.js';
 
 const RATES = [0.5, 0.75, 1];
@@ -115,6 +116,7 @@ function wire() {
   $('#sp-fromtabs').addEventListener('click', fromTabs);
   $('#sp-sheet-close').addEventListener('click', closeSheet);
   initWizard(wizardApi);
+  initVideos({ onOpen: () => toggleSettings(false), onPlay: () => { if (st?.player?.playing()) st.player.pause(); } });
   // Tabs
   document.addEventListener('keydown', onKey);
   // Takte wählen (lange drücken, ziehen): dabei nicht scrollen; der Klick danach zählt nicht.
@@ -156,6 +158,7 @@ export function openSongPage(songId, { wizard = null } = {}) {
     paintTransport();
     paintTabs();
     if (wizard) startWizard(wizard); else stopWizard();
+    openVideos(songId);
     if (src?.videoId) loadVideo(src.videoId);
     st.stop = frameLoop(tick);
   });
@@ -164,6 +167,7 @@ export function openSongPage(songId, { wizard = null } = {}) {
 function close() {
   if (!st) return;
   if (st.settings) toggleSettings(false);
+  closeVideos();
   stopWizard();
   closeSheet();
   st.stop?.();
@@ -200,7 +204,7 @@ function toggleSettings(open = !st.settings) {
   if (!!open === !!st.settings) return;
   if (!open) document.activeElement?.blur?.(); // offene Eingabe übernehmen
   st.settings = !!open;
-  if (open) closeSheet();
+  if (open) { closeSheet(); toggleVideos(false); }
   const b = $('#sp-more');
   b.setAttribute('aria-expanded', open ? 'true' : 'false');
   b.setAttribute('aria-label', open ? 'Einstellungen schließen' : 'Einstellungen');
@@ -337,6 +341,7 @@ function togglePlay() {
 }
 
 function play(p) {
+  pauseLesson();
   p.play();
   setTimeout(() => { if (st?.player === p && !p.playing() && !$('#sp-vnote').textContent) $('#sp-vnote').textContent = 'Startet nicht? Einmal direkt aufs Video tippen.'; }, 2500);
 }
@@ -1181,7 +1186,8 @@ function onKey(e) {
   if (!st || screenName() !== 'song' || !$('#modal').hidden) return;
   if (e.key === 'Escape' && st.sheet) { e.preventDefault(); closeSheet(); return; }
   if (e.key === 'Escape' && st.settings) { e.preventDefault(); toggleSettings(false); return; }
-  if (e.target.closest?.('input, textarea, select')) return;
+  if (e.key === 'Escape' && videosOpen()) { e.preventDefault(); toggleVideos(false); return; }
+  if (e.target.closest?.('input, textarea, select, #sp-videos')) return;
   if (e.key === ' ') { e.preventDefault(); togglePlay(); }
   else if (e.key === 'ArrowLeft') { e.preventDefault(); skip(-SKIP); }
   else if (e.key === 'ArrowRight') { e.preventDefault(); skip(SKIP); }
