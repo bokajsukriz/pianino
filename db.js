@@ -10,6 +10,7 @@
      loop:<Loop-id>    Kurze-Wege-Loop (tempo.js)
      song:<id>         { id, song } — Song (songdata.js), inklusive Liedtext,
                        den der Nutzer selbst eingegeben hat
+     video:<songId>:<videoId>    Video aus dem Unterricht (store.js listVideos)
      phrase:<songId>:<phraseId>  Phrase für „Geführt“ (phrases.js)
      wann:<songId>:<phraseId>    Stufe für „Wann“ (tap.js)
      archiv:phrase:<id>          alte Phrasen vor Stand 2 (nicht mehr gelesen)

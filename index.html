@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.youtube.com https://s.ytimg.com; frame-src 'self' https://www.youtube-nocookie.com https://www.youtube.com blob:; style-src 'self'; img-src 'self' data:; font-src 'self'; media-src 'self'; connect-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.youtube.com https://s.ytimg.com; frame-src 'self' https://www.youtube-nocookie.com https://www.youtube.com blob:; style-src 'self'; img-src 'self' data:; font-src 'self'; media-src 'self' blob:; connect-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="theme-color" content="#fff7ec">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
@@ -126,12 +126,18 @@
         <input type="text" class="sp-name-in sp-title-in" id="sp-title-in" aria-label="Titel" autocomplete="off" hidden>
         <input type="text" class="sp-name-in sp-artist-in" id="sp-artist-in" aria-label="Interpret" placeholder="Interpret" autocomplete="off" hidden>
       </div>
+      <button type="button" class="icon-btn sp-vids" id="sp-vids" aria-label="Videos aus dem Unterricht" aria-expanded="false" aria-controls="sp-videos">
+        <svg aria-hidden="true" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><rect x="2.5" y="6" width="13" height="12" rx="2.5"/><path d="m15.5 10.5 6-3.5v10l-6-3.5z"/></svg>
+        <span class="sp-vids-n" id="sp-vids-n" hidden></span>
+      </button>
       <button type="button" class="icon-btn" id="sp-more" aria-label="Einstellungen" aria-expanded="false" aria-controls="sp-settings">
         <svg id="sp-gear" aria-hidden="true" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="4.4" stroke-width="2"/><circle cx="12" cy="12" r="8.6" stroke-width="2.8" stroke-dasharray="2.7 4.05"/></svg>
         <svg id="sp-x" aria-hidden="true" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" hidden><path d="M6 6l12 12M18 6 6 18"/></svg>
       </button>
     </header>
     <div class="sp-settings" id="sp-settings" role="region" aria-label="Einstellungen des Songs" hidden></div>
+    <div class="sp-settings sp-videos" id="sp-videos" role="region" aria-label="Videos aus dem Unterricht" hidden></div>
+    <input type="file" id="sp-vid-file" accept="video/*" hidden>
     <div class="sp-body">
       <div class="sp-sec">
         <div class="sp-wiz" id="sp-wiz" role="region" aria-label="Assistent" hidden>
