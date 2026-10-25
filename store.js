@@ -101,6 +101,7 @@ export async function deleteSong(id) {
   const dels = [`song:${id}`, `pdf:${id}`];
   for (const k of Object.keys(S.phrases)) if (k.startsWith(`${id}:`)) { delete S.phrases[k]; dels.push(`phrase:${k}`); }
   for (const k of Object.keys(S.wann)) if (k.startsWith(`${id}:`)) { delete S.wann[k]; dels.push(`wann:${k}`); }
+  for (const v of await DB.getAll(`video:${id}:`)) dels.push(v.id);
   await DB.putMany([], dels);
   if (S.settings.currentSong === id) await setCurrentSong(songList()[0]?.id ?? null);
 }
@@ -111,6 +112,15 @@ export async function deleteSong(id) {
 export const getPdf = (songId) => DB.get(`pdf:${songId}`);
 export const putPdf = (songId, name, blob) => DB.put({ id: `pdf:${songId}`, name, blob });
 export const deletePdf = (songId) => DB.del(`pdf:${songId}`);
+
+/* ---------- Videos aus dem Unterricht (Liedseite) -----------------------
+   Je Video ein Datensatz video:<songId>:<videoId> { id, songId, label, name,
+   type, size, durationSec, added, blob } — wie das PDF außerhalb des Songs,
+   bleibt auf dem Gerät, wird nie exportiert. */
+export const listVideos = async (songId) => (await DB.getAll(`video:${songId}:`))
+  .sort((a, b) => String(a.added).localeCompare(String(b.added)));
+export const putVideo = (rec) => DB.put(rec);
+export const deleteVideo = (id) => DB.del(id);
 
 /* ---------- Fortschritt je Song ---------------------------------------- */
 

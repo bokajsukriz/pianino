@@ -42,7 +42,15 @@ früher/später. Vor jeder Zeile ein kleiner Pfeil ▶: ab diesem Takt spielen. 
 Öffnen wird es zum X) klappt die Einstellungen des Songs auf: Titel und
 Interpret direkt in der Titelleiste, Takt (4/4, 3/4, 6/8, 2/4), Tempo (±1,
 Tippen, „ohne“) und darunter Assistent, Video ändern, Griffe, Damit üben,
-Exportieren, Löschen. „+ Abschnitt“ steht hinter dem letzten Abschnitt,
+Exportieren, Löschen. Links neben dem Zahnrad der **Video-Knopf**
+(`videos.js`, Zahl = Anzahl der Videos): klappt die Videos aus dem Unterricht
+auf, je eines mit kurzem Text („Strophe“, „Rhythmus“, „Refrain“ …).
+„+ Video“ nimmt eine Datei vom Gerät (auf dem Handy auch direkt aufnehmen),
+danach den Text; antippen spielt es in der Liste ab (0,5 / 0,75 / 1,
+↻ Wiederholen), ✎ benennt um, × löscht. Startet es, pausiert YouTube und
+umgekehrt. Die Videos liegen nur auf dem Gerät (IndexedDB,
+`video:<songId>:<id>`), kommen nicht in den Export und gehen mit dem Song.
+„+ Abschnitt“ steht hinter dem letzten Abschnitt,
 „Folgen üben“ als Symbol ganz vorn in der Akkordzeile. Mit Tempo und der
 Startzeit des ersten Abschnitts läuft die Markierung im Raster mit dem
 Video mit (Takt und Viertel hervorgehoben; ohne Tempo ungefähr, aus dem
