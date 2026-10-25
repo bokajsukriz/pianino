@@ -3,7 +3,7 @@
    Progression aus fünf Akkorden in einer Tonart.
    Kein DOM, keine Zeit, kein Zufall. MIDI 60 = C4.
 
-   shapeVoicing('Am', '3158', { split: 2 }) → { rh: [64, 69], lh: [48, 57], … }
+   shapeRound(['C', 'Am', …], '3158', { split: 2 })[0].grip → { lh: [52, 60], rh: [67, 72], … }
    im Griff-Format von voicing.js: jeder Ton liegt über dem vorigen, der
    tiefste in BASS_LO…BASS_HI, die Lagen so, dass die Hände so wenig wie
    möglich wandern. */
@@ -12,11 +12,13 @@ import { parseChord } from './chordsym.js';
 
 /** Stufen, die eine Form enthalten darf. 8 = Grundton eine Oktave höher. */
 export const DEGREES = Object.freeze([1, 3, 5, 7, 8]);
-/** Tiefster Ton der Form (Basston der linken Hand): G2–B3.
+/** Tiefster Ton der Form (Basston der linken Hand): C3–H3.
  *  ANNAHME: wie im Unterricht, E3 C4 G4 C5 für C — darunter wird es mit der
- *  Terz im Bass schnell matschig, darüber fehlt das Fundament. G2 bis H2 nur,
- *  damit ein Wechsel nicht um eine Sexte springen muss. */
-export const BASS_LO = 43, BASS_HI = 59;
+ *  Terz im Bass schnell matschig, darüber fehlt das Fundament. Und darunter
+ *  hört das Handy-Mikrofon den Bass kaum noch (Simulation: G mit H2 nur in
+ *  19 von 33 Fällen erkannt); dafür springt ein Wechsel auch mal um eine
+ *  Sexte. */
+export const BASS_LO = 48, BASS_HI = 59;
 /** Erster Akkord: Basston möglichst nah an E3. */
 const BASS_START = 52;
 
@@ -141,14 +143,23 @@ export function shapeRound(chords, shape, { split = 2 } = {}) {
   return chords.map((symbol, i) => ({ symbol, grip: splitKeys(best[i], split), degrees: d }));
 }
 
-/** Ziel für den Erkenner (wie voicing.js hearTarget: { name, rh, lh, pcs }),
- *  pcs = die Tonstufen, die wirklich klingen.
- *  ANNAHME bis zur Simulation: wie hearTarget, rechts = rechte Hand. */
+/** Ziel für den Erkenner ({ name, rh, lh, pcs } wie voicing.js hearTarget):
+ *  alle Töne als „rechte Hand“, also alle geprüft — mit hearTarget wäre der
+ *  Bass nur erlaubt, und Grundstellung statt Terz unten ginge durch.
+ *  Prüfen mit checkChord (exakt) und HEAR_SHAPE. Simulation (1360 Szenen,
+ *  docs/archiv/mikro-sim/, eigener Erkenner): richtig erkannt 92 %, als ok
+ *  durchgelassen: Grundstellung 4 %, Terz fehlt 5 %, Dur↔Moll 2,5 %,
+ *  Nachbarakkord 0 %. Nicht hörbar: fehlende Oktave (2. Teilton des
+ *  Grundtons), meist auch fehlende Quinte — und welche Hand was spielt. */
 export function shapeTarget(step) {
-  const { rh, lh } = step.grip;
-  const all = [...lh, ...rh];
-  return { name: step.symbol, rh: rh.length ? [...rh] : [...lh], lh: rh.length ? [...lh] : [], pcs: [...new Set(all.map(pcOf))].sort((a, b) => a - b) };
+  const all = [...step.grip.lh, ...step.grip.rh].sort((a, b) => a - b);
+  return { name: step.symbol, rh: all, lh: [], pcs: [...new Set(all.map(pcOf))].sort((a, b) => a - b) };
 }
+
+/** Einstellungen für hear.js checkChord zu shapeTarget: der tiefste Ton
+ *  (unter C4) ist schon da, wenn er höchstens 30 dB unter dem lautesten liegt
+ *  (Handy-Hochpass, Streuung im Bass), siehe HEAR.lowBass. */
+export const HEAR_SHAPE = Object.freeze({ lowBass: 60, lowPresence: 30 });
 
 /** Kennung für den Übe-Stand: 'p1:C'. */
 export const roundKey = (progId, key) => `${progId}:${key}`;
