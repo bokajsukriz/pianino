@@ -12,9 +12,8 @@
 import * as audio from './audio.js';
 import * as mic from './mic.js';
 import { S, saveSettings } from './store.js';
-import { SHAPES, LEVELS, progressionChords, shapeRound, shapeTarget, pickRound } from './shapes.js';
+import { SHAPES, LEVELS, PROGRESSIONS, progressionChords, shapeRound, shapeTarget, pickRound, spellNote } from './shapes.js';
 import { prettyChord } from './chordsym.js';
-import { pitchClassName } from './chords.js';
 import { allKeys } from './voicing.js';
 import { EAR } from './ear.js';
 import { $, showScreen, screenName, frameLoop, modal, setToggle, rand } from './ui.js';
@@ -68,6 +67,8 @@ function newRound() {
   st.pick = pickRound(st.level, rand, st.pick);
   st.round = shapeRound(progressionChords(st.pick.prog, st.pick.key), st.shape);
   if (mic.isOpen()) mic.setPool(st.round.map(shapeTarget));
+  const roman = PROGRESSIONS.find((p) => p.id === st.pick.prog).roman;
+  $('#vx-what').textContent = `${prettyChord(st.pick.key)}-Dur · ${roman}`;
   if (st.running) show(0); else paintIdle();
 }
 
@@ -139,7 +140,7 @@ function paintNow(idle) {
   const big = $('#vx-big');
   big.textContent = prettyChord(step.symbol);
   big.className = `dr-big${step.symbol.length > 4 ? ' long' : ''}${idle ? ' idle' : ''}`;
-  $('#vx-notes').textContent = allKeys(step.grip).map(pitchClassName).join(' · ');
+  $('#vx-notes').textContent = allKeys(step.grip).map((m) => prettyChord(spellNote(m, st.pick.key))).join(' · ');
 }
 
 function paintControls() {

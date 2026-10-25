@@ -21,7 +21,7 @@ import {
   tabBlocks, blocksForSections, sectionsFromTabs, marksToSections,
   orderByStart, fitBars, updateSection, tapChordAt, barsTime, barSpan, loopLead,
 } from './leadsheet.js';
-import { parseShape, shapePcs, progressionChords, shapeRound, shapeTarget, pickRound, LEVELS, PROGRESSIONS, KEYS } from './shapes.js';
+import { parseShape, shapePcs, progressionChords, shapeRound, shapeTarget, pickRound, spellNote, LEVELS, PROGRESSIONS, KEYS } from './shapes.js';
 import { drillChunks, cycleBeats, cyclePhase, nextChunk, stepPct, startPct, pctBpm, DRILL, SWAP, swapPairs, rateSwap, applySwap, pickSwap, swapQueue, roundOver, weakestSwap, chunkWith, allSolid, chunkSteps } from './drill.js';
 import { addMark, removeMark, markRange, markAt, nextMarkName, fmtClock, addLoop, updateLoop, removeLoop } from './marks.js';
 import { classifyLine, parseTabText, chordsInText, stripMarkup } from './tabtext.js';
@@ -765,7 +765,7 @@ function pureTests() {
     JSON.stringify(shapePcs('Am', '3158')));
   check('19 Voicings: Progression in Tonarten, Schreibweise nach Tonart',
     eq(progressionChords('p1', 'C'), ['C', 'Am', 'F', 'G', 'C']) && eq(progressionChords('p4', 'Bb'), ['Bb', 'Gm', 'Cm', 'F', 'Bb'])
-    && eq(progressionChords('p3', 'A'), ['F#m', 'D', 'A', 'E', 'F#m']) && eq(progressionChords('p6', 'Ab'), ['Fm', 'Bbm', 'Eb', 'Ab', 'Fm']), JSON.stringify(progressionChords('p4', 'Bb')));
+    && eq(progressionChords('p3', 'A'), ['F#m', 'D', 'A', 'E', 'F#m']) && eq(progressionChords('p6', 'Ab'), ['Fm', 'Bbm', 'Eb', 'Ab', 'Fm']) && spellNote(70, 'Bb') === 'Bb' && spellNote(66, 'D') === 'F#', JSON.stringify(progressionChords('p4', 'Bb')));
   const vxPick = seeded(19);
   const vxPicks = Array.from({ length: 40 }, () => pickRound(1, vxPick));
   check('19 Voicings: Zufallsrunde aus der Stufe, nicht zweimal dieselbe hintereinander',
