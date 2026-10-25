@@ -46,7 +46,14 @@ Exportieren, Löschen. Links neben dem Zahnrad der **Video-Knopf**
 (`videos.js`, Zahl = Anzahl der Videos): klappt die Videos aus dem Unterricht
 auf, je eines mit kurzem Text („Strophe“, „Rhythmus“, „Refrain“ …).
 „+ Video“ nimmt eine Datei vom Gerät (auf dem Handy auch direkt aufnehmen),
-danach den Text; antippen spielt es in der Liste ab (0,5 / 0,75 / 1,
+danach den Text. Beim Speichern wird es verkleinert (`vidshrink.js` mit
+Mediabunny über WebCodecs, also dem Hardware-Encoder: kürzere Seite 720 px,
+höchstens 30 Bilder/s, H.264 mit 1,5 Mbit/s, Ton unverändert; aus etwa
+60 MB je Minute bei 1080p werden etwa 12 MB). Das geht meist schneller als
+Echtzeit, die App muss dabei offen bleiben; „Original nehmen“ bricht ab
+und speichert unverändert, ebenso, wenn der Browser es nicht kann oder es
+nicht kleiner würde. Ältere Videos verkleinert „Verkleinern“ am Video
+nachträglich. Antippen spielt es in der Liste ab (0,5 / 0,75 / 1,
 ↻ Wiederholen), ✎ benennt um, × löscht. Startet es, pausiert YouTube und
 umgekehrt. Die Videos liegen nur auf dem Gerät (IndexedDB,
 `video:<songId>:<id>`), kommen nicht in den Export und gehen mit dem Song.
@@ -259,6 +266,9 @@ Liedseite (`marks`) Abschnitte mit Startzeit (je 8 Takte, `startSec`).
 | `hear.js` | REIN: eigener Erkenner |
 | `ear.js`, `ear-worker.js` | Erkenner mit essentia.js (Worker) |
 | `vendor/essentia/` | essentia.js 0.1.3 (AGPL-3.0) |
+| `videos.js` | Videos aus dem Unterricht (Liste, Abspielen, Hinzufügen) |
+| `vidshrink.js` | Videos verkleinern; `shrinkPlan` REIN |
+| `vendor/mediabunny/` | Mediabunny 1.62.1 (MPL-2.0) |
 | `songdata.js` | REIN: Song-JSON prüfen, normalisieren, exportieren, bearbeiten |
 | `chordsym.js` | REIN: Akkordsymbole lesen, Namen aus Tasten |
 | `voicing.js` | REIN: Griffe, Standardlage, `voicingDiff` |
@@ -300,5 +310,5 @@ Audio-Smoke-Test: in der Konsole
 
 Klaviersamples: Salamander Grand Piano (Alexander Holm), CC BY 3.0.
 Schrift: Bricolage Grotesque, SIL OFL 1.1. Akkorderkennung (wahlweise):
-essentia.js, AGPL-3.0. Details in `THIRD-PARTY.md`, in der
+essentia.js, AGPL-3.0. Videos verkleinern: Mediabunny, MPL-2.0. Details in `THIRD-PARTY.md`, in der
 App unter „Über“.

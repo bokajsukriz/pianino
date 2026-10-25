@@ -5,15 +5,18 @@
    0,5 / 0,75 / 1 und Wiederholen. „+ Video“ nimmt eine Datei vom Gerät (auf
    dem Handy auch direkt aufnehmen). Gespeichert als eigener Datensatz je
    Video in IndexedDB (store.js listVideos), nur auf diesem Gerät, nicht im
-   Export. Spielt ein Unterrichtsvideo, pausiert YouTube und umgekehrt. */
+   Export. Beim Hinzufügen wird es verkleinert (vidshrink.js, 720p); ältere
+   Videos lassen sich nachträglich verkleinern („Verkleinern“ am Video).
+   Spielt ein Unterrichtsvideo, pausiert YouTube und umgekehrt. */
 
 import { listVideos, putVideo, deleteVideo } from './store.js';
 import { fmtClock } from './marks.js';
+import { shrinkVideo, canShrink } from './vidshrink.js';
 import { $, modal, ask } from './ui.js';
 
 const RATES = [0.5, 0.75, 1];
 
-let vs = null; // { songId, list, open, current, url, rate, loop, busy }
+let vs = null; // { songId, list, open, current, url, rate, loop, busy, cancel }
 let hooks = { onOpen: () => {}, onPlay: () => {} };
 let wired = false;
 
@@ -31,6 +34,8 @@ function button(cls, text, onClick, label = null) {
   b.addEventListener('click', onClick);
   return b;
 }
+
+const fmtSize = (b) => (b >= 1e9 ? `${(b / 1e9).toFixed(1).replace('.', ',')} GB` : `${Math.max(1, Math.round(b / 1e6))} MB`);
 
 const fmtDate = (iso) => {
   const d = new Date(iso);
@@ -66,6 +71,7 @@ export async function openVideos(songId) {
 /** Liedseite schließt. */
 export function closeVideos() {
   if (!vs) return;
+  vs.cancel?.();
   if (vs.open) toggleVideos(false);
   vs = null;
 }
@@ -157,6 +163,11 @@ function paintPlayer(rec) {
   loop.setAttribute('aria-pressed', vs.loop ? 'true' : 'false');
   const row = el('div', 'sp-set-row');
   row.append(el('b', 'sp-vid-now', rec.label), rates, loop);
+  if (!rec.shrunk && !rec.noShrink && canShrink() && rec.size > 8e6) {
+    const sh = button('btn btn-secondary btn-sm', 'Verkleinern', () => shrinkSaved(rec), `„${rec.label}“ verkleinern (${fmtSize(rec.size)})`);
+    sh.disabled = !!vs.busy;
+    row.append(sh);
+  }
   box.append(v, row);
   return box;
 }
@@ -168,7 +179,7 @@ function paintList() {
     const li = el('li', 'sp-vid-item');
     const pick = button('sp-vid-pick', '', () => select(rec));
     pick.setAttribute('aria-current', vs.current === rec.id ? 'true' : 'false');
-    const info = [fmtDate(rec.added), rec.durationSec ? fmtClock(rec.durationSec) : ''].filter(Boolean).join(' · ');
+    const info = [fmtDate(rec.added), rec.durationSec ? fmtClock(rec.durationSec) : '', rec.size ? fmtSize(rec.size) : ''].filter(Boolean).join(' · ');
     pick.append(el('span', 'sp-vid-label', rec.label), el('span', 'small muted', info));
     li.append(
       pick,
@@ -193,7 +204,13 @@ function paint() {
   const add = button('btn btn-secondary btn-sm', '+ Video', () => $('#sp-vid-file').click());
   add.disabled = !!vs.busy;
   const foot = el('div', 'sp-set-actions');
-  foot.append(add, ...(vs.busy ? [el('span', 'small muted', vs.busy)] : []));
+  foot.append(add);
+  if (vs.busy) {
+    const note = el('span', 'small muted', vs.busy);
+    note.id = 'sp-vid-busy';
+    foot.append(note);
+    if (vs.cancel) foot.append(button('btn btn-ghost btn-sm', 'Original nehmen', () => vs.cancel()));
+  }
   parts.push(foot);
   host.replaceChildren(...parts);
   paintList();
@@ -213,8 +230,37 @@ function probeDuration(blob) {
   });
 }
 
+/** Verkleinern mit Fortschritt im Fuß der Liste. → kleinerer Blob oder null */
+async function shrinkWithProgress(file, mine) {
+  if (!canShrink()) return null;
+  let lock = null;
+  try { lock = await navigator.wakeLock?.request('screen'); } catch { /* geht auch ohne */ }
+  const job = shrinkVideo(file, (p) => {
+    if (vs !== mine) return;
+    vs.busy = `Verkleinert … ${Math.round(p * 100)} % – App bitte offen lassen`;
+    const n = $('#sp-vid-busy');
+    if (n) n.textContent = vs.busy;
+  });
+  mine.cancel = job.cancel;
+  mine.busy = 'Verkleinert …';
+  paint();
+  const out = await job.blob;
+  mine.cancel = null;
+  lock?.release().catch(() => {});
+  return out;
+}
+
+/** Speichern und nachsehen, ob es da ist (DB.put schluckt Fehler, z. B.
+ *  Speicher voll). */
+async function saveChecked(rec, mine) {
+  await putVideo(rec);
+  const ok = (await listVideos(mine.songId)).some((r) => r.id === rec.id && r.size === rec.size);
+  if (!ok) await modal('Nicht gespeichert', 'Das Video ließ sich nicht speichern – vielleicht ist der Speicher voll. Ein kürzeres Video versuchen oder alte löschen.', [{ label: 'OK', value: '', primary: true }]);
+  return ok;
+}
+
 async function addVideo(file) {
-  if (!vs) return;
+  if (!vs || vs.busy) return;
   const mine = vs;
   if (file.type && !file.type.startsWith('video/')) {
     await modal('Kein Video', 'Diese Datei ist kein Video.', [{ label: 'OK', value: '', primary: true }]);
@@ -222,28 +268,58 @@ async function addVideo(file) {
   }
   const label = await ask('Video hinzufügen', 'Kurz, worum es geht:', { placeholder: 'z. B. Strophe, Rhythmus, Refrain, besondere Stelle', ok: 'Speichern' });
   if (label == null || vs !== mine) return;
+  try { await navigator.storage?.persist?.(); } catch { /* nur eine Bitte */ }
+  const small = await shrinkWithProgress(file, mine);
+  if (vs !== mine) return;
+  const blob = small || file;
   vs.busy = 'Speichert …';
   paint();
-  try { await navigator.storage?.persist?.(); } catch { /* nur eine Bitte */ }
   const id = `video:${mine.songId}:${Date.now().toString(36)}${Math.floor(performance.now() % 1e4).toString(36)}`;
   const rec = {
     id, songId: mine.songId, label: label || file.name.replace(/\.[^.]+$/, '') || 'Video',
-    name: file.name, type: file.type, size: file.size,
-    durationSec: await probeDuration(file), added: new Date().toISOString(), blob: file,
+    name: file.name, type: blob.type || file.type, size: blob.size, origSize: file.size, shrunk: !!small,
+    durationSec: await probeDuration(blob), added: new Date().toISOString(), blob,
   };
-  await putVideo(rec);
-  // DB.put schluckt Fehler (z. B. Speicher voll): nachsehen, ob es da ist.
-  const ok = (await listVideos(mine.songId)).some((r) => r.id === id);
+  const ok = await saveChecked(rec, mine);
   if (vs !== mine) return;
   vs.busy = '';
-  if (!ok) {
+  if (ok) {
+    vs.list.push(rec);
+    paintButton();
+  }
+  paint();
+  if (ok) flash(small ? `Verkleinert: ${fmtSize(file.size)} → ${fmtSize(small.size)}` : `Gespeichert (${fmtSize(file.size)}, nicht verkleinert)`);
+}
+
+/** Schon gespeichertes Video nachträglich verkleinern. */
+async function shrinkSaved(rec) {
+  if (!vs || vs.busy) return;
+  const mine = vs;
+  if (vs.current === rec.id) { stopCurrent(); }
+  const small = await shrinkWithProgress(rec.blob, mine);
+  if (vs !== mine) return;
+  vs.busy = '';
+  if (!small) {
+    rec.noShrink = true; // nur für diese Sitzung, der Knopf verschwindet
     paint();
-    await modal('Nicht gespeichert', 'Das Video ließ sich nicht speichern – vielleicht ist der Speicher voll. Ein kürzeres Video versuchen oder alte löschen.', [{ label: 'OK', value: '', primary: true }]);
+    flash('Nicht verkleinert – das Video bleibt, wie es ist.');
     return;
   }
-  vs.list.push(rec);
-  paintButton();
+  const before = rec.size;
+  const next = { ...rec, blob: small, type: small.type, size: small.size, origSize: rec.origSize || before, shrunk: true };
+  const ok = await saveChecked(next, mine);
+  if (vs !== mine) return;
+  if (ok) Object.assign(rec, next);
   paint();
+  if (ok) flash(`Verkleinert: ${fmtSize(before)} → ${fmtSize(small.size)}`);
+}
+
+/** Kurze Meldung im Fuß der Liste. */
+function flash(text) {
+  if (!vs?.open) return;
+  const n = el('span', 'small muted', text);
+  $('#sp-videos .sp-set-actions')?.append(n);
+  setTimeout(() => n.remove(), 6000);
 }
 
 async function rename(rec) {
