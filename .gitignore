@@ -1,0 +1,17 @@
+# Lokale Claude-Code-Einstellungen: können freigegebene Befehle samt
+# Tokens oder Pfaden enthalten. Gemeinsame Regeln gehören in
+# .claude/settings.json (die darf ins Repo).
+.claude/settings.local.json
+CLAUDE.local.md
+
+# Zugangsdaten und Schlüssel
+.env
+.env.*
+*.pem
+*.key
+.npmrc
+.netrc
+
+# Betriebssystem
+.DS_Store
+Thumbs.db
